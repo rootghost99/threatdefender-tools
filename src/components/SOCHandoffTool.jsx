@@ -262,7 +262,7 @@ export default function SOCHandoffTool({ darkMode }) {
   };
 
   const clearHandoff = () => {
-    if (confirm('Clear all handoff data? This cannot be undone.')) {
+	if (window.confirm('Clear all handoff data? This cannot be undone.')) {
       const emptyData = {
         date: new Date().toISOString().split('T')[0],
         currentAnalyst: '',
