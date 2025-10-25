@@ -6,7 +6,7 @@ import ThreatIntelLookup from './components/ThreatIntelLookup'; // ADD THIS LINE
 
 export default function ThreatDefenderDashboard() {
   const [activeTab, setActiveTab] = useState('kql-diff');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
 
   const tabs = [
     { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
