@@ -237,9 +237,9 @@ export default function KQLDiffViewer({ darkMode }) {
     setAiAnalysis(null);
     
     try {
-      const workerUrl = 'https://kql-analyzer.derek-macdonald.workers.dev';
+      const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
       
-      const response = await fetch(workerUrl, {
+      const response = await fetch(functionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -271,9 +271,9 @@ export default function KQLDiffViewer({ darkMode }) {
     setFpAnalysis(null);
     
     try {
-      const workerUrl = 'https://kql-analyzer.derek-macdonald.workers.dev';
+      const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
       
-      const response = await fetch(workerUrl, {
+      const response = await fetch(functionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -291,7 +291,7 @@ export default function KQLDiffViewer({ darkMode }) {
       const data = await response.json();
       
       // Second call for FP analysis
-      const fpResponse = await fetch(workerUrl, {
+      const fpResponse = await fetch(functionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

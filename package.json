@@ -1,6 +1,5 @@
 {
   "name": "threatdefender-tools",
-  "homepage": "https://rootghost99.github.io/threatdefender-tools",
   "version": "0.1.0",
   "private": true,
   "dependencies": {

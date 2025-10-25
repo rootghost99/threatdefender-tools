@@ -27,7 +27,7 @@ export default function IRPlaybookGenerator({ darkMode }) {
     setPlaybook(null);
 
     try {
-      const workerUrl = 'https://kql-analyzer.derek-macdonald.workers.dev';
+      const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/irplaybook';
       
       const prompt = `You are an expert SOC analyst creating an incident response playbook. Generate a comprehensive, actionable playbook for the following scenario:
 
@@ -89,7 +89,7 @@ Steps to restore normal operations:
 
 Make it specific to Microsoft Defender/Sentinel ecosystem. Include realistic examples and be action-oriented for MSSP analysts.`;
 
-      const response = await fetch(workerUrl, {
+      const response = await fetch(functionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
