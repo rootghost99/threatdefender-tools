@@ -28,7 +28,7 @@ export default function ThreatDefenderDashboard() {
                 🛡️ ThreatDefender Operations Suite
               </h1>
               <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                eGroup Enabling Technologies | ThreatHunter MSSP Team
+                eGroup Enabling Technologies | ThreatDefender MSSP/MXDR
               </p>
             </div>
             <button
