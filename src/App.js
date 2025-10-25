@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import KQLDiffViewer from './components/KQLDiffViewer';
 import IRPlaybookGenerator from './components/IRPlaybookGenerator';
 import SOCHandoffTool from './components/SOCHandoffTool';
+import ThreatIntelLookup from './components/ThreatIntelLookup'; // ADD THIS LINE
 
 export default function ThreatDefenderDashboard() {
   const [activeTab, setActiveTab] = useState('kql-diff');
@@ -11,6 +12,7 @@ export default function ThreatDefenderDashboard() {
     { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
     { id: 'ir-playbook', name: 'IR Playbook Generator', icon: '🚨', component: IRPlaybookGenerator },
     { id: 'soc-handoff', name: 'SOC Shift Handoff', icon: '🔄', component: SOCHandoffTool },
+    { id: 'threat-intel', name: 'Threat Intel Lookup', icon: '🛡️', component: ThreatIntelLookup }, // ADD THIS LINE
   ];
 
   const ActiveComponent = tabs.find(t => t.id === activeTab)?.component;
