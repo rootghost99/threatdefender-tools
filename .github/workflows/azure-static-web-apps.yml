@@ -24,6 +24,14 @@ jobs:
         run: npm run build
         env:
           CI: false   # don’t fail the build on warnings in CI
+          
+      - name: List build output
+        run: |
+            pwd
+            ls -la
+            echo "---- build ----"
+            ls -la build || true
+
 
       - name: Deploy
         uses: Azure/static-web-apps-deploy@v1
