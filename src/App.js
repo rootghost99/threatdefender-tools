@@ -76,7 +76,7 @@ export default function ThreatDefenderDashboard() {
       <div className={`mt-12 py-6 border-t ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className="max-w-7xl mx-auto px-6 text-center">
           <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            ThreatDefender Operations Suite | Built for ThreatHunter MSSP Team
+            ThreatDefender Operations Suite | Built for ThreatDefender MSSP Team
           </p>
           <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
             eGroup Enabling Technologies © {new Date().getFullYear()}
