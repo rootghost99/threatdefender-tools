@@ -24,7 +24,7 @@ jobs:
         env:
           CI: false
 
-      - name: Install API dependencies
+      - name: Setup API
         run: |
           cd api
           rm -rf node_modules package-lock.json
@@ -47,5 +47,8 @@ jobs:
             action: upload
             app_location: "build"
             api_location: "api"
+            output_location: ""
             skip_app_build: true
             skip_api_build: false
+        env:
+          FUNCTIONS_WORKER_RUNTIME: node
