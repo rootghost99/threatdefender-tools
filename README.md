@@ -45,7 +45,7 @@ Include ongoing incidents, key investigations, and alerts of note to ensure smoo
 
 ---
 
-### 🌐 **Threat Intel Lookup (Coming Soon)**
+### 🌐 **Threat Intel Lookup **
 Real-time IOC enrichment and correlation from sources like VirusTotal, Defender TI, and AbuseIPDB.  
 Turn raw indicators into actionable insights.
 
