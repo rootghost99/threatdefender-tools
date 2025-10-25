@@ -15,7 +15,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install frontend dependencies
         run: npm ci
@@ -28,7 +27,8 @@ jobs:
       - name: Install API dependencies
         run: |
           cd api
-          npm install
+          rm -rf node_modules package-lock.json
+          npm install --force
           
       - name: List build output
         run: |
