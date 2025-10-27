@@ -84,8 +84,8 @@ app.http('ThreatIntelLookup', {
                 }
             }
 
-            // Query GreyNoise (IP only) - TEMPORARILY DISABLED FOR TESTING
-            if (false && indicatorType === 'IP' && greynoiseApiKey) {
+            // Query GreyNoise (IP only) - TESTING
+            if (indicatorType === 'IP' && greynoiseApiKey) {
                 try {
                     context.log('Querying GreyNoise for:', indicator);
                     results.greyNoise = await queryGreyNoise(indicator, greynoiseApiKey);
