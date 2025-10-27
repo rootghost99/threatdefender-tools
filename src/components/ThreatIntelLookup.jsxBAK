@@ -166,19 +166,9 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                     {results.abuseIPDB && !results.abuseIPDB.error && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
-                            <div className="flex items-center justify-between mb-4">
-                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    🚨 AbuseIPDB Report
-                                </h4>
-                                <a
-                                    href={`https://www.abuseipdb.com/check/${results.indicator}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
-                                >
-                                    View Full Report →
-                                </a>
-                            </div>
+                            <h4 className={`text-lg font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                🚨 AbuseIPDB Report
+                            </h4>
                             <div className="mb-4">
                                 <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                     Abuse Confidence Score
