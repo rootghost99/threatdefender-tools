@@ -135,6 +135,116 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     </div>
 
+                    <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-gray-800 border-blue-600' : 'bg-blue-50 border-blue-400'}`}>
+                        <h3 className={`text-md font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            📋 Quick Results Summary
+                        </h3>
+                        <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-800'}`}>
+                            <table className="w-full border-collapse">
+                                <tbody>
+                                    <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <td className="py-2 pr-4 font-semibold">Indicator:</td>
+                                        <td className="py-2 font-mono">{results.indicator} ({results.type})</td>
+                                    </tr>
+                                    
+                                    {results.virusTotal && !results.virusTotal.error && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">VirusTotal:</td>
+                                            <td className="py-2">
+                                                {results.virusTotal.malicious > 0 ? (
+                                                    <span className="text-red-600 font-semibold">
+                                                        ⚠️ {results.virusTotal.malicious} detections ({results.virusTotal.malicious}/{results.virusTotal.malicious + results.virusTotal.suspicious + results.virusTotal.undetected + results.virusTotal.harmless})
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-green-600 font-semibold">✅ Clean (0 detections)</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    )}
+                                    
+                                    {results.abuseIPDB && !results.abuseIPDB.error && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">AbuseIPDB:</td>
+                                            <td className="py-2">
+                                                Confidence: {results.abuseIPDB.abuseScore}% | Reports: {results.abuseIPDB.totalReports} | {results.abuseIPDB.countryCode} ({results.abuseIPDB.isp})
+                                            </td>
+                                        </tr>
+                                    )}
+                                    
+                                    {results.greyNoise && !results.greyNoise.error && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">GreyNoise:</td>
+                                            <td className="py-2">
+                                                {results.greyNoise.classification.toUpperCase()}
+                                                {results.greyNoise.riot && ' | RIOT (Common Business Service)'}
+                                                {results.greyNoise.noise && ' | Internet Noise'}
+                                                {results.greyNoise.name && results.greyNoise.name !== 'N/A' && ` | ${results.greyNoise.name}`}
+                                            </td>
+                                        </tr>
+                                    )}
+                                    
+                                    {results.shodan && results.shodan.hasData && !results.shodan.error && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">Shodan:</td>
+                                            <td className="py-2">
+                                                {results.shodan.openPortsCount} open ports
+                                                {results.shodan.vulnCount > 0 && ` | ${results.shodan.vulnCount} vulnerabilities`}
+                                                {results.shodan.organization && ` | ${results.shodan.organization}`}
+                                            </td>
+                                        </tr>
+                                    )}
+                                    
+                                    {results.urlScan && !results.urlScan.error && !results.urlScan.scanning && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">URLScan.io:</td>
+                                            <td className="py-2">
+                                                {results.urlScan.verdictMalicious ? (
+                                                    <span className="text-red-600 font-semibold">⚠️ Malicious</span>
+                                                ) : (
+                                                    <span className="text-green-600 font-semibold">✅ Clean</span>
+                                                )} | Score: {results.urlScan.score}
+                                                {results.urlScan.ip && ` | IP: ${results.urlScan.ip}`}
+                                            </td>
+                                        </tr>
+                                    )}
+                                    
+                                    {results.alienVault && results.alienVault.hasData && !results.alienVault.error && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">AlienVault OTX:</td>
+                                            <td className="py-2">
+                                                {results.alienVault.pulseCount} threat pulses
+                                                {results.alienVault.pulses && results.alienVault.pulses.length > 0 && results.alienVault.pulses[0].malwareFamilies && results.alienVault.pulses[0].malwareFamilies.length > 0 && 
+                                                    ` | Malware: ${results.alienVault.pulses[0].malwareFamilies.join(', ')}`
+                                                }
+                                                {results.alienVault.pulses && results.alienVault.pulses.length > 0 && results.alienVault.pulses[0].adversary && 
+                                                    ` | Adversary: ${results.alienVault.pulses[0].adversary}`
+                                                }
+                                            </td>
+                                        </tr>
+                                    )}
+                                    
+                                    {/* Show no data entries */}
+                                    {results.type === 'IP' && results.shodan && (!results.shodan.hasData || results.shodan.message === 'No information available for this IP') && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">Shodan:</td>
+                                            <td className="py-2 text-gray-500">No data available</td>
+                                        </tr>
+                                    )}
+                                    
+                                    {results.alienVault && results.alienVault.hasData === false && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">AlienVault OTX:</td>
+                                            <td className="py-2 text-gray-500">No data available</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p className={`text-xs mt-3 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                            💡 Screenshot this summary for ticket notes
+                        </p>
+                    </div>
+
                     {results.virusTotal && !results.virusTotal.error && (
                         <div className={`p-6 rounded-lg border-2 ${getThreatColor(getThreatLevel(results.virusTotal))}`}>
                             <div className="flex items-center justify-between mb-4">
