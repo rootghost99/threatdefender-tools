@@ -367,14 +367,14 @@ export default function ThreatIntelLookup({ darkMode }) {
                                                     rel="noopener noreferrer"
                                                     className={`font-semibold hover:underline ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}
                                                 >
-                                                    {pulse.name}
+                                                    {typeof pulse.name === 'string' ? pulse.name : 'Unnamed Pulse'}
                                                 </a>
                                             </div>
                                             
                                             {pulse.adversary && (
                                                 <div className="mb-2">
                                                     <span className={`px-2 py-1 rounded text-xs font-semibold ${darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-800'}`}>
-                                                        🎯 Adversary: {pulse.adversary}
+                                                        🎯 Adversary: {typeof pulse.adversary === 'string' ? pulse.adversary : JSON.stringify(pulse.adversary)}
                                                     </span>
                                                 </div>
                                             )}
@@ -387,7 +387,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                                     <div className="flex gap-2 flex-wrap">
                                                         {pulse.malwareFamilies.map((family, fidx) => (
                                                             <span key={fidx} className={`px-2 py-1 rounded text-xs font-semibold ${darkMode ? 'bg-orange-900 text-orange-300' : 'bg-orange-100 text-orange-800'}`}>
-                                                                {family}
+                                                                {typeof family === 'string' ? family : (family.display_name || family.name || JSON.stringify(family))}
                                                             </span>
                                                         ))}
                                                     </div>
@@ -402,7 +402,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                                     <div className="flex gap-1 flex-wrap">
                                                         {pulse.tags.map((tag, tidx) => (
                                                             <span key={tidx} className={`px-2 py-1 rounded text-xs ${darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
-                                                                {tag}
+                                                                {typeof tag === 'string' ? tag : JSON.stringify(tag)}
                                                             </span>
                                                         ))}
                                                     </div>
@@ -425,7 +425,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     <div className="space-y-1">
                                         {results.alienVault.validations.map((validation, idx) => (
                                             <div key={idx} className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                {validation.source}: {validation.message}
+                                                {typeof validation.source === 'string' ? validation.source : 'Unknown'}: {typeof validation.message === 'string' ? validation.message : JSON.stringify(validation.message)}
                                             </div>
                                         ))}
                                     </div>
@@ -477,7 +477,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                             <div className="flex gap-2 flex-wrap mt-2">
                                                 {results.urlScan.categories.map((cat, idx) => (
                                                     <span key={idx} className={`px-2 py-1 rounded text-xs ${darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
-                                                        {cat}
+                                                        {typeof cat === 'string' ? cat : JSON.stringify(cat)}
                                                     </span>
                                                 ))}
                                             </div>
@@ -657,7 +657,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                         <div className="flex gap-2 flex-wrap">
                                             {results.shodan.tags.map((tag, idx) => (
                                                 <span key={idx} className={`px-2 py-1 rounded text-xs ${darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
-                                                    {tag}
+                                                    {typeof tag === 'string' ? tag : JSON.stringify(tag)}
                                                 </span>
                                             ))}
                                         </div>
@@ -716,12 +716,12 @@ export default function ThreatIntelLookup({ darkMode }) {
                                         {results.shodan.vulnerabilities.map((cve, idx) => (
                                             <a
                                                 key={idx}
-                                                href={`https://nvd.nist.gov/vuln/detail/${cve}`}
+                                                href={`https://nvd.nist.gov/vuln/detail/${typeof cve === 'string' ? cve : ''}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className={`block p-2 rounded hover:bg-opacity-80 ${darkMode ? 'bg-red-900 text-red-300 hover:bg-red-800' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
                                             >
-                                                <span className="font-mono text-sm">{cve}</span>
+                                                <span className="font-mono text-sm">{typeof cve === 'string' ? cve : JSON.stringify(cve)}</span>
                                             </a>
                                         ))}
                                     </div>
@@ -736,7 +736,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     <div className="space-y-1">
                                         {results.shodan.hostnames.map((hostname, idx) => (
                                             <p key={idx} className={`text-sm font-mono ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                {hostname}
+                                                {typeof hostname === 'string' ? hostname : JSON.stringify(hostname)}
                                             </p>
                                         ))}
                                     </div>
