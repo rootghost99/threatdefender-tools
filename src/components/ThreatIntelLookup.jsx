@@ -50,6 +50,22 @@ export default function ThreatIntelLookup({ darkMode }) {
         return darkMode ? 'text-green-400' : 'text-green-600';
     };
 
+    const getVirusTotalUrl = (indicator, type) => {
+        switch (type) {
+            case 'IP':
+                return `https://www.virustotal.com/gui/ip-address/${indicator}`;
+            case 'Domain':
+                return `https://www.virustotal.com/gui/domain/${indicator}`;
+            case 'SHA1':
+            case 'SHA256':
+                return `https://www.virustotal.com/gui/file/${indicator}`;
+            case 'URL':
+                return `https://www.virustotal.com/gui/url/${btoa(indicator).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')}`;
+            default:
+                return null;
+        }
+    };
+
     return (
         <div className={`rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'} p-6`}>
             <div className="mb-6">
@@ -114,9 +130,19 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                     {results.virusTotal && !results.virusTotal.error && (
                         <div className={`p-6 rounded-lg border-2 ${getThreatColor(getThreatLevel(results.virusTotal))}`}>
-                            <h4 className={`text-lg font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                🛡️ VirusTotal Analysis
-                            </h4>
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    🛡️ VirusTotal Analysis
+                                </h4>
+                                <a
+                                    href={getVirusTotalUrl(results.indicator, results.type)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
+                                >
+                                    View Full Report →
+                                </a>
+                            </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                 <div className="text-center">
                                     <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
