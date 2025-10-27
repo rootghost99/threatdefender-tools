@@ -84,7 +84,7 @@ app.http('ThreatIntelLookup', {
                 }
             }
 
-            // Query GreyNoise (IP only) - TESTING
+            // Query GreyNoise (IP only)
             if (indicatorType === 'IP' && greynoiseApiKey) {
                 try {
                     context.log('Querying GreyNoise for:', indicator);
@@ -96,8 +96,8 @@ app.http('ThreatIntelLookup', {
                 }
             }
 
-            // Query Shodan (IP only) - TEMPORARILY DISABLED FOR TESTING
-            if (false && indicatorType === 'IP' && shodanApiKey) {
+            // Query Shodan (IP only)
+            if (indicatorType === 'IP' && shodanApiKey) {
                 try {
                     context.log('Querying Shodan for:', indicator);
                     results.shodan = await queryShodan(indicator, shodanApiKey);
@@ -302,15 +302,19 @@ async function queryGreyNoise(ip, apiKey) {
             message: data.message || ''
         };
     } catch (error) {
-        if (error.response && error.response.status === 404) {
-            return {
-                noise: false,
-                riot: false,
-                classification: 'unknown',
-                message: 'IP not found in GreyNoise database'
-            };
-        }
-        throw new Error(`GreyNoise query failed: ${error.message}`);
+        // Always return a safe object, never throw
+        return {
+            noise: false,
+            riot: false,
+            classification: 'unknown',
+            name: 'N/A',
+            lastSeen: 'N/A',
+            message: error.response?.status === 404 
+                ? 'IP not found in GreyNoise database' 
+                : `Query failed: ${error.message || 'Unknown error'}`,
+            error: true,
+            errorCode: error.response?.status || 'timeout'
+        };
     }
 }
 
