@@ -34,6 +34,7 @@ app.http('ThreatIntelLookup', {
             const urlscanApiKey = process.env.URLSCAN_API_KEY;
             const greynoiseApiKey = process.env.GREYNOISE_API_KEY;
             const shodanApiKey = process.env.SHODAN_API_KEY;
+            const otxApiKey = process.env.ALIENVAULT_OTX_API_KEY;
 
             const indicatorType = detectIndicatorType(indicator);
             const results = {
@@ -43,7 +44,8 @@ app.http('ThreatIntelLookup', {
                 abuseIPDB: null,
                 urlScan: null,
                 greyNoise: null,
-                shodan: null
+                shodan: null,
+                alienVault: null
             };
 
             // Query VirusTotal
@@ -93,6 +95,16 @@ app.http('ThreatIntelLookup', {
                 } catch (error) {
                     context.log.error('Shodan error:', error.message);
                     results.shodan = { error: error.message };
+                }
+            }
+
+            // Query AlienVault OTX (all types)
+            if (otxApiKey) {
+                try {
+                    results.alienVault = await queryAlienVault(indicator, indicatorType, otxApiKey);
+                } catch (error) {
+                    context.log.error('AlienVault OTX error:', error.message);
+                    results.alienVault = { error: error.message };
                 }
             }
 
@@ -314,5 +326,78 @@ async function queryShodan(ip, apiKey) {
             };
         }
         throw new Error(`Shodan query failed: ${error.message}`);
+    }
+}
+
+async function queryAlienVault(indicator, type, apiKey) {
+    try {
+        let endpoint;
+        
+        // Determine the correct OTX endpoint based on indicator type
+        switch (type) {
+            case 'IP':
+                endpoint = `https://otx.alienvault.com/api/v1/indicators/IPv4/${indicator}/general`;
+                break;
+            case 'Domain':
+                endpoint = `https://otx.alienvault.com/api/v1/indicators/domain/${indicator}/general`;
+                break;
+            case 'URL':
+                // URL needs to be encoded
+                const encodedUrl = encodeURIComponent(indicator);
+                endpoint = `https://otx.alienvault.com/api/v1/indicators/url/${encodedUrl}/general`;
+                break;
+            case 'SHA1':
+            case 'SHA256':
+                endpoint = `https://otx.alienvault.com/api/v1/indicators/file/${indicator}/general`;
+                break;
+            default:
+                throw new Error('Unsupported indicator type for AlienVault OTX');
+        }
+
+        const response = await axios.get(endpoint, {
+            headers: { 'X-OTX-API-KEY': apiKey }
+        });
+
+        const data = response.data;
+        
+        // Extract pulse information
+        const pulses = data.pulse_info?.pulses || [];
+        const topPulses = pulses.slice(0, 5).map(pulse => ({
+            name: pulse.name,
+            tags: pulse.tags || [],
+            malwareFamilies: pulse.malware_families || [],
+            adversary: pulse.adversary || null,
+            created: pulse.created,
+            modified: pulse.modified,
+            id: pulse.id
+        }));
+
+        // Extract validation info
+        const validations = data.validation || [];
+        
+        // Get reputation/threat score
+        const reputation = data.reputation || 0;
+        
+        return {
+            pulseCount: data.pulse_info?.count || 0,
+            pulses: topPulses,
+            validations: validations,
+            reputation: reputation,
+            sections: data.sections || [],
+            whois: data.whois || null,
+            hasData: pulses.length > 0 || validations.length > 0
+        };
+    } catch (error) {
+        if (error.response && error.response.status === 404) {
+            return {
+                pulseCount: 0,
+                pulses: [],
+                validations: [],
+                reputation: 0,
+                hasData: false,
+                message: 'No threat intelligence data found'
+            };
+        }
+        throw new Error(`AlienVault OTX query failed: ${error.message}`);
     }
 }

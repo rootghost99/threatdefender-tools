@@ -190,6 +190,128 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
+                    {results.alienVault && !results.alienVault.error && results.alienVault.hasData && (
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    🔮 AlienVault OTX Threat Intelligence
+                                </h4>
+                                <a
+                                    href={`https://otx.alienvault.com/indicator/${results.type === 'IP' ? 'ip' : results.type === 'Domain' ? 'domain' : results.type === 'URL' ? 'url' : 'file'}/${results.indicator}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
+                                >
+                                    View Full Report →
+                                </a>
+                            </div>
+
+                            <div className="mb-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-blue-900' : 'bg-blue-50'}`}>
+                                        <p className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                                            <strong>{results.alienVault.pulseCount}</strong> Threat Pulses
+                                        </p>
+                                    </div>
+                                    {results.alienVault.reputation !== 0 && (
+                                        <div className={`px-4 py-2 rounded-lg ${
+                                            results.alienVault.reputation < 0 
+                                                ? darkMode ? 'bg-red-900' : 'bg-red-50'
+                                                : darkMode ? 'bg-green-900' : 'bg-green-50'
+                                        }`}>
+                                            <p className={`text-sm ${
+                                                results.alienVault.reputation < 0
+                                                    ? darkMode ? 'text-red-300' : 'text-red-700'
+                                                    : darkMode ? 'text-green-300' : 'text-green-700'
+                                            }`}>
+                                                Reputation: {results.alienVault.reputation}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {results.alienVault.pulses && results.alienVault.pulses.length > 0 && (
+                                <div className="space-y-3">
+                                    <p className={`text-sm font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        Related Threat Intelligence (Top 5)
+                                    </p>
+                                    {results.alienVault.pulses.map((pulse, idx) => (
+                                        <div key={idx} className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                                            <div className="mb-2">
+                                                <a
+                                                    href={`https://otx.alienvault.com/pulse/${pulse.id}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={`font-semibold hover:underline ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}
+                                                >
+                                                    {pulse.name}
+                                                </a>
+                                            </div>
+                                            
+                                            {pulse.adversary && (
+                                                <div className="mb-2">
+                                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-800'}`}>
+                                                        🎯 Adversary: {pulse.adversary}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            
+                                            {pulse.malwareFamilies && pulse.malwareFamilies.length > 0 && (
+                                                <div className="mb-2">
+                                                    <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        Malware Families:
+                                                    </p>
+                                                    <div className="flex gap-2 flex-wrap">
+                                                        {pulse.malwareFamilies.map((family, fidx) => (
+                                                            <span key={fidx} className={`px-2 py-1 rounded text-xs font-semibold ${darkMode ? 'bg-orange-900 text-orange-300' : 'bg-orange-100 text-orange-800'}`}>
+                                                                {family}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {pulse.tags && pulse.tags.length > 0 && (
+                                                <div className="mb-2">
+                                                    <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        Tags:
+                                                    </p>
+                                                    <div className="flex gap-1 flex-wrap">
+                                                        {pulse.tags.map((tag, tidx) => (
+                                                            <span key={tidx} className={`px-2 py-1 rounded text-xs ${darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            <div className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                Modified: {new Date(pulse.modified).toLocaleString()}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {results.alienVault.validations && results.alienVault.validations.length > 0 && (
+                                <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        Validations
+                                    </p>
+                                    <div className="space-y-1">
+                                        {results.alienVault.validations.map((validation, idx) => (
+                                            <div key={idx} className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                {validation.source}: {validation.message}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {results.urlScan && !results.urlScan.error && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
