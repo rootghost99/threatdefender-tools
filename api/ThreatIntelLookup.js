@@ -60,8 +60,8 @@ app.http('ThreatIntelLookup', {
                 }
             }
 
-            // Query AbuseIPDB (IP only) - TEMPORARILY DISABLED FOR TESTING
-            if (false && indicatorType === 'IP' && aipdbApiKey) {
+            // Query AbuseIPDB (IP only) - TESTING
+            if (indicatorType === 'IP' && aipdbApiKey) {
                 try {
                     context.log('Querying AbuseIPDB for:', indicator);
                     results.abuseIPDB = await queryAbuseIPDB(indicator, aipdbApiKey);
