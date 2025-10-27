@@ -188,53 +188,44 @@ async function queryVirusTotal(indicator, type, apiKey) {
     }
 
     const response = await axios.get(endpoint, {
-        headers: { 'x-apikey': apiKey },
-        timeout: 15000 // 15 second timeout
+        headers: { 'x-apikey': apiKey }
     });
 
     const stats = response.data.data.attributes.last_analysis_stats;
     const lastAnalysisDate = response.data.data.attributes.last_analysis_date;
     
     return {
-        malicious: stats.malicious || 0,
-        suspicious: stats.suspicious || 0,
-        undetected: stats.undetected || 0,
-        harmless: stats.harmless || 0,
+        malicious: stats.malicious,
+        suspicious: stats.suspicious,
+        undetected: stats.undetected,
+        harmless: stats.harmless,
         reputation: response.data.data.attributes.reputation || 'N/A',
         lastAnalysis: lastAnalysisDate ? new Date(lastAnalysisDate * 1000).toISOString() : 'N/A'
     };
 }
 
 async function queryAbuseIPDB(ip, apiKey) {
-    try {
-        const response = await axios.get('https://api.abuseipdb.com/api/v2/check', {
-            headers: {
-                'Key': apiKey,
-                'Accept': 'application/json'
-            },
-            params: {
-                ipAddress: ip,
-                maxAgeInDays: 90
-            },
-            timeout: 10000 // 10 second timeout
-        });
-
-        const data = response.data.data;
-        return {
-            abuseScore: data.abuseConfidenceScore || 0,
-            totalReports: data.totalReports || 0,
-            countryCode: data.countryCode || 'N/A',
-            usageType: data.usageType || 'N/A',
-            isp: data.isp || 'Unknown',
-            domain: data.domain || 'N/A',
-            isWhitelisted: data.isWhitelisted || false
-        };
-    } catch (error) {
-        if (error.response) {
-            throw new Error(`AbuseIPDB API error (${error.response.status}): ${error.response.data?.errors?.[0]?.detail || 'Unknown error'}`);
+    const response = await axios.get('https://api.abuseipdb.com/api/v2/check', {
+        headers: {
+            'Key': apiKey,
+            'Accept': 'application/json'
+        },
+        params: {
+            ipAddress: ip,
+            maxAgeInDays: 90
         }
-        throw new Error(`AbuseIPDB query failed: ${error.message}`);
-    }
+    });
+
+    const data = response.data.data;
+    return {
+        abuseScore: data.abuseConfidenceScore,
+        totalReports: data.totalReports,
+        countryCode: data.countryCode,
+        usageType: data.usageType,
+        isp: data.isp,
+        domain: data.domain,
+        isWhitelisted: data.isWhitelisted
+    };
 }
 
 async function queryURLScan(indicator, type, apiKey) {
@@ -244,8 +235,7 @@ async function queryURLScan(indicator, type, apiKey) {
     try {
         const searchResponse = await axios.get('https://urlscan.io/api/v1/search/', {
             headers: { 'API-Key': apiKey },
-            params: { q: searchQuery },
-            timeout: 10000 // 10 second timeout
+            params: { q: searchQuery }
         });
 
         if (searchResponse.data.results && searchResponse.data.results.length > 0) {
@@ -270,8 +260,7 @@ async function queryURLScan(indicator, type, apiKey) {
             headers: { 
                 'API-Key': apiKey,
                 'Content-Type': 'application/json'
-            },
-            timeout: 10000 // 10 second timeout
+            }
         });
 
         return {
@@ -288,8 +277,7 @@ async function queryURLScan(indicator, type, apiKey) {
 async function queryGreyNoise(ip, apiKey) {
     try {
         const response = await axios.get(`https://api.greynoise.io/v3/community/${ip}`, {
-            headers: { 'key': apiKey },
-            timeout: 10000 // 10 second timeout
+            headers: { 'key': apiKey }
         });
 
         const data = response.data;
@@ -317,8 +305,7 @@ async function queryGreyNoise(ip, apiKey) {
 async function queryShodan(ip, apiKey) {
     try {
         const response = await axios.get(`https://api.shodan.io/shodan/host/${ip}`, {
-            params: { key: apiKey },
-            timeout: 10000 // 10 second timeout
+            params: { key: apiKey }
         });
 
         const data = response.data;
@@ -389,8 +376,7 @@ async function queryAlienVault(indicator, type, apiKey) {
         }
 
         const response = await axios.get(endpoint, {
-            headers: { 'X-OTX-API-KEY': apiKey },
-            timeout: 15000 // 15 second timeout
+            headers: { 'X-OTX-API-KEY': apiKey }
         });
 
         const data = response.data;
