@@ -3,7 +3,7 @@ const axios = require('axios');
 
 app.http('EnrichIOC', {
     methods: ['POST', 'OPTIONS'],
-    authLevel: 'function', // Requires function key for security
+    authLevel: 'anonymous', // No function key required
     handler: async (request, context) => {
         context.log('EnrichIOC function triggered');
 
