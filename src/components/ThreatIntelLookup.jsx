@@ -144,16 +144,16 @@ export default function ThreatIntelLookup({ darkMode }) {
                                 <tbody>
                                     <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                         <td className="py-2 pr-4 font-semibold">Indicator:</td>
-                                        <td className="py-2 font-mono">{results.indicator} ({results.type})</td>
+                                        <td className="py-2 font-mono">{String(results.indicator || '')} ({String(results.type || 'Unknown')})</td>
                                     </tr>
                                     
                                     {results.virusTotal && !results.virusTotal.error && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">VirusTotal:</td>
                                             <td className="py-2">
-                                                {results.virusTotal.malicious > 0 ? (
+                                                {(results.virusTotal.malicious || 0) > 0 ? (
                                                     <span className="text-red-600 font-semibold">
-                                                        ⚠️ {results.virusTotal.malicious} detections ({results.virusTotal.malicious}/{results.virusTotal.malicious + results.virusTotal.suspicious + results.virusTotal.undetected + results.virusTotal.harmless})
+                                                        ⚠️ {results.virusTotal.malicious} detections ({results.virusTotal.malicious}/{(results.virusTotal.malicious || 0) + (results.virusTotal.suspicious || 0) + (results.virusTotal.undetected || 0) + (results.virusTotal.harmless || 0)})
                                                     </span>
                                                 ) : (
                                                     <span className="text-green-600 font-semibold">✅ Clean (0 detections)</span>
@@ -166,7 +166,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">AbuseIPDB:</td>
                                             <td className="py-2">
-                                                Confidence: {results.abuseIPDB.abuseScore}% | Reports: {results.abuseIPDB.totalReports} | {results.abuseIPDB.countryCode} ({results.abuseIPDB.isp})
+                                                Confidence: {results.abuseIPDB.abuseScore || 0}% | Reports: {results.abuseIPDB.totalReports || 0} | {results.abuseIPDB.countryCode || 'N/A'} ({results.abuseIPDB.isp || 'Unknown'})
                                             </td>
                                         </tr>
                                     )}
@@ -175,10 +175,10 @@ export default function ThreatIntelLookup({ darkMode }) {
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">GreyNoise:</td>
                                             <td className="py-2">
-                                                {results.greyNoise.classification.toUpperCase()}
+                                                {String(results.greyNoise.classification || 'unknown').toUpperCase()}
                                                 {results.greyNoise.riot && ' | RIOT (Common Business Service)'}
                                                 {results.greyNoise.noise && ' | Internet Noise'}
-                                                {results.greyNoise.name && results.greyNoise.name !== 'N/A' && ` | ${results.greyNoise.name}`}
+                                                {results.greyNoise.name && results.greyNoise.name !== 'N/A' && typeof results.greyNoise.name === 'string' && ` | ${results.greyNoise.name}`}
                                             </td>
                                         </tr>
                                     )}
@@ -187,9 +187,9 @@ export default function ThreatIntelLookup({ darkMode }) {
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">Shodan:</td>
                                             <td className="py-2">
-                                                {results.shodan.openPortsCount} open ports
+                                                {results.shodan.openPortsCount || 0} open ports
                                                 {results.shodan.vulnCount > 0 && ` | ${results.shodan.vulnCount} vulnerabilities`}
-                                                {results.shodan.organization && ` | ${results.shodan.organization}`}
+                                                {results.shodan.organization && typeof results.shodan.organization === 'string' && ` | ${results.shodan.organization}`}
                                             </td>
                                         </tr>
                                     )}
@@ -202,8 +202,8 @@ export default function ThreatIntelLookup({ darkMode }) {
                                                     <span className="text-red-600 font-semibold">⚠️ Malicious</span>
                                                 ) : (
                                                     <span className="text-green-600 font-semibold">✅ Clean</span>
-                                                )} | Score: {results.urlScan.score}
-                                                {results.urlScan.ip && ` | IP: ${results.urlScan.ip}`}
+                                                )} | Score: {results.urlScan.score || 0}
+                                                {results.urlScan.ip && typeof results.urlScan.ip === 'string' && ` | IP: ${results.urlScan.ip}`}
                                             </td>
                                         </tr>
                                     )}
@@ -213,10 +213,15 @@ export default function ThreatIntelLookup({ darkMode }) {
                                             <td className="py-2 pr-4 font-semibold">AlienVault OTX:</td>
                                             <td className="py-2">
                                                 {results.alienVault.pulseCount} threat pulses
-                                                {results.alienVault.pulses && results.alienVault.pulses.length > 0 && results.alienVault.pulses[0].malwareFamilies && results.alienVault.pulses[0].malwareFamilies.length > 0 && 
+                                                {results.alienVault.pulses && results.alienVault.pulses.length > 0 && 
+                                                 results.alienVault.pulses[0].malwareFamilies && 
+                                                 Array.isArray(results.alienVault.pulses[0].malwareFamilies) &&
+                                                 results.alienVault.pulses[0].malwareFamilies.length > 0 && 
                                                     ` | Malware: ${results.alienVault.pulses[0].malwareFamilies.join(', ')}`
                                                 }
-                                                {results.alienVault.pulses && results.alienVault.pulses.length > 0 && results.alienVault.pulses[0].adversary && 
+                                                {results.alienVault.pulses && results.alienVault.pulses.length > 0 && 
+                                                 results.alienVault.pulses[0].adversary && 
+                                                 typeof results.alienVault.pulses[0].adversary === 'string' &&
                                                     ` | Adversary: ${results.alienVault.pulses[0].adversary}`
                                                 }
                                             </td>
