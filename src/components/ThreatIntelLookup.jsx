@@ -18,11 +18,18 @@ export default function ThreatIntelLookup({ darkMode }) {
                 body: JSON.stringify({ indicator: indicator.trim() })
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API Error:', response.status, errorText);
+                setResults({ error: `API Error: ${response.status} - ${errorText}` });
+                return;
+            }
+
             const data = await response.json();
             setResults(data);
         } catch (error) {
             console.error('Lookup failed:', error);
-            setResults({ error: 'Failed to perform lookup' });
+            setResults({ error: 'Failed to perform lookup: ' + error.message });
         } finally {
             setLoading(false);
         }
@@ -460,7 +467,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
-                    {results.shodan && !results.shodan.error && results.shodan.message !== 'No information available for this IP' && (
+                    {results.shodan && !results.shodan.error && results.shodan.hasData && results.shodan.message !== 'No information available for this IP' && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>

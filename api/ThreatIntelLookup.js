@@ -313,15 +313,15 @@ async function queryShodan(ip, apiKey) {
         // Extract open ports and services
         const ports = data.ports || [];
         const services = (data.data || []).slice(0, 10).map(service => ({
-            port: service.port,
-            protocol: service.transport,
+            port: service.port || 0,
+            protocol: service.transport || 'unknown',
             product: service.product || 'Unknown',
             version: service.version || '',
             banner: service.data ? service.data.substring(0, 200) : ''
         }));
 
         // Extract vulnerabilities
-        const vulns = data.vulns || [];
+        const vulns = data.vulns || {};
         const topVulns = Object.keys(vulns).slice(0, 10);
 
         return {
@@ -334,19 +334,19 @@ async function queryShodan(ip, apiKey) {
             openPortsCount: ports.length,
             services: services,
             vulnerabilities: topVulns,
-            vulnCount: Object.keys(vulns).length,
+            vulnCount: topVulns.length,
             lastUpdate: data.last_update || 'N/A',
             hostnames: data.hostnames || [],
-            tags: data.tags || []
+            tags: data.tags || [],
+            hasData: true
         };
     } catch (error) {
-        if (error.response && error.response.status === 404) {
-            return {
-                message: 'No information available for this IP',
-                error: 'not_found'
-            };
-        }
-        throw new Error(`Shodan query failed: ${error.message}`);
+        // Return a safe error object that won't break JSON serialization
+        return {
+            message: 'No information available for this IP',
+            hasData: false,
+            error: 'not_found'
+        };
     }
 }
 
