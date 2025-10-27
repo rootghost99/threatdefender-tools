@@ -51,7 +51,9 @@ app.http('ThreatIntelLookup', {
             // Query VirusTotal
             if (vtApiKey) {
                 try {
+                    context.log('Querying VirusTotal for:', indicator);
                     results.virusTotal = await queryVirusTotal(indicator, indicatorType, vtApiKey);
+                    context.log('VirusTotal query successful');
                 } catch (error) {
                     context.log.error('VirusTotal error:', error.message);
                     results.virusTotal = { error: error.message };
@@ -61,7 +63,9 @@ app.http('ThreatIntelLookup', {
             // Query AbuseIPDB (IP only)
             if (indicatorType === 'IP' && aipdbApiKey) {
                 try {
+                    context.log('Querying AbuseIPDB for:', indicator);
                     results.abuseIPDB = await queryAbuseIPDB(indicator, aipdbApiKey);
+                    context.log('AbuseIPDB query successful');
                 } catch (error) {
                     context.log.error('AbuseIPDB error:', error.message);
                     results.abuseIPDB = { error: error.message };
@@ -71,7 +75,9 @@ app.http('ThreatIntelLookup', {
             // Query URLScan.io (URL and Domain)
             if ((indicatorType === 'URL' || indicatorType === 'Domain') && urlscanApiKey) {
                 try {
+                    context.log('Querying URLScan for:', indicator);
                     results.urlScan = await queryURLScan(indicator, indicatorType, urlscanApiKey);
+                    context.log('URLScan query successful');
                 } catch (error) {
                     context.log.error('URLScan error:', error.message);
                     results.urlScan = { error: error.message };
@@ -81,7 +87,9 @@ app.http('ThreatIntelLookup', {
             // Query GreyNoise (IP only)
             if (indicatorType === 'IP' && greynoiseApiKey) {
                 try {
+                    context.log('Querying GreyNoise for:', indicator);
                     results.greyNoise = await queryGreyNoise(indicator, greynoiseApiKey);
+                    context.log('GreyNoise query successful');
                 } catch (error) {
                     context.log.error('GreyNoise error:', error.message);
                     results.greyNoise = { error: error.message };
@@ -91,7 +99,9 @@ app.http('ThreatIntelLookup', {
             // Query Shodan (IP only)
             if (indicatorType === 'IP' && shodanApiKey) {
                 try {
+                    context.log('Querying Shodan for:', indicator);
                     results.shodan = await queryShodan(indicator, shodanApiKey);
+                    context.log('Shodan query successful');
                 } catch (error) {
                     context.log.error('Shodan error:', error.message);
                     results.shodan = { error: error.message };
@@ -101,12 +111,17 @@ app.http('ThreatIntelLookup', {
             // Query AlienVault OTX (all types)
             if (otxApiKey) {
                 try {
+                    context.log('Querying AlienVault OTX for:', indicator);
                     results.alienVault = await queryAlienVault(indicator, indicatorType, otxApiKey);
+                    context.log('AlienVault OTX query successful');
                 } catch (error) {
                     context.log.error('AlienVault OTX error:', error.message);
+                    context.log.error('AlienVault OTX error stack:', error.stack);
                     results.alienVault = { error: error.message };
                 }
             }
+
+            context.log('All queries complete, returning results');
 
             return {
                 status: 200,
@@ -118,10 +133,16 @@ app.http('ThreatIntelLookup', {
             };
 
         } catch (error) {
-            context.log.error('Error:', error);
+            context.log.error('CRITICAL ERROR in ThreatIntelLookup:', error.message);
+            context.log.error('Error stack:', error.stack);
+            context.log.error('Indicator:', indicator);
             return {
                 status: 500,
-                jsonBody: { error: 'Failed to perform lookup', details: error.message }
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                jsonBody: { error: 'Failed to perform lookup', details: error.message, stack: error.stack }
             };
         }
     }
