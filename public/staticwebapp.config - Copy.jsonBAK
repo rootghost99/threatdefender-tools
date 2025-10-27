@@ -1,22 +1,16 @@
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": [
-      "/static/*",
-      "/.auth/*",
-      "/api/*",
-      "*.{css,js,json,png,jpg,gif,svg,ico}"
-    ]
+    "exclude": ["/static/*", "*.{css,js,json,png,jpg,gif,svg,ico}"]
   },
   "routes": [
-    { "route": "/.auth/*", "allowedRoles": ["anonymous"] },
-
-    { "route": "/api/ThreatIntelLookup", "allowedRoles": ["anonymous"] },
-
-    { "route": "/static/*" },
-
-    { "route": "/api/*", "allowedRoles": ["authenticated"] },
-    { "route": "/*", "allowedRoles": ["authenticated"] }
+    {
+      "route": "/static/*"
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["authenticated"]
+    }
   ],
   "responseOverrides": {
     "401": {
