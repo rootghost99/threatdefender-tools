@@ -33,6 +33,7 @@ app.http('ThreatIntelLookup', {
             const aipdbApiKey = process.env.ABUSEIPDB_API_KEY;
             const urlscanApiKey = process.env.URLSCAN_API_KEY;
             const greynoiseApiKey = process.env.GREYNOISE_API_KEY;
+            const shodanApiKey = process.env.SHODAN_API_KEY;
 
             const indicatorType = detectIndicatorType(indicator);
             const results = {
@@ -41,7 +42,8 @@ app.http('ThreatIntelLookup', {
                 virusTotal: null,
                 abuseIPDB: null,
                 urlScan: null,
-                greyNoise: null
+                greyNoise: null,
+                shodan: null
             };
 
             // Query VirusTotal
@@ -81,6 +83,16 @@ app.http('ThreatIntelLookup', {
                 } catch (error) {
                     context.log.error('GreyNoise error:', error.message);
                     results.greyNoise = { error: error.message };
+                }
+            }
+
+            // Query Shodan (IP only)
+            if (indicatorType === 'IP' && shodanApiKey) {
+                try {
+                    results.shodan = await queryShodan(indicator, shodanApiKey);
+                } catch (error) {
+                    context.log.error('Shodan error:', error.message);
+                    results.shodan = { error: error.message };
                 }
             }
 
@@ -254,5 +266,53 @@ async function queryGreyNoise(ip, apiKey) {
             };
         }
         throw new Error(`GreyNoise query failed: ${error.message}`);
+    }
+}
+
+async function queryShodan(ip, apiKey) {
+    try {
+        const response = await axios.get(`https://api.shodan.io/shodan/host/${ip}`, {
+            params: { key: apiKey }
+        });
+
+        const data = response.data;
+        
+        // Extract open ports and services
+        const ports = data.ports || [];
+        const services = (data.data || []).slice(0, 10).map(service => ({
+            port: service.port,
+            protocol: service.transport,
+            product: service.product || 'Unknown',
+            version: service.version || '',
+            banner: service.data ? service.data.substring(0, 200) : ''
+        }));
+
+        // Extract vulnerabilities
+        const vulns = data.vulns || [];
+        const topVulns = Object.keys(vulns).slice(0, 10);
+
+        return {
+            organization: data.org || 'Unknown',
+            isp: data.isp || 'Unknown',
+            asn: data.asn || 'Unknown',
+            country: data.country_name || 'Unknown',
+            city: data.city || 'Unknown',
+            ports: ports,
+            openPortsCount: ports.length,
+            services: services,
+            vulnerabilities: topVulns,
+            vulnCount: Object.keys(vulns).length,
+            lastUpdate: data.last_update || 'N/A',
+            hostnames: data.hostnames || [],
+            tags: data.tags || []
+        };
+    } catch (error) {
+        if (error.response && error.response.status === 404) {
+            return {
+                message: 'No information available for this IP',
+                error: 'not_found'
+            };
+        }
+        throw new Error(`Shodan query failed: ${error.message}`);
     }
 }

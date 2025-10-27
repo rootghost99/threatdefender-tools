@@ -338,6 +338,177 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
+                    {results.shodan && !results.shodan.error && results.shodan.message !== 'No information available for this IP' && (
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    🔍 Shodan Reconnaissance
+                                </h4>
+                                <a
+                                    href={`https://www.shodan.io/host/${results.indicator}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
+                                >
+                                    View Full Report →
+                                </a>
+                            </div>
+
+                            <div className="mb-4">
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            Organization
+                                        </p>
+                                        <p className={`text-base ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            {results.shodan.organization}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            ISP
+                                        </p>
+                                        <p className={`text-base ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            {results.shodan.isp}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            Location
+                                        </p>
+                                        <p className={`text-base ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            {results.shodan.city}, {results.shodan.country}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            ASN
+                                        </p>
+                                        <p className={`text-base ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            {results.shodan.asn}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-blue-900' : 'bg-blue-50'}`}>
+                                        <p className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                                            <strong>{results.shodan.openPortsCount}</strong> Open Ports
+                                        </p>
+                                    </div>
+                                    {results.shodan.vulnCount > 0 && (
+                                        <div className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-red-900' : 'bg-red-50'}`}>
+                                            <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-700'}`}>
+                                                <strong>{results.shodan.vulnCount}</strong> Vulnerabilities
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {results.shodan.tags && results.shodan.tags.length > 0 && (
+                                    <div className="mb-4">
+                                        <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            Tags
+                                        </p>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {results.shodan.tags.map((tag, idx) => (
+                                                <span key={idx} className={`px-2 py-1 rounded text-xs ${darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {results.shodan.ports && results.shodan.ports.length > 0 && (
+                                <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        Open Ports
+                                    </p>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {results.shodan.ports.map((port, idx) => (
+                                            <span key={idx} className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-600 text-white' : 'bg-gray-200 text-gray-900'} font-mono text-sm`}>
+                                                {port}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {results.shodan.services && results.shodan.services.length > 0 && (
+                                <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                    <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        Services Detected
+                                    </p>
+                                    <div className="space-y-3">
+                                        {results.shodan.services.map((service, idx) => (
+                                            <div key={idx} className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className={`font-mono font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                        Port {service.port}/{service.protocol}
+                                                    </span>
+                                                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {service.product} {service.version}
+                                                    </span>
+                                                </div>
+                                                {service.banner && (
+                                                    <pre className={`text-xs mt-2 p-2 rounded overflow-x-auto ${darkMode ? 'bg-gray-900 text-gray-300' : 'bg-white text-gray-700'}`}>
+                                                        {service.banner}
+                                                    </pre>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {results.shodan.vulnerabilities && results.shodan.vulnerabilities.length > 0 && (
+                                <div className="mb-4">
+                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        Known Vulnerabilities (Top 10)
+                                    </p>
+                                    <div className="space-y-1">
+                                        {results.shodan.vulnerabilities.map((cve, idx) => (
+                                            <a
+                                                key={idx}
+                                                href={`https://nvd.nist.gov/vuln/detail/${cve}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={`block p-2 rounded hover:bg-opacity-80 ${darkMode ? 'bg-red-900 text-red-300 hover:bg-red-800' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
+                                            >
+                                                <span className="font-mono text-sm">{cve}</span>
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {results.shodan.hostnames && results.shodan.hostnames.length > 0 && (
+                                <div className={`pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        Hostnames
+                                    </p>
+                                    <div className="space-y-1">
+                                        {results.shodan.hostnames.map((hostname, idx) => (
+                                            <p key={idx} className={`text-sm font-mono ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                {hostname}
+                                            </p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {results.shodan.lastUpdate && results.shodan.lastUpdate !== 'N/A' && (
+                                <div className={`pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                    <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                        Last updated: {new Date(results.shodan.lastUpdate).toLocaleString()}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {results.abuseIPDB && !results.abuseIPDB.error && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
