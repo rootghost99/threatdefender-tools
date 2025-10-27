@@ -638,6 +638,28 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
+                    {results.type === 'IP' && results.shodan && (!results.shodan.hasData || results.shodan.message === 'No information available for this IP') && (
+                        <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'}`}>
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg">🔍</span>
+                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <strong>Shodan:</strong> No reconnaissance data available for this IP
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {results.alienVault && results.alienVault.hasData === false && (
+                        <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'}`}>
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg">🔮</span>
+                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <strong>AlienVault OTX:</strong> No threat intelligence data found
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {results.abuseIPDB && !results.abuseIPDB.error && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
