@@ -60,8 +60,8 @@ app.http('ThreatIntelLookup', {
                 }
             }
 
-            // Query AbuseIPDB (IP only)
-            if (indicatorType === 'IP' && aipdbApiKey) {
+            // Query AbuseIPDB (IP only) - TEMPORARILY DISABLED FOR TESTING
+            if (false && indicatorType === 'IP' && aipdbApiKey) {
                 try {
                     context.log('Querying AbuseIPDB for:', indicator);
                     results.abuseIPDB = await queryAbuseIPDB(indicator, aipdbApiKey);
@@ -84,8 +84,8 @@ app.http('ThreatIntelLookup', {
                 }
             }
 
-            // Query GreyNoise (IP only)
-            if (indicatorType === 'IP' && greynoiseApiKey) {
+            // Query GreyNoise (IP only) - TEMPORARILY DISABLED FOR TESTING
+            if (false && indicatorType === 'IP' && greynoiseApiKey) {
                 try {
                     context.log('Querying GreyNoise for:', indicator);
                     results.greyNoise = await queryGreyNoise(indicator, greynoiseApiKey);
@@ -96,8 +96,8 @@ app.http('ThreatIntelLookup', {
                 }
             }
 
-            // Query Shodan (IP only)
-            if (indicatorType === 'IP' && shodanApiKey) {
+            // Query Shodan (IP only) - TEMPORARILY DISABLED FOR TESTING
+            if (false && indicatorType === 'IP' && shodanApiKey) {
                 try {
                     context.log('Querying Shodan for:', indicator);
                     results.shodan = await queryShodan(indicator, shodanApiKey);
@@ -188,44 +188,53 @@ async function queryVirusTotal(indicator, type, apiKey) {
     }
 
     const response = await axios.get(endpoint, {
-        headers: { 'x-apikey': apiKey }
+        headers: { 'x-apikey': apiKey },
+        timeout: 15000 // 15 second timeout
     });
 
     const stats = response.data.data.attributes.last_analysis_stats;
     const lastAnalysisDate = response.data.data.attributes.last_analysis_date;
     
     return {
-        malicious: stats.malicious,
-        suspicious: stats.suspicious,
-        undetected: stats.undetected,
-        harmless: stats.harmless,
+        malicious: stats.malicious || 0,
+        suspicious: stats.suspicious || 0,
+        undetected: stats.undetected || 0,
+        harmless: stats.harmless || 0,
         reputation: response.data.data.attributes.reputation || 'N/A',
         lastAnalysis: lastAnalysisDate ? new Date(lastAnalysisDate * 1000).toISOString() : 'N/A'
     };
 }
 
 async function queryAbuseIPDB(ip, apiKey) {
-    const response = await axios.get('https://api.abuseipdb.com/api/v2/check', {
-        headers: {
-            'Key': apiKey,
-            'Accept': 'application/json'
-        },
-        params: {
-            ipAddress: ip,
-            maxAgeInDays: 90
-        }
-    });
+    try {
+        const response = await axios.get('https://api.abuseipdb.com/api/v2/check', {
+            headers: {
+                'Key': apiKey,
+                'Accept': 'application/json'
+            },
+            params: {
+                ipAddress: ip,
+                maxAgeInDays: 90
+            },
+            timeout: 10000 // 10 second timeout
+        });
 
-    const data = response.data.data;
-    return {
-        abuseScore: data.abuseConfidenceScore,
-        totalReports: data.totalReports,
-        countryCode: data.countryCode,
-        usageType: data.usageType,
-        isp: data.isp,
-        domain: data.domain,
-        isWhitelisted: data.isWhitelisted
-    };
+        const data = response.data.data;
+        return {
+            abuseScore: data.abuseConfidenceScore || 0,
+            totalReports: data.totalReports || 0,
+            countryCode: data.countryCode || 'N/A',
+            usageType: data.usageType || 'N/A',
+            isp: data.isp || 'Unknown',
+            domain: data.domain || 'N/A',
+            isWhitelisted: data.isWhitelisted || false
+        };
+    } catch (error) {
+        if (error.response) {
+            throw new Error(`AbuseIPDB API error (${error.response.status}): ${error.response.data?.errors?.[0]?.detail || 'Unknown error'}`);
+        }
+        throw new Error(`AbuseIPDB query failed: ${error.message}`);
+    }
 }
 
 async function queryURLScan(indicator, type, apiKey) {
@@ -235,7 +244,8 @@ async function queryURLScan(indicator, type, apiKey) {
     try {
         const searchResponse = await axios.get('https://urlscan.io/api/v1/search/', {
             headers: { 'API-Key': apiKey },
-            params: { q: searchQuery }
+            params: { q: searchQuery },
+            timeout: 10000 // 10 second timeout
         });
 
         if (searchResponse.data.results && searchResponse.data.results.length > 0) {
@@ -260,7 +270,8 @@ async function queryURLScan(indicator, type, apiKey) {
             headers: { 
                 'API-Key': apiKey,
                 'Content-Type': 'application/json'
-            }
+            },
+            timeout: 10000 // 10 second timeout
         });
 
         return {
@@ -277,7 +288,8 @@ async function queryURLScan(indicator, type, apiKey) {
 async function queryGreyNoise(ip, apiKey) {
     try {
         const response = await axios.get(`https://api.greynoise.io/v3/community/${ip}`, {
-            headers: { 'key': apiKey }
+            headers: { 'key': apiKey },
+            timeout: 10000 // 10 second timeout
         });
 
         const data = response.data;
@@ -305,7 +317,8 @@ async function queryGreyNoise(ip, apiKey) {
 async function queryShodan(ip, apiKey) {
     try {
         const response = await axios.get(`https://api.shodan.io/shodan/host/${ip}`, {
-            params: { key: apiKey }
+            params: { key: apiKey },
+            timeout: 10000 // 10 second timeout
         });
 
         const data = response.data;
@@ -376,7 +389,8 @@ async function queryAlienVault(indicator, type, apiKey) {
         }
 
         const response = await axios.get(endpoint, {
-            headers: { 'X-OTX-API-KEY': apiKey }
+            headers: { 'X-OTX-API-KEY': apiKey },
+            timeout: 15000 // 15 second timeout
         });
 
         const data = response.data;
