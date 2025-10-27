@@ -1,4 +1,12 @@
-cp staticwebapp.config.json ./
-   git add staticwebapp.config.json
-   git commit -m "Allow anonymous access to API endpoints"
-   git push origin main
+{
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*"]
+  }
+}
