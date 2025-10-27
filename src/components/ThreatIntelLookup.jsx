@@ -190,6 +190,154 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
+                    {results.urlScan && !results.urlScan.error && (
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    🔎 URLScan.io Analysis
+                                </h4>
+                                {results.urlScan.reportUrl && (
+                                    <a
+                                        href={results.urlScan.reportUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
+                                    >
+                                        View Full Report →
+                                    </a>
+                                )}
+                            </div>
+                            
+                            {results.urlScan.scanning ? (
+                                <div className={`p-4 rounded-lg ${darkMode ? 'bg-blue-900' : 'bg-blue-50'}`}>
+                                    <p className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                                        ⏳ {results.urlScan.message}
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="mb-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                                results.urlScan.verdictMalicious
+                                                    ? 'bg-red-100 text-red-800'
+                                                    : 'bg-green-100 text-green-800'
+                                            }`}>
+                                                {results.urlScan.verdictMalicious ? '⚠️ Malicious' : '✅ Clean'}
+                                            </span>
+                                            <span className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                Score: {results.urlScan.score}
+                                            </span>
+                                        </div>
+                                        {results.urlScan.categories && results.urlScan.categories.length > 0 && (
+                                            <div className="flex gap-2 flex-wrap mt-2">
+                                                {results.urlScan.categories.map((cat, idx) => (
+                                                    <span key={idx} className={`px-2 py-1 rounded text-xs ${darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
+                                                        {cat}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {results.urlScan.screenshot && (
+                                        <div className="mb-4">
+                                            <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                Screenshot
+                                            </p>
+                                            <img 
+                                                src={results.urlScan.screenshot} 
+                                                alt="URLScan Screenshot" 
+                                                className="w-full rounded border"
+                                            />
+                                        </div>
+                                    )}
+                                    
+                                    <div className={`space-y-2 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                        {results.urlScan.ip && (
+                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                <strong>IP Address:</strong> {results.urlScan.ip}
+                                            </p>
+                                        )}
+                                        {results.urlScan.server && (
+                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                <strong>Server:</strong> {results.urlScan.server}
+                                            </p>
+                                        )}
+                                        {results.urlScan.scanDate && (
+                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                <strong>Scan Date:</strong> {new Date(results.urlScan.scanDate).toLocaleString()}
+                                            </p>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {results.greyNoise && !results.greyNoise.error && (
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    🌐 GreyNoise Intelligence
+                                </h4>
+                                <a
+                                    href={`https://www.greynoise.io/viz/ip/${results.indicator}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
+                                >
+                                    View Full Report →
+                                </a>
+                            </div>
+                            
+                            <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                        results.greyNoise.classification === 'malicious'
+                                            ? 'bg-red-100 text-red-800'
+                                            : results.greyNoise.classification === 'benign'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                        {results.greyNoise.classification.toUpperCase()}
+                                    </span>
+                                    
+                                    {results.greyNoise.noise && (
+                                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${darkMode ? 'bg-yellow-900 text-yellow-300' : 'bg-yellow-100 text-yellow-800'}`}>
+                                            🔊 Internet Noise
+                                        </span>
+                                    )}
+                                    
+                                    {results.greyNoise.riot && (
+                                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
+                                            🏢 Common Business Service
+                                        </span>
+                                    )}
+                                </div>
+                                
+                                {results.greyNoise.name && results.greyNoise.name !== 'N/A' && (
+                                    <p className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        {results.greyNoise.name}
+                                    </p>
+                                )}
+                            </div>
+                            
+                            <div className={`space-y-2 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                {results.greyNoise.lastSeen && results.greyNoise.lastSeen !== 'N/A' && (
+                                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        <strong>Last Seen:</strong> {new Date(results.greyNoise.lastSeen).toLocaleString()}
+                                    </p>
+                                )}
+                                {results.greyNoise.message && (
+                                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        <strong>Note:</strong> {results.greyNoise.message}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {results.abuseIPDB && !results.abuseIPDB.error && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">

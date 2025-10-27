@@ -31,13 +31,17 @@ app.http('ThreatIntelLookup', {
 
             const vtApiKey = process.env.VIRUSTOTAL_API_KEY;
             const aipdbApiKey = process.env.ABUSEIPDB_API_KEY;
+            const urlscanApiKey = process.env.URLSCAN_API_KEY;
+            const greynoiseApiKey = process.env.GREYNOISE_API_KEY;
 
             const indicatorType = detectIndicatorType(indicator);
             const results = {
                 indicator: indicator,
                 type: indicatorType,
                 virusTotal: null,
-                abuseIPDB: null
+                abuseIPDB: null,
+                urlScan: null,
+                greyNoise: null
             };
 
             // Query VirusTotal
@@ -57,6 +61,26 @@ app.http('ThreatIntelLookup', {
                 } catch (error) {
                     context.log.error('AbuseIPDB error:', error.message);
                     results.abuseIPDB = { error: error.message };
+                }
+            }
+
+            // Query URLScan.io (URL and Domain)
+            if ((indicatorType === 'URL' || indicatorType === 'Domain') && urlscanApiKey) {
+                try {
+                    results.urlScan = await queryURLScan(indicator, indicatorType, urlscanApiKey);
+                } catch (error) {
+                    context.log.error('URLScan error:', error.message);
+                    results.urlScan = { error: error.message };
+                }
+            }
+
+            // Query GreyNoise (IP only)
+            if (indicatorType === 'IP' && greynoiseApiKey) {
+                try {
+                    results.greyNoise = await queryGreyNoise(indicator, greynoiseApiKey);
+                } catch (error) {
+                    context.log.error('GreyNoise error:', error.message);
+                    results.greyNoise = { error: error.message };
                 }
             }
 
@@ -157,4 +181,78 @@ async function queryAbuseIPDB(ip, apiKey) {
         domain: data.domain,
         isWhitelisted: data.isWhitelisted
     };
+}
+
+async function queryURLScan(indicator, type, apiKey) {
+    // First, search for existing scans
+    const searchQuery = type === 'URL' ? `page.url:"${indicator}"` : `domain:${indicator}`;
+    
+    try {
+        const searchResponse = await axios.get('https://urlscan.io/api/v1/search/', {
+            headers: { 'API-Key': apiKey },
+            params: { q: searchQuery }
+        });
+
+        if (searchResponse.data.results && searchResponse.data.results.length > 0) {
+            const latestResult = searchResponse.data.results[0];
+            return {
+                verdictMalicious: latestResult.verdicts?.overall?.malicious || false,
+                score: latestResult.verdicts?.overall?.score || 0,
+                categories: latestResult.verdicts?.overall?.categories || [],
+                screenshot: latestResult.screenshot,
+                reportUrl: latestResult.result,
+                ip: latestResult.page?.ip,
+                server: latestResult.page?.server,
+                scanDate: latestResult.task?.time
+            };
+        }
+
+        // If no results, submit a new scan
+        const submitResponse = await axios.post('https://urlscan.io/api/v1/scan/', {
+            url: indicator,
+            visibility: 'public'
+        }, {
+            headers: { 
+                'API-Key': apiKey,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        return {
+            scanning: true,
+            reportUrl: submitResponse.data.result,
+            message: 'Scan submitted, results will be available in ~30 seconds'
+        };
+
+    } catch (error) {
+        throw new Error(`URLScan query failed: ${error.message}`);
+    }
+}
+
+async function queryGreyNoise(ip, apiKey) {
+    try {
+        const response = await axios.get(`https://api.greynoise.io/v3/community/${ip}`, {
+            headers: { 'key': apiKey }
+        });
+
+        const data = response.data;
+        return {
+            noise: data.noise || false,
+            riot: data.riot || false,
+            classification: data.classification || 'unknown',
+            name: data.name || 'N/A',
+            lastSeen: data.last_seen || 'N/A',
+            message: data.message || ''
+        };
+    } catch (error) {
+        if (error.response && error.response.status === 404) {
+            return {
+                noise: false,
+                riot: false,
+                classification: 'unknown',
+                message: 'IP not found in GreyNoise database'
+            };
+        }
+        throw new Error(`GreyNoise query failed: ${error.message}`);
+    }
 }
