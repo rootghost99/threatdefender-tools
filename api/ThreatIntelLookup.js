@@ -128,20 +128,11 @@ app.http('ThreatIntelLookup', {
                 try {
                     context.log('Querying MXToolbox ARIN/WHOIS for:', indicator);
                     results.mxToolbox = await queryMXToolbox(indicator, mxToolboxApiKey);
-                    context.log('MXToolbox query completed');
-                    context.log('MXToolbox result hasData:', results.mxToolbox?.hasData);
-                    context.log('MXToolbox result error:', results.mxToolbox?.error);
-                    if (results.mxToolbox?.error) {
-                        context.log.error('MXToolbox returned error:', results.mxToolbox.errorMessage);
-                        context.log.error('MXToolbox error code:', results.mxToolbox.errorCode);
-                    }
+                    context.log('MXToolbox query successful');
                 } catch (error) {
-                    context.log.error('MXToolbox threw exception:', error.message);
-                    context.log.error('MXToolbox error stack:', error.stack);
-                    results.mxToolbox = { error: true, errorMessage: error.message };
+                    context.log.error('MXToolbox error:', error.message);
+                    results.mxToolbox = { error: error.message };
                 }
-            } else if (indicatorType === 'IP') {
-                context.log.warn('MXToolbox API key not configured');
             }
 
             context.log('All queries complete, returning results');
@@ -466,16 +457,13 @@ async function queryAlienVault(indicator, type, apiKey) {
 
 async function queryMXToolbox(ip, apiKey) {
     try {
-        const response = await axios.get(`https://mxtoolbox.com/api/v1/Lookup/arin`, {
+        const response = await axios.get(`https://mxtoolbox.com/api/v1/Lookup/whois`, {
             params: { argument: ip },
             headers: { 
                 'Authorization': apiKey
             },
             timeout: 15000 // 15 second timeout
         });
-
-        console.log('MXToolbox raw response status:', response.status);
-        console.log('MXToolbox raw response data:', JSON.stringify(response.data).substring(0, 500));
 
         const data = response.data;
         
@@ -549,10 +537,6 @@ async function queryMXToolbox(ip, apiKey) {
         };
     } catch (error) {
         // Always return a safe object, never throw
-        console.error('MXToolbox API error:', error.message);
-        console.error('MXToolbox error response:', error.response?.status, error.response?.statusText);
-        console.error('MXToolbox error data:', JSON.stringify(error.response?.data || 'no data'));
-        
         return {
             organization: 'Unknown',
             netRange: 'N/A',
@@ -568,9 +552,8 @@ async function queryMXToolbox(ip, apiKey) {
             error: true,
             errorMessage: error.response?.status === 404 
                 ? 'IP not found in ARIN database' 
-                : `Query failed: ${error.message || 'Unknown error'}. Status: ${error.response?.status || 'N/A'}`,
-            errorCode: error.response?.status || 'timeout',
-            apiEndpoint: 'https://mxtoolbox.com/api/v1/Lookup/arin'
+                : `Query failed: ${error.message || 'Unknown error'}`,
+            errorCode: error.response?.status || 'timeout'
         };
     }
 }
