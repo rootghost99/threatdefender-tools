@@ -35,6 +35,7 @@ app.http('ThreatIntelLookup', {
             const greynoiseApiKey = process.env.GREYNOISE_API_KEY;
             const shodanApiKey = process.env.SHODAN_API_KEY;
             const otxApiKey = process.env.ALIENVAULT_OTX_API_KEY;
+            const mxToolboxApiKey = process.env.MXTOOLBOX_API_KEY;
 
             const indicatorType = detectIndicatorType(indicator);
             const results = {
@@ -45,7 +46,8 @@ app.http('ThreatIntelLookup', {
                 urlScan: null,
                 greyNoise: null,
                 shodan: null,
-                alienVault: null
+                alienVault: null,
+                mxToolbox: null
             };
 
             // Query VirusTotal
@@ -118,6 +120,18 @@ app.http('ThreatIntelLookup', {
                     context.log.error('AlienVault OTX error:', error.message);
                     context.log.error('AlienVault OTX error stack:', error.stack);
                     results.alienVault = { error: error.message };
+                }
+            }
+
+            // Query MXToolbox for ARIN/WHOIS (IP only)
+            if (indicatorType === 'IP' && mxToolboxApiKey) {
+                try {
+                    context.log('Querying MXToolbox ARIN/WHOIS for:', indicator);
+                    results.mxToolbox = await queryMXToolbox(indicator, mxToolboxApiKey);
+                    context.log('MXToolbox query successful');
+                } catch (error) {
+                    context.log.error('MXToolbox error:', error.message);
+                    results.mxToolbox = { error: error.message };
                 }
             }
 
@@ -438,5 +452,108 @@ async function queryAlienVault(indicator, type, apiKey) {
             };
         }
         throw new Error(`AlienVault OTX query failed: ${error.message}`);
+    }
+}
+
+async function queryMXToolbox(ip, apiKey) {
+    try {
+        const response = await axios.get(`https://mxtoolbox.com/api/v1/Lookup/whois`, {
+            params: { argument: ip },
+            headers: { 
+                'Authorization': apiKey
+            },
+            timeout: 15000 // 15 second timeout
+        });
+
+        const data = response.data;
+        
+        // Extract ARIN/WHOIS information
+        const info = data.Information || [];
+        const failed = data.Failed || [];
+        const relatedIP = data.RelatedIP || [];
+        
+        // Parse common WHOIS fields from the response
+        let organization = 'Unknown';
+        let netRange = 'N/A';
+        let netName = 'N/A';
+        let country = 'N/A';
+        let registrationDate = 'N/A';
+        let updated = 'N/A';
+        let abuseEmail = 'N/A';
+        let techEmail = 'N/A';
+        
+        // Parse information from the Information array
+        info.forEach(item => {
+            const line = item.Information || '';
+            if (line.includes('Organization:')) {
+                organization = line.split('Organization:')[1]?.trim() || organization;
+            }
+            if (line.includes('OrgName:')) {
+                organization = line.split('OrgName:')[1]?.trim() || organization;
+            }
+            if (line.includes('NetRange:')) {
+                netRange = line.split('NetRange:')[1]?.trim() || netRange;
+            }
+            if (line.includes('CIDR:')) {
+                const cidr = line.split('CIDR:')[1]?.trim();
+                if (cidr && netRange === 'N/A') {
+                    netRange = cidr;
+                }
+            }
+            if (line.includes('NetName:')) {
+                netName = line.split('NetName:')[1]?.trim() || netName;
+            }
+            if (line.includes('Country:')) {
+                country = line.split('Country:')[1]?.trim() || country;
+            }
+            if (line.includes('RegDate:')) {
+                registrationDate = line.split('RegDate:')[1]?.trim() || registrationDate;
+            }
+            if (line.includes('Updated:')) {
+                updated = line.split('Updated:')[1]?.trim() || updated;
+            }
+            if (line.includes('OrgAbuseEmail:')) {
+                abuseEmail = line.split('OrgAbuseEmail:')[1]?.trim() || abuseEmail;
+            }
+            if (line.includes('OrgTechEmail:')) {
+                techEmail = line.split('OrgTechEmail:')[1]?.trim() || techEmail;
+            }
+        });
+
+        return {
+            organization: organization,
+            netRange: netRange,
+            netName: netName,
+            country: country,
+            registrationDate: registrationDate,
+            updated: updated,
+            abuseContact: abuseEmail,
+            techContact: techEmail,
+            relatedIPs: relatedIP.slice(0, 5), // Limit to 5 related IPs
+            rawInfo: info.slice(0, 20).map(i => i.Information || ''), // First 20 lines
+            hasData: info.length > 0 && !failed.length,
+            failed: failed.length > 0,
+            failedMessage: failed.length > 0 ? failed[0].Failed : null
+        };
+    } catch (error) {
+        // Always return a safe object, never throw
+        return {
+            organization: 'Unknown',
+            netRange: 'N/A',
+            netName: 'N/A',
+            country: 'N/A',
+            registrationDate: 'N/A',
+            updated: 'N/A',
+            abuseContact: 'N/A',
+            techContact: 'N/A',
+            relatedIPs: [],
+            rawInfo: [],
+            hasData: false,
+            error: true,
+            errorMessage: error.response?.status === 404 
+                ? 'IP not found in ARIN database' 
+                : `Query failed: ${error.message || 'Unknown error'}`,
+            errorCode: error.response?.status || 'timeout'
+        };
     }
 }
