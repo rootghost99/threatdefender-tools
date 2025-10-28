@@ -457,7 +457,7 @@ async function queryAlienVault(indicator, type, apiKey) {
 
 async function queryMXToolbox(ip, apiKey) {
     try {
-        const response = await axios.get(`https://mxtoolbox.com/api/v1/Lookup/whois`, {
+        const response = await axios.get(`https://mxtoolbox.com/api/v1/Lookup/arin`, {
             params: { argument: ip },
             headers: { 
                 'Authorization': apiKey
