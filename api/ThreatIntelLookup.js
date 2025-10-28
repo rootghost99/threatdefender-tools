@@ -18,13 +18,19 @@ app.http('ThreatIntelLookup', {
             };
         }
 
+        let indicator = 'unknown'; // Initialize with default value
+
         try {
             const body = await request.json();
-            const { indicator } = body;
+            indicator = body.indicator;
 
             if (!indicator) {
                 return {
                     status: 400,
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                        'Content-Type': 'application/json'
+                    },
                     jsonBody: { error: 'Missing indicator field' }
                 };
             }
@@ -62,7 +68,7 @@ app.http('ThreatIntelLookup', {
                 }
             }
 
-            // Query AbuseIPDB (IP only) - TESTING
+            // Query AbuseIPDB (IP only)
             if (indicatorType === 'IP' && aipdbApiKey) {
                 try {
                     context.log('Querying AbuseIPDB for:', indicator);
@@ -156,7 +162,11 @@ app.http('ThreatIntelLookup', {
                     'Access-Control-Allow-Origin': '*',
                     'Content-Type': 'application/json'
                 },
-                jsonBody: { error: 'Failed to perform lookup', details: error.message, stack: error.stack }
+                jsonBody: { 
+                    error: 'Failed to perform lookup', 
+                    details: error.message,
+                    indicator: indicator
+                }
             };
         }
     }
@@ -203,7 +213,7 @@ async function queryVirusTotal(indicator, type, apiKey) {
 
     const response = await axios.get(endpoint, {
         headers: { 'x-apikey': apiKey },
-        timeout: 15000 // 15 second timeout
+        timeout: 15000
     });
 
     const stats = response.data.data.attributes.last_analysis_stats;
@@ -212,146 +222,116 @@ async function queryVirusTotal(indicator, type, apiKey) {
     return {
         malicious: stats.malicious || 0,
         suspicious: stats.suspicious || 0,
-        undetected: stats.undetected || 0,
         harmless: stats.harmless || 0,
-        reputation: response.data.data.attributes.reputation || 'N/A',
-        lastAnalysis: lastAnalysisDate ? new Date(lastAnalysisDate * 1000).toISOString() : 'N/A'
+        undetected: stats.undetected || 0,
+        lastAnalysisDate: lastAnalysisDate ? new Date(lastAnalysisDate * 1000).toLocaleString() : 'N/A',
+        hasData: true
     };
 }
 
 async function queryAbuseIPDB(ip, apiKey) {
-    try {
-        const response = await axios.get('https://api.abuseipdb.com/api/v2/check', {
-            headers: {
-                'Key': apiKey,
-                'Accept': 'application/json'
-            },
-            params: {
-                ipAddress: ip,
-                maxAgeInDays: 90
-            },
-            timeout: 10000 // 10 second timeout
-        });
+    const response = await axios.get('https://api.abuseipdb.com/api/v2/check', {
+        params: {
+            ipAddress: ip,
+            maxAgeInDays: 90,
+            verbose: true
+        },
+        headers: {
+            'Key': apiKey,
+            'Accept': 'application/json'
+        },
+        timeout: 15000
+    });
 
-        const data = response.data.data;
-        return {
-            abuseScore: data.abuseConfidenceScore || 0,
-            totalReports: data.totalReports || 0,
-            countryCode: data.countryCode || 'N/A',
-            usageType: data.usageType || 'N/A',
-            isp: data.isp || 'Unknown',
-            domain: data.domain || 'N/A',
-            isWhitelisted: data.isWhitelisted || false
-        };
-    } catch (error) {
-        if (error.response) {
-            throw new Error(`AbuseIPDB API error (${error.response.status}): ${error.response.data?.errors?.[0]?.detail || 'Unknown error'}`);
-        }
-        throw new Error(`AbuseIPDB query failed: ${error.message}`);
-    }
+    const data = response.data.data;
+    
+    return {
+        abuseConfidenceScore: data.abuseConfidenceScore,
+        usageType: data.usageType || 'Unknown',
+        isp: data.isp || 'Unknown',
+        domain: data.domain || 'N/A',
+        country: data.countryCode || 'Unknown',
+        totalReports: data.totalReports,
+        lastReportedAt: data.lastReportedAt || 'Never',
+        isWhitelisted: data.isWhitelisted || false,
+        hasData: true
+    };
 }
 
 async function queryURLScan(indicator, type, apiKey) {
-    // First, search for existing scans
-    const searchQuery = type === 'URL' ? `page.url:"${indicator}"` : `domain:${indicator}`;
+    let searchUrl;
     
-    try {
-        const searchResponse = await axios.get('https://urlscan.io/api/v1/search/', {
-            headers: { 'API-Key': apiKey },
-            params: { q: searchQuery },
-            timeout: 10000 // 10 second timeout
-        });
-
-        if (searchResponse.data.results && searchResponse.data.results.length > 0) {
-            const latestResult = searchResponse.data.results[0];
-            return {
-                verdictMalicious: latestResult.verdicts?.overall?.malicious || false,
-                score: latestResult.verdicts?.overall?.score || 0,
-                categories: latestResult.verdicts?.overall?.categories || [],
-                screenshot: latestResult.screenshot,
-                reportUrl: latestResult.result,
-                ip: latestResult.page?.ip,
-                server: latestResult.page?.server,
-                scanDate: latestResult.task?.time
-            };
-        }
-
-        // If no results, submit a new scan
-        const submitResponse = await axios.post('https://urlscan.io/api/v1/scan/', {
-            url: indicator,
-            visibility: 'public'
-        }, {
-            headers: { 
-                'API-Key': apiKey,
-                'Content-Type': 'application/json'
-            },
-            timeout: 10000 // 10 second timeout
-        });
-
-        return {
-            scanning: true,
-            reportUrl: submitResponse.data.result,
-            message: 'Scan submitted, results will be available in ~30 seconds'
-        };
-
-    } catch (error) {
-        throw new Error(`URLScan query failed: ${error.message}`);
+    if (type === 'URL') {
+        searchUrl = indicator;
+    } else if (type === 'Domain') {
+        searchUrl = `http://${indicator}`;
     }
+
+    const submitResponse = await axios.post('https://urlscan.io/api/v1/scan/', 
+        { url: searchUrl },
+        {
+            headers: { 'API-Key': apiKey },
+            timeout: 15000
+        }
+    );
+
+    const scanId = submitResponse.data.uuid;
+    
+    await new Promise(resolve => setTimeout(resolve, 10000));
+
+    const resultResponse = await axios.get(`https://urlscan.io/api/v1/result/${scanId}/`, {
+        timeout: 15000
+    });
+
+    const result = resultResponse.data;
+    
+    return {
+        verdict: result.verdicts?.overall?.score > 50 ? 'Malicious' : 'Clean',
+        score: result.verdicts?.overall?.score || 0,
+        malicious: result.verdicts?.overall?.malicious || false,
+        categories: result.verdicts?.overall?.categories || [],
+        brands: result.verdicts?.overall?.brands || [],
+        screenshot: result.task?.screenshotURL || null,
+        hasData: true
+    };
 }
 
 async function queryGreyNoise(ip, apiKey) {
-    try {
-        const response = await axios.get(`https://api.greynoise.io/v3/community/${ip}`, {
-            headers: { 'key': apiKey },
-            timeout: 10000 // 10 second timeout
-        });
+    const response = await axios.get(`https://api.greynoise.io/v3/community/${ip}`, {
+        headers: { 'key': apiKey },
+        timeout: 15000
+    });
 
-        const data = response.data;
-        return {
-            noise: data.noise || false,
-            riot: data.riot || false,
-            classification: data.classification || 'unknown',
-            name: data.name || 'N/A',
-            lastSeen: data.last_seen || 'N/A',
-            message: data.message || ''
-        };
-    } catch (error) {
-        // Always return a safe object, never throw
-        return {
-            noise: false,
-            riot: false,
-            classification: 'unknown',
-            name: 'N/A',
-            lastSeen: 'N/A',
-            message: error.response?.status === 404 
-                ? 'IP not found in GreyNoise database' 
-                : `Query failed: ${error.message || 'Unknown error'}`,
-            error: true,
-            errorCode: error.response?.status || 'timeout'
-        };
-    }
+    const data = response.data;
+    
+    return {
+        classification: data.classification || 'unknown',
+        name: data.name || 'Unknown',
+        link: data.link || null,
+        lastSeen: data.last_seen || 'Never',
+        message: data.message || 'No additional information',
+        hasData: data.classification !== 'unknown'
+    };
 }
 
 async function queryShodan(ip, apiKey) {
     try {
         const response = await axios.get(`https://api.shodan.io/shodan/host/${ip}`, {
             params: { key: apiKey },
-            timeout: 10000 // 10 second timeout
+            timeout: 15000
         });
 
         const data = response.data;
         
-        // Extract open ports and services
         const ports = data.ports || [];
-        const services = (data.data || []).slice(0, 10).map(service => ({
-            port: service.port || 0,
-            protocol: service.transport || 'unknown',
+        const services = (data.data || []).slice(0, 5).map(service => ({
+            port: service.port,
+            protocol: service.transport || 'tcp',
             product: service.product || 'Unknown',
             version: service.version || '',
             banner: service.data ? service.data.substring(0, 200) : ''
         }));
 
-        // Extract vulnerabilities
         const vulns = data.vulns || {};
         const topVulns = Object.keys(vulns).slice(0, 10);
 
@@ -372,7 +352,6 @@ async function queryShodan(ip, apiKey) {
             hasData: true
         };
     } catch (error) {
-        // Return a safe error object that won't break JSON serialization
         return {
             message: 'No information available for this IP',
             hasData: false,
@@ -385,7 +364,6 @@ async function queryAlienVault(indicator, type, apiKey) {
     try {
         let endpoint;
         
-        // Determine the correct OTX endpoint based on indicator type
         switch (type) {
             case 'IP':
                 endpoint = `https://otx.alienvault.com/api/v1/indicators/IPv4/${indicator}/general`;
@@ -394,7 +372,6 @@ async function queryAlienVault(indicator, type, apiKey) {
                 endpoint = `https://otx.alienvault.com/api/v1/indicators/domain/${indicator}/general`;
                 break;
             case 'URL':
-                // URL needs to be encoded
                 const encodedUrl = encodeURIComponent(indicator);
                 endpoint = `https://otx.alienvault.com/api/v1/indicators/url/${encodedUrl}/general`;
                 break;
@@ -408,12 +385,11 @@ async function queryAlienVault(indicator, type, apiKey) {
 
         const response = await axios.get(endpoint, {
             headers: { 'X-OTX-API-KEY': apiKey },
-            timeout: 15000 // 15 second timeout
+            timeout: 15000
         });
 
         const data = response.data;
         
-        // Extract pulse information
         const pulses = data.pulse_info?.pulses || [];
         const topPulses = pulses.slice(0, 5).map(pulse => ({
             name: pulse.name,
@@ -425,10 +401,7 @@ async function queryAlienVault(indicator, type, apiKey) {
             id: pulse.id
         }));
 
-        // Extract validation info
         const validations = data.validation || [];
-        
-        // Get reputation/threat score
         const reputation = data.reputation || 0;
         
         return {
@@ -462,17 +435,15 @@ async function queryMXToolbox(ip, apiKey) {
             headers: { 
                 'Authorization': apiKey
             },
-            timeout: 15000 // 15 second timeout
+            timeout: 15000
         });
 
         const data = response.data;
         
-        // Extract ARIN/WHOIS information
         const info = data.Information || [];
         const failed = data.Failed || [];
         const relatedIP = data.RelatedIP || [];
         
-        // Parse common WHOIS fields from the response
         let organization = 'Unknown';
         let netRange = 'N/A';
         let netName = 'N/A';
@@ -482,7 +453,6 @@ async function queryMXToolbox(ip, apiKey) {
         let abuseEmail = 'N/A';
         let techEmail = 'N/A';
         
-        // Parse information from the Information array
         info.forEach(item => {
             const line = item.Information || '';
             if (line.includes('Organization:')) {
@@ -529,14 +499,13 @@ async function queryMXToolbox(ip, apiKey) {
             updated: updated,
             abuseContact: abuseEmail,
             techContact: techEmail,
-            relatedIPs: relatedIP.slice(0, 5), // Limit to 5 related IPs
-            rawInfo: info.slice(0, 20).map(i => i.Information || ''), // First 20 lines
+            relatedIPs: relatedIP.slice(0, 5),
+            rawInfo: info.slice(0, 20).map(i => i.Information || ''),
             hasData: info.length > 0 && !failed.length,
             failed: failed.length > 0,
             failedMessage: failed.length > 0 ? failed[0].Failed : null
         };
     } catch (error) {
-        // Always return a safe object, never throw
         return {
             organization: 'Unknown',
             netRange: 'N/A',
