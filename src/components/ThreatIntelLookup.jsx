@@ -80,7 +80,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                     🔍 Threat Intel Lookup
                 </h2>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Query indicators against VirusTotal and AbuseIPDB
+                    Query indicators against VirusTotal, AbuseIPDB, MXToolbox, and more
                 </p>
             </div>
 
@@ -224,6 +224,15 @@ export default function ThreatIntelLookup({ darkMode }) {
                                                  typeof results.alienVault.pulses[0].adversary === 'string' &&
                                                     ` | Adversary: ${results.alienVault.pulses[0].adversary}`
                                                 }
+                                            </td>
+                                        </tr>
+                                    )}
+                                    
+                                    {results.type === 'IP' && results.mxToolbox && results.mxToolbox.hasData && !results.mxToolbox.error && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">MXToolbox ARIN:</td>
+                                            <td className="py-2">
+                                                {results.mxToolbox.organization || 'Unknown'} | {results.mxToolbox.netRange || 'N/A'} | {results.mxToolbox.country || 'N/A'}
                                             </td>
                                         </tr>
                                     )}
@@ -816,6 +825,161 @@ export default function ThreatIntelLookup({ darkMode }) {
                                         ✅ Whitelisted
                                     </p>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {results.type === 'IP' && results.mxToolbox && !results.mxToolbox.error && results.mxToolbox.hasData && (
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    📋 ARIN/WHOIS Registration
+                                </h4>
+                                <a
+                                    href={`https://mxtoolbox.com/SuperTool.aspx?action=whois%3a${results.indicator}&run=toolpage`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
+                                >
+                                    View on MXToolbox →
+                                </a>
+                            </div>
+
+                            {/* Organization & Network Info */}
+                            <div className="mb-4">
+                                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Organization & Network
+                                </p>
+                                <div className="space-y-2">
+                                    <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                        <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                            ORGANIZATION
+                                        </p>
+                                        <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            {results.mxToolbox.organization}
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                NETWORK RANGE
+                                            </p>
+                                            <p className={`text-sm font-mono ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                {results.mxToolbox.netRange}
+                                            </p>
+                                        </div>
+                                        
+                                        <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                NETWORK NAME
+                                            </p>
+                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                {results.mxToolbox.netName}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                        <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                            COUNTRY
+                                        </p>
+                                        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            {results.mxToolbox.country}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Registration Dates */}
+                            <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Registration Information
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                            Registration Date
+                                        </p>
+                                        <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            {results.mxToolbox.registrationDate}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                            Last Updated
+                                        </p>
+                                        <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            {results.mxToolbox.updated}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Contact Information */}
+                            <div className="mb-4">
+                                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Contact Information
+                                </p>
+                                <div className="space-y-2">
+                                    {results.mxToolbox.abuseContact && results.mxToolbox.abuseContact !== 'N/A' && (
+                                        <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                🚨 ABUSE CONTACT
+                                            </p>
+                                            <a 
+                                                href={`mailto:${results.mxToolbox.abuseContact}`}
+                                                className={`text-sm font-mono ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                                            >
+                                                {results.mxToolbox.abuseContact}
+                                            </a>
+                                        </div>
+                                    )}
+                                    
+                                    {results.mxToolbox.techContact && results.mxToolbox.techContact !== 'N/A' && (
+                                        <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                🔧 TECHNICAL CONTACT
+                                            </p>
+                                            <a 
+                                                href={`mailto:${results.mxToolbox.techContact}`}
+                                                className={`text-sm font-mono ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                                            >
+                                                {results.mxToolbox.techContact}
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Related IPs */}
+                            {results.mxToolbox.relatedIPs && results.mxToolbox.relatedIPs.length > 0 && (
+                                <div className={`pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        Related IP Addresses
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {results.mxToolbox.relatedIPs.map((ip, idx) => (
+                                            <span 
+                                                key={idx}
+                                                className={`px-3 py-1 rounded font-mono text-xs ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'}`}
+                                            >
+                                                {ip}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {results.type === 'IP' && results.mxToolbox && (results.mxToolbox.error || !results.mxToolbox.hasData) && (
+                        <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'}`}>
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg">📋</span>
+                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <strong>MXToolbox ARIN:</strong> {results.mxToolbox.errorMessage || 'No registration data available'}
+                                </p>
                             </div>
                         </div>
                     )}
