@@ -35,6 +35,12 @@ export default function ThreatIntelLookup({ darkMode }) {
         }
     };
 
+    const copyToClipboard = (text) => {
+        try {
+            navigator.clipboard.writeText(text);
+        } catch {}
+    };
+
     const getThreatLevel = (vt) => {
         if (!vt || vt.error) return 'unknown';
         if (vt.malicious > 5) return 'high';
@@ -80,7 +86,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                     🔍 Threat Intel Lookup
                 </h2>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Query indicators against VirusTotal, AbuseIPDB, MXToolbox, and more
+                    Query indicators against VirusTotal, AbuseIPDB, URLScan, GreyNoise, Shodan, OTX, MXToolbox, and ARIN RDAP
                 </p>
             </div>
 
@@ -125,16 +131,17 @@ export default function ThreatIntelLookup({ darkMode }) {
                     <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
                         <div className="flex items-center justify-between">
                             <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                {results.indicator}
+                                {results.indicator || ''}
                             </h3>
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                 darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'
                             }`}>
-                                {results.type}
+                                {results.type || 'Unknown'}
                             </span>
                         </div>
                     </div>
 
+                    {/* Quick Results Summary */}
                     <div className={`p-4 rounded-lg border-2 ${darkMode ? 'bg-gray-800 border-blue-600' : 'bg-blue-50 border-blue-400'}`}>
                         <h3 className={`text-md font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                             📋 Quick Results Summary
@@ -146,7 +153,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                         <td className="py-2 pr-4 font-semibold">Indicator:</td>
                                         <td className="py-2 font-mono">{String(results.indicator || '')} ({String(results.type || 'Unknown')})</td>
                                     </tr>
-                                    
+
                                     {results.virusTotal && !results.virusTotal.error && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">VirusTotal:</td>
@@ -161,7 +168,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                             </td>
                                         </tr>
                                     )}
-                                    
+
                                     {results.abuseIPDB && !results.abuseIPDB.error && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">AbuseIPDB:</td>
@@ -170,7 +177,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                             </td>
                                         </tr>
                                     )}
-                                    
+
                                     {results.greyNoise && !results.greyNoise.error && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">GreyNoise:</td>
@@ -182,7 +189,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                             </td>
                                         </tr>
                                     )}
-                                    
+
                                     {results.shodan && results.shodan.hasData && !results.shodan.error && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">Shodan:</td>
@@ -193,7 +200,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                             </td>
                                         </tr>
                                     )}
-                                    
+
                                     {results.urlScan && !results.urlScan.error && !results.urlScan.scanning && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">URLScan.io:</td>
@@ -207,7 +214,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                             </td>
                                         </tr>
                                     )}
-                                    
+
                                     {results.alienVault && results.alienVault.hasData && !results.alienVault.error && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">AlienVault OTX:</td>
@@ -227,24 +234,35 @@ export default function ThreatIntelLookup({ darkMode }) {
                                             </td>
                                         </tr>
                                     )}
-                                    
+
+                                    {/* MXToolbox WHOIS summary */}
                                     {results.type === 'IP' && results.mxToolbox && results.mxToolbox.hasData && !results.mxToolbox.error && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
-                                            <td className="py-2 pr-4 font-semibold">MXToolbox ARIN:</td>
+                                            <td className="py-2 pr-4 font-semibold">MXToolbox ARIN/WHOIS:</td>
                                             <td className="py-2">
                                                 {results.mxToolbox.organization || 'Unknown'} | {results.mxToolbox.netRange || 'N/A'} | {results.mxToolbox.country || 'N/A'}
                                             </td>
                                         </tr>
                                     )}
-                                    
-                                    {/* Show no data entries */}
+
+                                    {/* ARIN RDAP summary */}
+                                    {results.type === 'IP' && results.arin && results.arin.hasData && !results.arin.error && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                            <td className="py-2 pr-4 font-semibold">ARIN RDAP:</td>
+                                            <td className="py-2">
+                                                {results.arin.org || 'Unknown'} | {results.arin.startAddress || 'N/A'} – {results.arin.endAddress || 'N/A'} | {results.arin.country || 'N/A'}
+                                            </td>
+                                        </tr>
+                                    )}
+
+                                    {/* No data notices */}
                                     {results.type === 'IP' && results.shodan && (!results.shodan.hasData || results.shodan.message === 'No information available for this IP') && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">Shodan:</td>
                                             <td className="py-2 text-gray-500">No data available</td>
                                         </tr>
                                     )}
-                                    
+
                                     {results.alienVault && results.alienVault.hasData === false && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                                             <td className="py-2 pr-4 font-semibold">AlienVault OTX:</td>
@@ -259,6 +277,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </p>
                     </div>
 
+                    {/* VirusTotal */}
                     {results.virusTotal && !results.virusTotal.error && (
                         <div className={`p-6 rounded-lg border-2 ${getThreatColor(getThreatLevel(results.virusTotal))}`}>
                             <div className="flex items-center justify-between mb-4">
@@ -276,36 +295,20 @@ export default function ThreatIntelLookup({ darkMode }) {
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                 <div className="text-center">
-                                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Malicious
-                                    </p>
-                                    <p className="text-2xl font-bold text-red-600">
-                                        {results.virusTotal.malicious}
-                                    </p>
+                                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Malicious</p>
+                                    <p className="text-2xl font-bold text-red-600">{results.virusTotal.malicious}</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Suspicious
-                                    </p>
-                                    <p className="text-2xl font-bold text-yellow-600">
-                                        {results.virusTotal.suspicious}
-                                    </p>
+                                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Suspicious</p>
+                                    <p className="text-2xl font-bold text-yellow-600">{results.virusTotal.suspicious}</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Undetected
-                                    </p>
-                                    <p className={`text-2xl font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        {results.virusTotal.undetected}
-                                    </p>
+                                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Undetected</p>
+                                    <p className={`text-2xl font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{results.virusTotal.undetected}</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Harmless
-                                    </p>
-                                    <p className="text-2xl font-bold text-green-600">
-                                        {results.virusTotal.harmless}
-                                    </p>
+                                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Harmless</p>
+                                    <p className="text-2xl font-bold text-green-600">{results.virusTotal.harmless}</p>
                                 </div>
                             </div>
                             <div className={`pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
@@ -321,6 +324,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
+                    {/* AlienVault OTX */}
                     {results.alienVault && !results.alienVault.error && results.alienVault.hasData && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
@@ -443,6 +447,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
+                    {/* URLScan */}
                     {results.urlScan && !results.urlScan.error && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
@@ -463,9 +468,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                             
                             {results.urlScan.scanning ? (
                                 <div className={`p-4 rounded-lg ${darkMode ? 'bg-blue-900' : 'bg-blue-50'}`}>
-                                    <p className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
-                                        ⏳ {results.urlScan.message}
-                                    </p>
+                                    <p className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>⏳ {results.urlScan.message}</p>
                                 </div>
                             ) : (
                                 <>
@@ -495,32 +498,20 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     
                                     {results.urlScan.screenshot && (
                                         <div className="mb-4">
-                                            <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                Screenshot
-                                            </p>
-                                            <img 
-                                                src={results.urlScan.screenshot} 
-                                                alt="URLScan Screenshot" 
-                                                className="w-full rounded border"
-                                            />
+                                            <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Screenshot</p>
+                                            <img src={results.urlScan.screenshot} alt="URLScan Screenshot" className="w-full rounded border" />
                                         </div>
                                     )}
                                     
                                     <div className={`space-y-2 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
                                         {results.urlScan.ip && (
-                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                <strong>IP Address:</strong> {results.urlScan.ip}
-                                            </p>
+                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}><strong>IP Address:</strong> {results.urlScan.ip}</p>
                                         )}
                                         {results.urlScan.server && (
-                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                <strong>Server:</strong> {results.urlScan.server}
-                                            </p>
+                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}><strong>Server:</strong> {results.urlScan.server}</p>
                                         )}
                                         {results.urlScan.scanDate && (
-                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                <strong>Scan Date:</strong> {new Date(results.urlScan.scanDate).toLocaleString()}
-                                            </p>
+                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}><strong>Scan Date:</strong> {new Date(results.urlScan.scanDate).toLocaleString()}</p>
                                         )}
                                     </div>
                                 </>
@@ -528,6 +519,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
+                    {/* GreyNoise */}
                     {results.greyNoise && !results.greyNoise.error && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
@@ -570,33 +562,26 @@ export default function ThreatIntelLookup({ darkMode }) {
                                 </div>
                                 
                                 {results.greyNoise.name && results.greyNoise.name !== 'N/A' && (
-                                    <p className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                        {results.greyNoise.name}
-                                    </p>
+                                    <p className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{results.greyNoise.name}</p>
                                 )}
                             </div>
                             
                             <div className={`space-y-2 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
                                 {results.greyNoise.lastSeen && results.greyNoise.lastSeen !== 'N/A' && (
-                                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        <strong>Last Seen:</strong> {new Date(results.greyNoise.lastSeen).toLocaleString()}
-                                    </p>
+                                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}><strong>Last Seen:</strong> {new Date(results.greyNoise.lastSeen).toLocaleString()}</p>
                                 )}
                                 {results.greyNoise.message && (
-                                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        <strong>Note:</strong> {results.greyNoise.message}
-                                    </p>
+                                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}><strong>Note:</strong> {results.greyNoise.message}</p>
                                 )}
                             </div>
                         </div>
                     )}
 
+                    {/* Shodan */}
                     {results.shodan && !results.shodan.error && results.shodan.hasData && results.shodan.message !== 'No information available for this IP' && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
-                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    🔍 Shodan Reconnaissance
-                                </h4>
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>🔍 Shodan Reconnaissance</h4>
                                 <a
                                     href={`https://www.shodan.io/host/${results.indicator}`}
                                     target="_blank"
@@ -610,59 +595,37 @@ export default function ThreatIntelLookup({ darkMode }) {
                             <div className="mb-4">
                                 <div className="grid grid-cols-2 gap-4 mb-4">
                                     <div>
-                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                            Organization
-                                        </p>
-                                        <p className={`text-base ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                            {results.shodan.organization}
-                                        </p>
+                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Organization</p>
+                                        <p className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>{results.shodan.organization}</p>
                                     </div>
                                     <div>
-                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                            ISP
-                                        </p>
-                                        <p className={`text-base ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                            {results.shodan.isp}
-                                        </p>
+                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>ISP</p>
+                                        <p className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>{results.shodan.isp}</p>
                                     </div>
                                     <div>
-                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                            Location
-                                        </p>
-                                        <p className={`text-base ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                            {results.shodan.city}, {results.shodan.country}
-                                        </p>
+                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Location</p>
+                                        <p className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>{results.shodan.city}, {results.shodan.country}</p>
                                     </div>
                                     <div>
-                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                            ASN
-                                        </p>
-                                        <p className={`text-base ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                            {results.shodan.asn}
-                                        </p>
+                                        <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>ASN</p>
+                                        <p className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>{results.shodan.asn}</p>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-4 mb-4">
                                     <div className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-blue-900' : 'bg-blue-50'}`}>
-                                        <p className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
-                                            <strong>{results.shodan.openPortsCount}</strong> Open Ports
-                                        </p>
+                                        <p className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}><strong>{results.shodan.openPortsCount}</strong> Open Ports</p>
                                     </div>
                                     {results.shodan.vulnCount > 0 && (
                                         <div className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-red-900' : 'bg-red-50'}`}>
-                                            <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-700'}`}>
-                                                <strong>{results.shodan.vulnCount}</strong> Vulnerabilities
-                                            </p>
+                                            <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-700'}`}><strong>{results.shodan.vulnCount}</strong> Vulnerabilities</p>
                                         </div>
                                     )}
                                 </div>
 
                                 {results.shodan.tags && results.shodan.tags.length > 0 && (
                                     <div className="mb-4">
-                                        <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                            Tags
-                                        </p>
+                                        <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Tags</p>
                                         <div className="flex gap-2 flex-wrap">
                                             {results.shodan.tags.map((tag, idx) => (
                                                 <span key={idx} className={`px-2 py-1 rounded text-xs ${darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
@@ -676,9 +639,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                             {results.shodan.ports && results.shodan.ports.length > 0 && (
                                 <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Open Ports
-                                    </p>
+                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Open Ports</p>
                                     <div className="flex gap-2 flex-wrap">
                                         {results.shodan.ports.map((port, idx) => (
                                             <span key={idx} className={`px-3 py-1 rounded ${darkMode ? 'bg-gray-600 text-white' : 'bg-gray-200 text-gray-900'} font-mono text-sm`}>
@@ -691,19 +652,13 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                             {results.shodan.services && results.shodan.services.length > 0 && (
                                 <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                                    <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Services Detected
-                                    </p>
+                                    <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Services Detected</p>
                                     <div className="space-y-3">
                                         {results.shodan.services.map((service, idx) => (
                                             <div key={idx} className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`font-mono font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                                                        Port {service.port}/{service.protocol}
-                                                    </span>
-                                                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                        {service.product} {service.version}
-                                                    </span>
+                                                    <span className={`font-mono font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Port {service.port}/{service.protocol}</span>
+                                                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{service.product} {service.version}</span>
                                                 </div>
                                                 {service.banner && (
                                                     <pre className={`text-xs mt-2 p-2 rounded overflow-x-auto ${darkMode ? 'bg-gray-900 text-gray-300' : 'bg-white text-gray-700'}`}>
@@ -718,9 +673,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                             {results.shodan.vulnerabilities && results.shodan.vulnerabilities.length > 0 && (
                                 <div className="mb-4">
-                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Known Vulnerabilities (Top 10)
-                                    </p>
+                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Known Vulnerabilities (Top 10)</p>
                                     <div className="space-y-1">
                                         {results.shodan.vulnerabilities.map((cve, idx) => (
                                             <a
@@ -739,9 +692,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                             {results.shodan.hostnames && results.shodan.hostnames.length > 0 && (
                                 <div className={`pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Hostnames
-                                    </p>
+                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Hostnames</p>
                                     <div className="space-y-1">
                                         {results.shodan.hostnames.map((hostname, idx) => (
                                             <p key={idx} className={`text-sm font-mono ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -754,42 +705,17 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                             {results.shodan.lastUpdate && results.shodan.lastUpdate !== 'N/A' && (
                                 <div className={`pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                                    <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                        Last updated: {new Date(results.shodan.lastUpdate).toLocaleString()}
-                                    </p>
+                                    <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>Last updated: {new Date(results.shodan.lastUpdate).toLocaleString()}</p>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {results.type === 'IP' && results.shodan && (!results.shodan.hasData || results.shodan.message === 'No information available for this IP') && (
-                        <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'}`}>
-                            <div className="flex items-center gap-2">
-                                <span className="text-lg">🔍</span>
-                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    <strong>Shodan:</strong> No reconnaissance data available for this IP
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
-                    {results.alienVault && results.alienVault.hasData === false && (
-                        <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'}`}>
-                            <div className="flex items-center gap-2">
-                                <span className="text-lg">🔮</span>
-                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    <strong>AlienVault OTX:</strong> No threat intelligence data found
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
+                    {/* AbuseIPDB */}
                     {results.abuseIPDB && !results.abuseIPDB.error && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
-                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    🚨 AbuseIPDB Report
-                                </h4>
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>🚨 AbuseIPDB Report</h4>
                                 <a
                                     href={`https://www.abuseipdb.com/check/${results.indicator}`}
                                     target="_blank"
@@ -800,41 +726,24 @@ export default function ThreatIntelLookup({ darkMode }) {
                                 </a>
                             </div>
                             <div className="mb-4">
-                                <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Abuse Confidence Score
-                                </p>
-                                <p className={`text-4xl font-bold ${getScoreColor(results.abuseIPDB.abuseScore)}`}>
-                                    {results.abuseIPDB.abuseScore}%
-                                </p>
+                                <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Abuse Confidence Score</p>
+                                <p className={`text-4xl font-bold ${getScoreColor(results.abuseIPDB.abuseScore)}`}>{results.abuseIPDB.abuseScore}%</p>
                             </div>
                             <div className={`space-y-2 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    <strong>Total Reports:</strong> {results.abuseIPDB.totalReports}
-                                </p>
-                                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    <strong>Country:</strong> {results.abuseIPDB.countryCode}
-                                </p>
-                                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    <strong>ISP:</strong> {results.abuseIPDB.isp}
-                                </p>
-                                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    <strong>Usage Type:</strong> {results.abuseIPDB.usageType}
-                                </p>
-                                {results.abuseIPDB.isWhitelisted && (
-                                    <p className="text-sm text-green-600 font-semibold">
-                                        ✅ Whitelisted
-                                    </p>
-                                )}
+                                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}><strong>Total Reports:</strong> {results.abuseIPDB.totalReports}</p>
+                                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}><strong>Country:</strong> {results.abuseIPDB.countryCode}</p>
+                                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}><strong>ISP:</strong> {results.abuseIPDB.isp}</p>
+                                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}><strong>Usage Type:</strong> {results.abuseIPDB.usageType}</p>
+                                {results.abuseIPDB.isWhitelisted && (<p className="text-sm text-green-600 font-semibold">✅ Whitelisted</p>)}
                             </div>
                         </div>
                     )}
 
+                    {/* MXToolbox WHOIS/ARIN */}
                     {results.type === 'IP' && results.mxToolbox && !results.mxToolbox.error && results.mxToolbox.hasData && (
                         <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
-                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    📋 ARIN/WHOIS Registration
-                                </h4>
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>📋 ARIN/WHOIS Registration (MXToolbox)</h4>
                                 <a
                                     href={`https://mxtoolbox.com/SuperTool.aspx?action=whois%3a${results.indicator}&run=toolpage`}
                                     target="_blank"
@@ -845,127 +754,72 @@ export default function ThreatIntelLookup({ darkMode }) {
                                 </a>
                             </div>
 
-                            {/* Organization & Network Info */}
                             <div className="mb-4">
-                                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Organization & Network
-                                </p>
+                                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Organization & Network</p>
                                 <div className="space-y-2">
                                     <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                                        <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                            ORGANIZATION
-                                        </p>
-                                        <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                            {results.mxToolbox.organization}
-                                        </p>
+                                        <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>ORGANIZATION</p>
+                                        <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{results.mxToolbox.organization}</p>
                                     </div>
                                     
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                                NETWORK RANGE
-                                            </p>
-                                            <p className={`text-sm font-mono ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                                                {results.mxToolbox.netRange}
-                                            </p>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>NETWORK RANGE</p>
+                                            <p className={`text-sm font-mono ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>{results.mxToolbox.netRange}</p>
                                         </div>
                                         
                                         <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                                NETWORK NAME
-                                            </p>
-                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                {results.mxToolbox.netName}
-                                            </p>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>NETWORK NAME</p>
+                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{results.mxToolbox.netName}</p>
                                         </div>
                                     </div>
 
                                     <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                                        <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                            COUNTRY
-                                        </p>
-                                        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {results.mxToolbox.country}
-                                        </p>
+                                        <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>COUNTRY</p>
+                                        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{results.mxToolbox.country}</p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Registration Dates */}
                             <div className={`mb-4 pb-4 border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Registration Information
-                                </p>
+                                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Registration Information</p>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
-                                        <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                            Registration Date
-                                        </p>
-                                        <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {results.mxToolbox.registrationDate}
-                                        </p>
+                                        <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>Registration Date</p>
+                                        <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{results.mxToolbox.registrationDate}</p>
                                     </div>
                                     <div>
-                                        <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                            Last Updated
-                                        </p>
-                                        <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {results.mxToolbox.updated}
-                                        </p>
+                                        <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>Last Updated</p>
+                                        <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{results.mxToolbox.updated}</p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Contact Information */}
                             <div className="mb-4">
-                                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Contact Information
-                                </p>
+                                <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Contact Information</p>
                                 <div className="space-y-2">
                                     {results.mxToolbox.abuseContact && results.mxToolbox.abuseContact !== 'N/A' && (
                                         <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                                🚨 ABUSE CONTACT
-                                            </p>
-                                            <a 
-                                                href={`mailto:${results.mxToolbox.abuseContact}`}
-                                                className={`text-sm font-mono ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
-                                            >
-                                                {results.mxToolbox.abuseContact}
-                                            </a>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>🚨 ABUSE CONTACT</p>
+                                            <a href={`mailto:${results.mxToolbox.abuseContact}`} className={`text-sm font-mono ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}>{results.mxToolbox.abuseContact}</a>
                                         </div>
                                     )}
                                     
                                     {results.mxToolbox.techContact && results.mxToolbox.techContact !== 'N/A' && (
                                         <div className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                                🔧 TECHNICAL CONTACT
-                                            </p>
-                                            <a 
-                                                href={`mailto:${results.mxToolbox.techContact}`}
-                                                className={`text-sm font-mono ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
-                                            >
-                                                {results.mxToolbox.techContact}
-                                            </a>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>🔧 TECHNICAL CONTACT</p>
+                                            <a href={`mailto:${results.mxToolbox.techContact}`} className={`text-sm font-mono ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}>{results.mxToolbox.techContact}</a>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Related IPs */}
                             {results.mxToolbox.relatedIPs && results.mxToolbox.relatedIPs.length > 0 && (
                                 <div className={`pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Related IP Addresses
-                                    </p>
+                                    <p className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Related IP Addresses</p>
                                     <div className="flex flex-wrap gap-2">
                                         {results.mxToolbox.relatedIPs.map((ip, idx) => (
-                                            <span 
-                                                key={idx}
-                                                className={`px-3 py-1 rounded font-mono text-xs ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'}`}
-                                            >
-                                                {ip}
-                                            </span>
+                                            <span key={idx} className={`px-3 py-1 rounded font-mono text-xs ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>{ip}</span>
                                         ))}
                                     </div>
                                 </div>
@@ -973,6 +827,69 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
+                    {/* ARIN RDAP (Direct) */}
+                    {results.type === 'IP' && results.arin && !results.arin.error && results.arin.hasData && (
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>🧭 ARIN RDAP (Direct)</h4>
+                                <div className="flex gap-2">
+                                    <a
+                                        href={`https://rdap.arin.net/registry/ip/${encodeURIComponent(results.indicator)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
+                                    >
+                                        Open RDAP →
+                                    </a>
+                                    <button
+                                        onClick={() => copyToClipboard(JSON.stringify(results.arin, null, 2))}
+                                        className={`text-xs px-3 py-1 rounded ${
+                                            darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        Copy JSON
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <p className={`text-xs font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Organization</p>
+                                    <p className={`${darkMode ? 'text-white' : 'text-gray-900'}`}>{results.arin.org}</p>
+                                </div>
+                                <div>
+                                    <p className={`text-xs font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Network Handle</p>
+                                    <p className="font-mono">{results.arin.handle}</p>
+                                </div>
+                                <div>
+                                    <p className={`text-xs font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Range</p>
+                                    <p className="font-mono">{results.arin.startAddress} - {results.arin.endAddress}</p>
+                                </div>
+                                <div>
+                                    <p className={`text-xs font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Type</p>
+                                    <p>{results.arin.type}</p>
+                                </div>
+                                <div>
+                                    <p className={`text-xs font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Country</p>
+                                    <p>{results.arin.country}</p>
+                                </div>
+                            </div>
+
+                            <div className={`mt-4 pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                <p className={`text-xs font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Abuse Contact</p>
+                                <p className={`font-mono text-sm ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                                    {results.arin.abuseContact !== 'N/A'
+                                        ? <a href={`mailto:${results.arin.abuseContact}`}>{results.arin.abuseContact}</a>
+                                        : 'N/A'}
+                                </p>
+                                <p className={`text-xs mt-3 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                                    Registered: {results.arin.registrationDate?.split('T')[0] || 'N/A'} | Updated: {results.arin.lastChanged?.split('T')[0] || 'N/A'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MXToolbox errors */}
                     {results.type === 'IP' && results.mxToolbox && (results.mxToolbox.error || !results.mxToolbox.hasData) && (
                         <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'}`}>
                             <div className="flex items-center gap-2">
@@ -984,10 +901,11 @@ export default function ThreatIntelLookup({ darkMode }) {
                         </div>
                     )}
 
-                    {results.virusTotal?.error && results.abuseIPDB?.error && (
+                    {/* General error */}
+                    {results.error && (
                         <div className={`p-4 rounded-lg border ${darkMode ? 'bg-red-900 border-red-700' : 'bg-red-50 border-red-300'}`}>
                             <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-700'}`}>
-                                ⚠️ Unable to retrieve threat intelligence data. Check API keys and connectivity.
+                                ⚠️ {results.error}
                             </p>
                         </div>
                     )}
