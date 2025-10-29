@@ -71,5 +71,5 @@ ThreatDefender bridges that gap — giving analysts practical tools that **ampli
 
 ## 🧑‍💻 License
 
-This project is maintained by eGroup Enabling Technologies – ThreatHunter MSSP Team.
+This project is maintained by eGroup Enabling Technologies – ThreatDefender MSSP Team.
 © 2025. All Rights Reserved.
