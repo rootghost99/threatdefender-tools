@@ -1,206 +1,143 @@
 // /api/IRPlaybook.js
-// Azure Functions (v4, Node 18+) — streams IR playbook via SSE so SWA won't buffer.
-// Supports GET (SSE) with a base64 payload in ?q= and POST (will up-convert to SSE internally).
+// Azure Functions (v4, Node 18+) — one-shot JSON playbook generator.
+// Uses Azure OpenAI when AZURE_OPENAI_ENDPOINT is set, else OpenAI.
 
 const { app } = require('@azure/functions');
-const { PassThrough } = require('stream');
 
-/* ---------------- LLM wrapper ---------------- */
-async function completeText({ system, user, modelHints = {} }) {
-  const useAzure = !!process.env.AZURE_OPENAI_ENDPOINT;
-  const temperature = modelHints.temperature ?? 0.2;
-  const maxTokens = modelHints.maxTokens ?? 700;
+async function callLLM(messages, { useAzure }) {
+  const temperature = 0.25;
+  const maxTokens = 2400;
 
   if (useAzure) {
     const endpoint = String(process.env.AZURE_OPENAI_ENDPOINT || '').trim().replace(/\/+$/, '');
     const deployment = String(process.env.AZURE_OPENAI_DEPLOYMENT || '').trim();
     const apiVersion = '2024-08-01-preview';
     if (!endpoint || !deployment || !process.env.AZURE_OPENAI_API_KEY) {
-      throw new Error('Azure OpenAI settings missing.');
+      throw new Error('Azure OpenAI settings missing. Check endpoint, deployment, and key.');
     }
     const url = `${endpoint}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=${apiVersion}`;
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'api-key': process.env.AZURE_OPENAI_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        temperature,
-        max_tokens: maxTokens,
-        stream: false,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user }
-        ]
-      })
+      body: JSON.stringify({ temperature, max_tokens: maxTokens, messages })
     });
     const text = await resp.text();
-    if (!resp.ok) throw new Error(`LLM error ${resp.status}: ${text}\nURL:${url}`);
+    if (!resp.ok) throw new Error(`LLM error ${resp.status}: ${text}`);
     const data = JSON.parse(text);
-    return data.choices?.[0]?.message?.content?.trim() ?? '';
+    return data.choices?.[0]?.message?.content ?? '';
   }
 
   // OpenAI fallback
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY missing.');
-  const url = 'https://api.openai.com/v1/chat/completions';
-  const resp = await fetch(url, {
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      temperature,
-      max_tokens: maxTokens,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ]
-    })
+    body: JSON.stringify({ model, temperature, max_tokens: maxTokens, messages })
   });
   const text = await resp.text();
-  if (!resp.ok) throw new Error(`LLM error ${resp.status}: ${text}\nURL:${url}`);
+  if (!resp.ok) throw new Error(`LLM error ${resp.status}: ${text}`);
   const data = JSON.parse(text);
-  return data.choices?.[0]?.message?.content?.trim() ?? '';
+  return data.choices?.[0]?.message?.content ?? '';
 }
 
-/* ---------------- Helpers ---------------- */
-function sse(stream, event, data) {
-  stream.write(`event: ${event}\n`);
-  stream.write(`data: ${JSON.stringify(data)}\n\n`);
-}
-function keepAlive(stream) {
-  stream.write(`: ping\n\n`);
-}
-
-/* ---------------- HTTP Function ---------------- */
 app.http('IRPlaybook', {
-  methods: ['GET', 'POST', 'OPTIONS'],
+  methods: ['POST', 'OPTIONS'],
   authLevel: 'anonymous',
-  handler: async (request, context) => {
+  handler: async (request) => {
+    // CORS preflight
     if (request.method === 'OPTIONS') {
       return {
         status: 200,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type'
         }
       };
     }
 
-    // Parse payload:
-    let payload;
-    if (request.method === 'GET') {
-      const q = new URL(request.url).searchParams.get('q') || '';
+    try {
+      const body = await request.json().catch(() => ({}));
+      const {
+        category = 'Credential Theft',
+        incidentDetails = '',
+        environment = { sentinel: true, mde: true, mdi: true, mdo: true },
+        severity = 'High'
+      } = body || {};
+
+      const schema = {
+        type: 'object',
+        properties: {
+          executiveSummary: { type: 'string' },
+          initialTriage: { type: 'array', items: { type: 'string' } },
+          investigationSteps: { type: 'array', items: { type: 'string' } },
+          kql: {
+            type: 'object',
+            properties: {
+              validateDetection: { type: 'string' },
+              lateralMovement: { type: 'string' },
+              timeline: { type: 'string' }
+            }
+          },
+          containment: { type: 'array', items: { type: 'string' } },
+          eradication: { type: 'array', items: { type: 'string' } },
+          recovery: { type: 'array', items: { type: 'string' } },
+          postIncident: { type: 'array', items: { type: 'string' } },
+          mitreTactics: { type: 'array', items: { type: 'string' } },
+          severityGuidance: { type: 'string' }
+        },
+        required: [
+          'executiveSummary', 'initialTriage', 'investigationSteps', 'kql',
+          'containment', 'eradication', 'recovery', 'postIncident', 'mitreTactics', 'severityGuidance'
+        ]
+      };
+
+      const system =
+        'You are a senior IR analyst for Microsoft Sentinel and Microsoft Defender. ' +
+        'Produce concise, practical guidance. Use bullet lists where useful. ' +
+        'For KQL, return fenced code blocks inside JSON values with ```kql. ' +
+        'Never include em dashes. Output valid JSON only that matches the provided schema. No extra text.';
+
+      const user = {
+        category,
+        severity,
+        environment,
+        details: incidentDetails,
+        schema
+      };
+
+      const useAzure = !!process.env.AZURE_OPENAI_ENDPOINT;
+      const content = await callLLM(
+        [
+          { role: 'system', content: system },
+          { role: 'user', content: JSON.stringify(user) }
+        ],
+        { useAzure }
+      );
+
+      let obj;
       try {
-        // base64url safe decode
-        const norm = q.replace(/-/g, '+').replace(/_/g, '/');
-        payload = JSON.parse(Buffer.from(norm, 'base64').toString('utf8'));
+        obj = JSON.parse(content);
       } catch {
-        payload = {};
+        throw new Error('Model did not return valid JSON. Try again.');
       }
-    } else {
-      payload = await request.json().catch(() => ({}));
+
+      return {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store'
+        },
+        jsonBody: { playbook: obj, meta: { category, severity, environment, provider: useAzure ? 'azure' : 'openai' } }
+      };
+    } catch (err) {
+      return {
+        status: 500,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*'},
+        jsonBody: { error: String(err.message || err) }
+      };
     }
-
-    const {
-      category = 'Credential Theft',
-      incidentDetails = '',
-      environment = { sentinel: true, mde: true, mdi: true, mdo: true },
-      severity = 'High'
-    } = payload || {};
-
-    const system = [
-      'You are a senior IR analyst specialized in Microsoft Sentinel and Defender.',
-      'Write concise, actionable guidance for a SOC runbook.',
-      'Use markdown for lists and code blocks for KQL.',
-      'Never include em dashes; prefer short sentences.',
-      'Audience: security engineers and analysts.'
-    ].join(' ');
-
-    const sections = [
-      { key: 'executiveSummary', title: 'Executive Summary',
-        prompt: `Create a 4–6 sentence executive summary for "${category}", severity ${severity}. Include scope, impact, immediate actions.` },
-      { key: 'initialTriage', title: 'Initial Triage',
-        prompt: 'List 6–10 initial triage actions for Microsoft 365 Defender and Sentinel with console paths.' },
-      { key: 'investigationSteps', title: 'Investigation Steps',
-        prompt: 'Numbered deep-dive investigation steps. Artifacts, timelines, pivots.' },
-      { key: 'kqlValidateDetection', title: 'KQL: Validate Detection',
-        prompt: 'Fenced ```kql``` to validate detection in Sentinel with comments. Prefer SecurityAlert/SecurityIncident/SigninLogs.' },
-      { key: 'kqlLateralMovement', title: 'KQL: Lateral Movement',
-        prompt: 'Fenced ```kql``` to detect lateral movement across hosts and identities. With comments.' },
-      { key: 'kqlTimeline', title: 'KQL: Timeline',
-        prompt: 'Fenced ```kql``` to build a chronological timeline (timestamp, actor, target, action, source).' },
-      { key: 'containment', title: 'Containment',
-        prompt: '5–8 containment actions. Include SaaS vs on-prem, tool paths/commands.' },
-      { key: 'eradication', title: 'Eradication',
-        prompt: '4–6 eradication steps with checks to verify persistence removal.' },
-      { key: 'recovery', title: 'Recovery',
-        prompt: '4–6 recovery actions, validation criteria, comms, and 72h metrics.' },
-      { key: 'postIncident', title: 'Post-Incident',
-        prompt: 'Checklist for lessons learned, control gaps, detections to add, KPIs.' },
-      { key: 'mitreTactics', title: 'MITRE ATT&CK',
-        prompt: 'Relevant tactics and techniques (ID:Name) as bullets.' },
-      { key: 'severityGuidance', title: 'Severity Guidance',
-        prompt: `Explain why this is ${severity} severity with escalation criteria and SLA targets (minutes).` }
-    ];
-
-    const stream = new PassThrough();
-
-    // Start async work
-    (async () => {
-      try {
-        // Meta first
-        const useAzure = !!process.env.AZURE_OPENAI_ENDPOINT;
-        const endpoint = String(process.env.AZURE_OPENAI_ENDPOINT || '').trim().replace(/\/+$/, '');
-        const deployment = String(process.env.AZURE_OPENAI_DEPLOYMENT || '').trim();
-        sse(stream, 'meta', {
-          category, severity, environment,
-          provider: useAzure ? 'azure' : 'openai',
-          azureEndpoint: useAzure ? endpoint : undefined,
-          azureDeployment: useAzure ? deployment : undefined,
-          azureApiVersion: useAzure ? '2024-08-01-preview' : undefined
-        });
-
-        // Keep-alive pings every 15s (avoid idle proxies closing)
-        const ka = setInterval(() => keepAlive(stream), 15000);
-
-        for (const s of sections) {
-          const user = [
-            `Category: ${category}`,
-            `Severity: ${severity}`,
-            `Environment: ${JSON.stringify(environment)}`,
-            `Details:\n${incidentDetails || 'N/A'}`,
-            '',
-            `Write ONLY the ${s.title} content.`
-          ].join('\n');
-
-          const content = await completeText({
-            system,
-            user,
-            modelHints: { temperature: 0.25, maxTokens: 800 }
-          });
-
-          sse(stream, 'section', { key: s.key, title: s.title, content });
-        }
-
-        clearInterval(ka);
-        sse(stream, 'done', {});
-      } catch (err) {
-        sse(stream, 'error', { message: err?.message || 'Unknown error' });
-      } finally {
-        stream.end();
-      }
-    })();
-
-    // Return SSE response
-    return {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: stream
-    };
   }
 });
