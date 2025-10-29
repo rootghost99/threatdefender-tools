@@ -72,7 +72,7 @@ const MITRE_MAP = {
   'Data Exfiltration': { id: 'TA0010', name: 'Exfiltration' },
   'Command & Control': { id: 'TA0011', name: 'Command and Control' },
   'Ransomware / Impact': { id: 'TA0040', name: 'Impact' },
-  'Business Email Compromise': { id: 'TA0001', name: 'Initial Access' },
+  'BEC': { id: 'TA0001', name: 'Initial Access' },
   'Insider Threat': { id: 'TA0009', name: 'Collection' },
   'Supply Chain / 3rd Party Breach': { id: 'TA0001', name: 'Initial Access' }
 };
