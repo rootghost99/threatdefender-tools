@@ -1,11 +1,7 @@
 // /api/IRPlaybook.js
 // Azure Functions (v4, Node 18+) — streams an IR playbook section-by-section via NDJSON.
-//
-// Notes:
-// - Uses global fetch (no node-fetch).
-// - Azure OpenAI is used when AZURE_OPENAI_ENDPOINT is set; else falls back to OpenAI.
-// - API version defaults to 2024-08-01-preview if AZURE_OPENAI_API_VERSION is missing/incorrect.
-// - Emits NDJSON events: {type:"meta"| "section"| "error"| "done", ...}
+// Uses Azure OpenAI when AZURE_OPENAI_ENDPOINT is present; otherwise OpenAI.
+// IMPORTANT: We force Azure API version to a known-good REST version to avoid 404s caused by model-version mixups.
 
 const { app } = require('@azure/functions');
 const { PassThrough } = require('stream');
@@ -17,19 +13,27 @@ async function completeText({ system, user, modelHints = {} }) {
   const maxTokens = modelHints.maxTokens ?? 700;
 
   if (useAzure) {
-    // AZURE settings
     const endpoint = String(process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
     const deployment = String(process.env.AZURE_OPENAI_DEPLOYMENT || '').trim();
-    // IMPORTANT: Use a valid REST API version, not the model version shown in Studio
-    const apiVersion = String(process.env.AZURE_OPENAI_API_VERSION || '2024-08-01-preview').trim();
+    const apiVersionForced = '2024-08-01-preview'; // force a valid REST API version
 
     if (!endpoint || !deployment || !process.env.AZURE_OPENAI_API_KEY) {
-      throw new Error('Azure OpenAI is selected but endpoint, deployment, or API key is missing.');
+      throw new Error('Azure OpenAI selected but endpoint, deployment, or API key is missing.');
     }
 
     const url =
       `${endpoint}/openai/deployments/${encodeURIComponent(deployment)}` +
-      `/chat/completions?api-version=${encodeURIComponent(apiVersion)}`;
+      `/chat/completions?api-version=${encodeURIComponent(apiVersionForced)}`;
+
+    const payload = {
+      temperature,
+      max_tokens: maxTokens,
+      stream: false,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user }
+      ]
+    };
 
     const resp = await fetch(url, {
       method: 'POST',
@@ -37,21 +41,13 @@ async function completeText({ system, user, modelHints = {} }) {
         'api-key': process.env.AZURE_OPENAI_API_KEY,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        temperature,
-        max_tokens: maxTokens,
-        stream: false,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user }
-        ]
-      })
+      body: JSON.stringify(payload)
     });
 
-    const text = await resp.text(); // capture server error body for clarity
+    const text = await resp.text();
     if (!resp.ok) {
-      // Typical errors: 401 invalid key, 404 deployment not found, 400 invalid api-version
-      throw new Error(`LLM error ${resp.status}: ${text}`);
+      // Surface precise URL to spot wrong deployment names or endpoints.
+      throw new Error(`LLM error ${resp.status}: ${text}\nURL: ${url}`);
     }
     const data = JSON.parse(text);
     return data.choices?.[0]?.message?.content?.trim() ?? '';
@@ -63,26 +59,29 @@ async function completeText({ system, user, modelHints = {} }) {
     throw new Error('OpenAI path selected but OPENAI_API_KEY is missing.');
   }
 
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+  const url = 'https://api.openai.com/v1/chat/completions';
+  const payload = {
+    model,
+    temperature,
+    max_tokens: maxTokens,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user }
+    ]
+  };
+
+  const resp = await fetch(url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model,
-      temperature,
-      max_tokens: maxTokens,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ]
-    })
+    body: JSON.stringify(payload)
   });
 
   const text = await resp.text();
   if (!resp.ok) {
-    throw new Error(`LLM error ${resp.status}: ${text}`);
+    throw new Error(`LLM error ${resp.status}: ${text}\nURL: ${url}`);
   }
   const data = JSON.parse(text);
   return data.choices?.[0]?.message?.content?.trim() ?? '';
