@@ -6,29 +6,23 @@ const SectionCard = ({ title, content, darkMode }) => {
   const sub  = darkMode ? 'text-gray-300' : 'text-gray-700';
   const onCopy = () => content && navigator.clipboard.writeText(String(content || ''));
 
-  // Tiny fence parser: renders the FIRST fenced block (```lang\n...\n```) as code.
-  // If no fence is found, falls back to paragraph rendering with preserved line breaks.
+  // Tiny fence parser for the first ```lang block
   const render = (txt) => {
     if (!txt) return <p className={sub}>No content.</p>;
     const s = String(txt);
-
-    // Match a fenced block anywhere in the text
     const m = s.match(/```(\w+)?\n([\s\S]*?)```/m);
     if (m) {
       const before = s.slice(0, m.index).trim();
       const after  = s.slice(m.index + m[0].length).trim();
       const lang   = m[1] || 'text';
       const code   = m[2];
-
       return (
         <div className="space-y-3">
           {before && before.split('\n').map((line, i) => (
             <p key={`b-${i}`} className={sub} style={{ whiteSpace: 'pre-wrap', margin: '0.35rem 0' }}>{line}</p>
           ))}
           <pre className={`rounded p-3 overflow-auto ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-            <code className={`language-${lang}`} style={{ whiteSpace: 'pre' }}>
-              {code}
-            </code>
+            <code className={`language-${lang}`} style={{ whiteSpace: 'pre' }}>{code}</code>
           </pre>
           {after && after.split('\n').map((line, i) => (
             <p key={`a-${i}`} className={sub} style={{ whiteSpace: 'pre-wrap', margin: '0.35rem 0' }}>{line}</p>
@@ -36,8 +30,6 @@ const SectionCard = ({ title, content, darkMode }) => {
         </div>
       );
     }
-
-    // No fenced block found: simple paragraphs
     return s.split('\n').map((line, i) => (
       <p key={i} className={sub} style={{ whiteSpace: 'pre-wrap', margin: '0.35rem 0' }}>{line}</p>
     ));
@@ -65,14 +57,15 @@ const SectionCard = ({ title, content, darkMode }) => {
 };
 
 export default function IRPlaybookGenerator({ darkMode }) {
-  const [category, setCategory] = useState('Credential Theft');
-  const [severity, setSeverity] = useState('High');
-  const [details, setDetails] = useState('');
-  const [env, setEnv] = useState({ sentinel: true, mde: true, mdi: true, mdo: true });
+  const [category, setCategory]   = useState('Credential Theft');
+  const [severity, setSeverity]   = useState('High');
+  const [details, setDetails]     = useState('');
+  const [env, setEnv]             = useState({ sentinel: true, mde: true, mdi: true, mdo: true });
+  const [temperature, setTemp]    = useState(0.25); // prompt strength
 
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState(null);
-  const [pb, setPb] = useState(null);
+  const [err, setErr]         = useState(null);
+  const [pb, setPb]           = useState(null);
 
   const ordered = useMemo(() => [
     { key: 'executiveSummary',      title: 'Executive Summary' },
@@ -105,7 +98,8 @@ export default function IRPlaybookGenerator({ darkMode }) {
           category,
           severity,
           incidentDetails: details,
-          environment: env
+          environment: env,
+          temperature // pass through to backend
         })
       });
 
@@ -133,9 +127,11 @@ export default function IRPlaybookGenerator({ darkMode }) {
 
   return (
     <div className={`rounded-lg shadow-md p-6 ${base}`}>
-      <div className="mb-6">
-        <h2 className="text-xl font-bold">🧰 IR Playbook Generator</h2>
-        <p className={`text-sm ${sub}`}>Generates a full playbook in one request.</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold">🧰 IR Playbook Generator</h2>
+          <p className={`text-sm ${sub}`}>Generates a full playbook in one request.</p>
+        </div>
       </div>
 
       {/* Controls */}
@@ -200,6 +196,27 @@ export default function IRPlaybookGenerator({ darkMode }) {
             <span className="text-sm">{x.label}</span>
           </label>
         ))}
+      </div>
+
+      {/* Prompt strength */}
+      <div className="mb-4">
+        <label className={`block text-sm font-semibold mb-1 ${sub}`}>Prompt strength</label>
+        <div className="flex items-center gap-3">
+          <span className="text-xs opacity-80">Conservative</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={temperature}
+            onChange={(e) => setTemp(parseFloat(e.target.value))}
+            className="w-full"
+          />
+          <span className="text-xs opacity-80">Creative</span>
+          <span className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-800">
+            {temperature.toFixed(2)}
+          </span>
+        </div>
       </div>
 
       <button

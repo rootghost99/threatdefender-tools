@@ -1,6 +1,6 @@
 // /api/IRPlaybook.js
 // Azure Functions (v4, Node 18+) — one-shot JSON playbook generator with server-side schema validation.
-// Uses Azure OpenAI when AZURE_OPENAI_ENDPOINT is set; otherwise OpenAI.
+// Adds support for client-provided "temperature" (prompt strength).
 
 const { app } = require('@azure/functions');
 const Ajv = require('ajv');
@@ -41,8 +41,7 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 const validatePlaybook = ajv.compile(PLAYBOOK_SCHEMA);
 
 // ----- LLM call helper -----
-async function callLLM(messages, { useAzure }) {
-  const temperature = 0.25;
+async function callLLM(messages, { useAzure, temperature = 0.25 }) {
   const maxTokens = 2400;
 
   if (useAzure) {
@@ -101,10 +100,13 @@ app.http('IRPlaybook', {
         category = 'Credential Theft',
         incidentDetails = '',
         environment = { sentinel: true, mde: true, mdi: true, mdo: true },
-        severity = 'High'
+        severity = 'High',
+        temperature: clientTemp // 0 to 1
       } = body || {};
 
-      // The model sees the schema and instructions to return valid JSON
+      // Clamp and default temperature
+      const temperature = Math.min(1, Math.max(0, Number.isFinite(clientTemp) ? Number(clientTemp) : 0.25));
+
       const system =
         'You are a senior IR analyst for Microsoft Sentinel and Microsoft Defender. ' +
         'Produce concise, practical guidance. Use bullet lists where useful. ' +
@@ -125,7 +127,7 @@ app.http('IRPlaybook', {
           { role: 'system', content: system },
           { role: 'user', content: JSON.stringify(modelInput) }
         ],
-        { useAzure }
+        { useAzure, temperature }
       );
 
       // Parse and validate
@@ -161,7 +163,7 @@ app.http('IRPlaybook', {
         },
         jsonBody: {
           playbook,
-          meta: { category, severity, environment, provider: useAzure ? 'azure' : 'openai' }
+          meta: { category, severity, environment, provider: useAzure ? 'azure' : 'openai', temperature }
         }
       };
     } catch (err) {
