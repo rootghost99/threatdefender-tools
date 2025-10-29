@@ -1,46 +1,9 @@
 // /api/IRPlaybook.js
-// Azure Functions (v4, Node 18+) — one-shot JSON playbook generator with server-side schema validation.
-// Uses Azure OpenAI when AZURE_OPENAI_ENDPOINT is set; otherwise OpenAI.
+// Azure Functions (v4, Node 18+) — one-shot JSON playbook generator.
+// Uses Azure OpenAI when AZURE_OPENAI_ENDPOINT is set, else OpenAI.
 
 const { app } = require('@azure/functions');
-const Ajv = require('ajv');
 
-// ----- JSON Schema the model must return -----
-const PLAYBOOK_SCHEMA = {
-  type: 'object',
-  properties: {
-    executiveSummary: { type: 'string' },
-    initialTriage: { type: 'array', items: { type: 'string' } },
-    investigationSteps: { type: 'array', items: { type: 'string' } },
-    kql: {
-      type: 'object',
-      properties: {
-        validateDetection: { type: 'string' },
-        lateralMovement: { type: 'string' },
-        timeline: { type: 'string' }
-      },
-      required: ['validateDetection', 'lateralMovement', 'timeline'],
-      additionalProperties: true
-    },
-    containment: { type: 'array', items: { type: 'string' } },
-    eradication: { type: 'array', items: { type: 'string' } },
-    recovery: { type: 'array', items: { type: 'string' } },
-    postIncident: { type: 'array', items: { type: 'string' } },
-    mitreTactics: { type: 'array', items: { type: 'string' } },
-    severityGuidance: { type: 'string' }
-  },
-  required: [
-    'executiveSummary', 'initialTriage', 'investigationSteps', 'kql',
-    'containment', 'eradication', 'recovery', 'postIncident',
-    'mitreTactics', 'severityGuidance'
-  ],
-  additionalProperties: true
-};
-
-const ajv = new Ajv({ allErrors: true, strict: false });
-const validatePlaybook = ajv.compile(PLAYBOOK_SCHEMA);
-
-// ----- LLM call helper -----
 async function callLLM(messages, { useAzure }) {
   const temperature = 0.25;
   const maxTokens = 2400;
@@ -78,7 +41,6 @@ async function callLLM(messages, { useAzure }) {
   return data.choices?.[0]?.message?.content ?? '';
 }
 
-// ----- HTTP function -----
 app.http('IRPlaybook', {
   methods: ['POST', 'OPTIONS'],
   authLevel: 'anonymous',
@@ -104,52 +66,61 @@ app.http('IRPlaybook', {
         severity = 'High'
       } = body || {};
 
-      // The model sees the schema and instructions to return valid JSON
+      const schema = {
+        type: 'object',
+        properties: {
+          executiveSummary: { type: 'string' },
+          initialTriage: { type: 'array', items: { type: 'string' } },
+          investigationSteps: { type: 'array', items: { type: 'string' } },
+          kql: {
+            type: 'object',
+            properties: {
+              validateDetection: { type: 'string' },
+              lateralMovement: { type: 'string' },
+              timeline: { type: 'string' }
+            }
+          },
+          containment: { type: 'array', items: { type: 'string' } },
+          eradication: { type: 'array', items: { type: 'string' } },
+          recovery: { type: 'array', items: { type: 'string' } },
+          postIncident: { type: 'array', items: { type: 'string' } },
+          mitreTactics: { type: 'array', items: { type: 'string' } },
+          severityGuidance: { type: 'string' }
+        },
+        required: [
+          'executiveSummary', 'initialTriage', 'investigationSteps', 'kql',
+          'containment', 'eradication', 'recovery', 'postIncident', 'mitreTactics', 'severityGuidance'
+        ]
+      };
+
       const system =
         'You are a senior IR analyst for Microsoft Sentinel and Microsoft Defender. ' +
         'Produce concise, practical guidance. Use bullet lists where useful. ' +
         'For KQL, return fenced code blocks inside JSON values with ```kql. ' +
         'Never include em dashes. Output valid JSON only that matches the provided schema. No extra text.';
 
-      const modelInput = {
+      const user = {
         category,
         severity,
         environment,
         details: incidentDetails,
-        schema: PLAYBOOK_SCHEMA
+        schema
       };
 
       const useAzure = !!process.env.AZURE_OPENAI_ENDPOINT;
       const content = await callLLM(
         [
           { role: 'system', content: system },
-          { role: 'user', content: JSON.stringify(modelInput) }
+          { role: 'user', content: JSON.stringify(user) }
         ],
         { useAzure }
       );
 
-      // Parse and validate
-      let playbook;
+      let obj;
       try {
-        playbook = JSON.parse(content);
+        obj = JSON.parse(content);
       } catch {
-        return {
-          status: 502,
-          headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
-          jsonBody: { error: 'Model did not return valid JSON.' }
-        };
-      }
-
-      const valid = validatePlaybook(playbook);
-      if (!valid) {
-        return {
-          status: 422,
-          headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
-          jsonBody: {
-            error: 'Response failed schema validation.',
-            details: validatePlaybook.errors
-          }
-        };
+        throw new Error('Model did not return valid JSON. Try again.');
       }
 
       return {
@@ -159,15 +130,12 @@ app.http('IRPlaybook', {
           'Access-Control-Allow-Origin': '*',
           'Cache-Control': 'no-store'
         },
-        jsonBody: {
-          playbook,
-          meta: { category, severity, environment, provider: useAzure ? 'azure' : 'openai' }
-        }
+        jsonBody: { playbook: obj, meta: { category, severity, environment, provider: useAzure ? 'azure' : 'openai' } }
       };
     } catch (err) {
       return {
         status: 500,
-        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*'},
         jsonBody: { error: String(err.message || err) }
       };
     }
