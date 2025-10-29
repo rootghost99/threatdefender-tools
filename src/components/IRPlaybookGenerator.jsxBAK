@@ -1,7 +1,6 @@
 // /src/components/IRPlaybookGenerator.jsx
 import React, { useMemo, useState } from 'react';
 
-/** Small card renderer with light code-fence support */
 const SectionCard = ({ title, content, darkMode }) => {
   const base = darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-200 text-gray-900';
   const sub  = darkMode ? 'text-gray-300' : 'text-gray-700';
@@ -57,26 +56,6 @@ const SectionCard = ({ title, content, darkMode }) => {
   );
 };
 
-// MITRE Tactic mapping (mirrors backend)
-const MITRE_MAP = {
-  'Phishing': { id: 'TA0001', name: 'Initial Access' },
-  'Credential Theft': { id: 'TA0006', name: 'Credential Access' },
-  'Password Spray / Brute Force': { id: 'TA0006', name: 'Credential Access' },
-  'Malicious Script': { id: 'TA0002', name: 'Execution' },
-  'Persistence Mechanism': { id: 'TA0003', name: 'Persistence' },
-  'Privilege Escalation': { id: 'TA0004', name: 'Privilege Escalation' },
-  'Defense Evasion': { id: 'TA0005', name: 'Defense Evasion' },
-  'Discovery': { id: 'TA0007', name: 'Discovery' },
-  'Lateral Movement': { id: 'TA0008', name: 'Lateral Movement' },
-  'Data Collection': { id: 'TA0009', name: 'Collection' },
-  'Data Exfiltration': { id: 'TA0010', name: 'Exfiltration' },
-  'Command & Control': { id: 'TA0011', name: 'Command and Control' },
-  'Ransomware / Impact': { id: 'TA0040', name: 'Impact' },
-  'Business Email Compromise': { id: 'TA0001', name: 'Initial Access' },
-  'Insider Threat': { id: 'TA0009', name: 'Collection' },
-  'Supply Chain / 3rd Party Breach': { id: 'TA0001', name: 'Initial Access' }
-};
-
 export default function IRPlaybookGenerator({ darkMode }) {
   const [category, setCategory]   = useState('Credential Theft');
   const [severity, setSeverity]   = useState('High');
@@ -104,7 +83,6 @@ export default function IRPlaybookGenerator({ darkMode }) {
   ], []);
 
   const getPath = (obj, path) => path.split('.').reduce((a, k) => (a ? a[k] : undefined), obj || {});
-  const mitre = MITRE_MAP[category] || null;
 
   const start = async () => {
     if (loading) return;
@@ -158,7 +136,6 @@ export default function IRPlaybookGenerator({ darkMode }) {
 
       {/* Controls */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        {/* Category (MITRE-aligned) */}
         <div>
           <label className={`block text-sm font-semibold mb-1 ${sub}`}>Category</label>
           <select
@@ -166,43 +143,13 @@ export default function IRPlaybookGenerator({ darkMode }) {
             onChange={(e) => setCategory(e.target.value)}
             className={`w-full px-3 py-2 rounded border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
           >
-            <optgroup label="Initial Access & Credential Theft">
-              <option>Phishing</option>
-              <option>Credential Theft</option>
-              <option>Password Spray / Brute Force</option>
-            </optgroup>
-
-            <optgroup label="Execution & Persistence">
-              <option>Malicious Script</option>
-              <option>Persistence Mechanism</option>
-              <option>Privilege Escalation</option>
-            </optgroup>
-
-            <optgroup label="Defense Evasion & Lateral Movement">
-              <option>Defense Evasion</option>
-              <option>Discovery</option>
-              <option>Lateral Movement</option>
-            </optgroup>
-
-            <optgroup label="Collection, Exfiltration & Impact">
-              <option>Data Collection</option>
-              <option>Data Exfiltration</option>
-              <option>Ransomware / Impact</option>
-            </optgroup>
-
-            <optgroup label="Specialized Scenarios">
-              <option>Business Email Compromise</option>
-              <option>Insider Threat</option>
-              <option>Supply Chain / 3rd Party Breach</option>
-              <option>Command & Control</option>
-            </optgroup>
+            <option>Credential Theft</option>
+            <option>Business Email Compromise</option>
+            <option>Ransomware</option>
+            <option>Phishing</option>
+            <option>Malware</option>
+            <option>Insider Threat</option>
           </select>
-          {/* Read-only MITRE label */}
-          {mitre && (
-            <div className={`mt-1 text-xs ${sub}`}>
-              Mapped to MITRE tactic: <span className="font-semibold">{mitre.name}</span> ({mitre.id})
-            </div>
-          )}
         </div>
 
         <div>
@@ -284,42 +231,63 @@ export default function IRPlaybookGenerator({ darkMode }) {
       </button>
 
       {err && (
-        <div className={`mt-4 p-4 rounded border ${darkMode ? 'bg-red-900 border-red-700 text-red-200' : 'bg-red-50 border-red-300 text-red-800'}`}>
-          {err}
+        <div className={`mt-4 p-4 rounded border ${darkMode ? 'bg-red-900 border-red-700 text-red-200' : 'bg-red-50 border-red-300 text-red-700'}`}>
+          ⚠️ {err}
         </div>
       )}
 
+      {/* Sections */}
       {pb && (
         <div className="mt-6 space-y-4">
-          {ordered.map(item => {
-            const val = getPath(pb, item.key);
-            if (val == null) return null;
+          {ordered.map(({ key, title }) => (
+            <SectionCard
+              key={key}
+              title={title}
+              content={getPath(pb, key)}
+              darkMode={darkMode}
+            />
+          ))}
+        </div>
+      )}
 
-            // Arrays as bullet lists
-            if (Array.isArray(val)) {
-              return (
-                <div key={item.key} className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-lg font-bold">{item.title}</h4>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(val.join('\n'))}
-                      className={`text-xs px-3 py-1 rounded ${darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-100 hover:bg-gray-200'}`}
-                    >
-                      Copy
-                    </button>
-                  </div>
-                  <ul className="list-disc ml-6">
-                    {val.map((x, i) => (
-                      <li key={i} className={sub} style={{ whiteSpace: 'pre-wrap' }}>{String(x)}</li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            }
-
-            // Strings through SectionCard (handles ```kql)
-            return <SectionCard key={item.key} title={item.title} content={String(val)} darkMode={darkMode} />;
-          })}
+      {/* Export actions */}
+      {pb && (
+        <div className="flex gap-2 mt-6">
+          <button
+            onClick={() => {
+              const blob = new Blob([JSON.stringify(pb, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob); const a = document.createElement('a');
+              a.href = url; a.download = `ir-playbook-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url);
+            }}
+            className="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+          >
+            Download JSON
+          </button>
+          <button
+            onClick={() => {
+              const md = [
+                '# IR Playbook',
+                `**Executive Summary**\n\n${pb.executiveSummary || ''}`,
+                `\n\n## Initial Triage\n${(pb.initialTriage||[]).map(i=>`- ${i}`).join('\n')}`,
+                `\n\n## Investigation Steps\n${(pb.investigationSteps||[]).map((i,ix)=>`${ix+1}. ${i}`).join('\n')}`,
+                `\n\n## KQL: Validate Detection\n${pb.kql?.validateDetection || ''}`,
+                `\n\n## KQL: Lateral Movement\n${pb.kql?.lateralMovement || ''}`,
+                `\n\n## KQL: Timeline\n${pb.kql?.timeline || ''}`,
+                `\n\n## Containment\n${(pb.containment||[]).map(i=>`- ${i}`).join('\n')}`,
+                `\n\n## Eradication\n${(pb.eradication||[]).map(i=>`- ${i}`).join('\n')}`,
+                `\n\n## Recovery\n${(pb.recovery||[]).map(i=>`- ${i}`).join('\n')}`,
+                `\n\n## Post-Incident\n${(pb.postIncident||[]).map(i=>`- ${i}`).join('\n')}`,
+                `\n\n## MITRE ATT&CK\n${(pb.mitreTactics||[]).map(i=>`- ${i}`).join('\n')}`,
+                `\n\n## Severity Guidance\n${pb.severityGuidance || ''}`
+              ].join('\n');
+              const blob = new Blob([md], { type: 'text/markdown' });
+              const url = URL.createObjectURL(blob); const a = document.createElement('a');
+              a.href = url; a.download = `ir-playbook-${Date.now()}.md`; a.click(); URL.revokeObjectURL(url);
+            }}
+            className="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+          >
+            Export Markdown
+          </button>
         </div>
       )}
     </div>

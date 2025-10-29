@@ -1,6 +1,6 @@
 // /api/IRPlaybook.js
 // Azure Functions (v4, Node 18+) — one-shot JSON playbook generator with server-side schema validation.
-// Adds support for client-provided "temperature" (prompt strength) and MITRE mapping.
+// Adds support for client-provided "temperature" (prompt strength).
 
 const { app } = require('@azure/functions');
 const Ajv = require('ajv');
@@ -39,26 +39,6 @@ const PLAYBOOK_SCHEMA = {
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 const validatePlaybook = ajv.compile(PLAYBOOK_SCHEMA);
-
-// ----- MITRE ATT&CK tactic mapping for categories -----
-const MITRE_MAP = {
-  'Phishing': { id: 'TA0001', name: 'Initial Access' },
-  'Credential Theft': { id: 'TA0006', name: 'Credential Access' },
-  'Password Spray / Brute Force': { id: 'TA0006', name: 'Credential Access' },
-  'Malicious Script': { id: 'TA0002', name: 'Execution' },
-  'Persistence Mechanism': { id: 'TA0003', name: 'Persistence' },
-  'Privilege Escalation': { id: 'TA0004', name: 'Privilege Escalation' },
-  'Defense Evasion': { id: 'TA0005', name: 'Defense Evasion' },
-  'Discovery': { id: 'TA0007', name: 'Discovery' },
-  'Lateral Movement': { id: 'TA0008', name: 'Lateral Movement' },
-  'Data Collection': { id: 'TA0009', name: 'Collection' },
-  'Data Exfiltration': { id: 'TA0010', name: 'Exfiltration' },
-  'Command & Control': { id: 'TA0011', name: 'Command and Control' },
-  'Ransomware / Impact': { id: 'TA0040', name: 'Impact' },
-  'Business Email Compromise': { id: 'TA0001', name: 'Initial Access' },
-  'Insider Threat': { id: 'TA0009', name: 'Collection' },
-  'Supply Chain / 3rd Party Breach': { id: 'TA0001', name: 'Initial Access' }
-};
 
 // ----- LLM call helper -----
 async function callLLM(messages, { useAzure, temperature = 0.25 }) {
@@ -130,18 +110,14 @@ app.http('IRPlaybook', {
       const system =
         'You are a senior IR analyst for Microsoft Sentinel and Microsoft Defender. ' +
         'Produce concise, practical guidance. Use bullet lists where useful. ' +
-        'If a MITRE tactic is provided, align steps and KQL accordingly. ' +
         'For KQL, return fenced code blocks inside JSON values with ```kql. ' +
         'Never include em dashes. Output valid JSON only that matches the provided schema. No extra text.';
-
-      const mitre = MITRE_MAP[category] || null;
 
       const modelInput = {
         category,
         severity,
         environment,
         details: incidentDetails,
-        mitre,                  // expose MITRE hint to the model
         schema: PLAYBOOK_SCHEMA
       };
 
@@ -187,7 +163,7 @@ app.http('IRPlaybook', {
         },
         jsonBody: {
           playbook,
-          meta: { category, severity, environment, provider: useAzure ? 'azure' : 'openai', temperature, mitre }
+          meta: { category, severity, environment, provider: useAzure ? 'azure' : 'openai', temperature }
         }
       };
     } catch (err) {
