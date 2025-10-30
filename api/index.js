@@ -6,3 +6,4 @@ require('./ThreatIntelLookup');
 require('./EmailPosture');
 require('./HybridAnalysisLookup');
 require('./HybridAnalysisLookupTest');
+require('./HybridAnalysisDiag');
