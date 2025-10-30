@@ -317,7 +317,7 @@ export default function SOCHandoffTool({ darkMode }) {
         {!showHandoff ? (
           <div className="space-y-6">
             {/* Shift Info */}
-            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <h2 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 Shift Information
               </h2>
@@ -395,7 +395,7 @@ export default function SOCHandoffTool({ darkMode }) {
             </div>
 
             {/* Incidents */}
-            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <h2 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 🚨 Open Incidents ({shiftData.incidents.length})
               </h2>
@@ -484,7 +484,7 @@ export default function SOCHandoffTool({ darkMode }) {
             </div>
 
             {/* Tasks */}
-            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <h2 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 📋 Pending Tasks ({shiftData.tasks.length})
               </h2>
@@ -559,7 +559,7 @@ export default function SOCHandoffTool({ darkMode }) {
             </div>
 
             {/* Escalations */}
-            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <h2 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 ⚠️ Escalations ({shiftData.escalations.length})
               </h2>
@@ -633,7 +633,7 @@ export default function SOCHandoffTool({ darkMode }) {
             </div>
 
             {/* Notes */}
-            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <h2 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 📝 Notes
               </h2>
@@ -690,7 +690,7 @@ export default function SOCHandoffTool({ darkMode }) {
             </div>
           </div>
         ) : (
-          <div className={`rounded-lg shadow p-8 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`rounded-lg shadow p-8 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
             <div className="flex justify-between items-start mb-6">
               <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 Handoff Preview

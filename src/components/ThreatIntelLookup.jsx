@@ -80,7 +80,7 @@ export default function ThreatIntelLookup({ darkMode }) {
     };
 
     return (
-        <div className={`rounded-lg shadow-md ${darkMode ? 'bg-gray-800' : 'bg-white'} p-6`}>
+        <div className={`rounded-lg shadow-md ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} p-6`}>
             <div className="mb-6">
                 <h2 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     🔍 Threat Intel Lookup
@@ -149,13 +149,13 @@ export default function ThreatIntelLookup({ darkMode }) {
                         <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-800'}`}>
                             <table className="w-full border-collapse">
                                 <tbody>
-                                    <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                    <tr className={`border-b ${darkMode ? 'border-gray-700 hover:bg-gray-750' : 'border-gray-300 hover:bg-gray-50'}`}>
                                         <td className="py-2 pr-4 font-semibold">Indicator:</td>
                                         <td className="py-2 font-mono">{String(results.indicator || '')} ({String(results.type || 'Unknown')})</td>
                                     </tr>
 
                                     {results.virusTotal && !results.virusTotal.error && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">VirusTotal:</td>
                                             <td className="py-2">
                                                 {(results.virusTotal.malicious || 0) > 0 ? (
@@ -170,7 +170,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     )}
 
                                     {results.abuseIPDB && !results.abuseIPDB.error && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">AbuseIPDB:</td>
                                             <td className="py-2">
                                                 Confidence: {results.abuseIPDB.abuseScore || 0}% | Reports: {results.abuseIPDB.totalReports || 0} | {results.abuseIPDB.countryCode || 'N/A'} ({results.abuseIPDB.isp || 'Unknown'})
@@ -179,7 +179,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     )}
 
                                     {results.greyNoise && !results.greyNoise.error && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">GreyNoise:</td>
                                             <td className="py-2">
                                                 {String(results.greyNoise.classification || 'unknown').toUpperCase()}
@@ -191,7 +191,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     )}
 
                                     {results.shodan && results.shodan.hasData && !results.shodan.error && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">Shodan:</td>
                                             <td className="py-2">
                                                 {results.shodan.openPortsCount || 0} open ports
@@ -202,7 +202,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     )}
 
                                     {results.urlScan && !results.urlScan.error && !results.urlScan.scanning && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">URLScan.io:</td>
                                             <td className="py-2">
                                                 {results.urlScan.verdictMalicious ? (
@@ -216,7 +216,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     )}
 
                                     {results.alienVault && results.alienVault.hasData && !results.alienVault.error && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">AlienVault OTX:</td>
                                             <td className="py-2">
                                                 {results.alienVault.pulseCount} threat pulses
@@ -237,7 +237,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                                     {/* MXToolbox WHOIS summary */}
                                     {results.type === 'IP' && results.mxToolbox && results.mxToolbox.hasData && !results.mxToolbox.error && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">MXToolbox ARIN/WHOIS:</td>
                                             <td className="py-2">
                                                 {results.mxToolbox.organization || 'Unknown'} | {results.mxToolbox.netRange || 'N/A'} | {results.mxToolbox.country || 'N/A'}
@@ -247,7 +247,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                                     {/* ARIN RDAP summary */}
                                     {results.type === 'IP' && results.arin && results.arin.hasData && !results.arin.error && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">ARIN RDAP:</td>
                                             <td className="py-2">
                                                 {results.arin.org || 'Unknown'} | {results.arin.startAddress || 'N/A'} – {results.arin.endAddress || 'N/A'} | {results.arin.country || 'N/A'}
@@ -257,14 +257,14 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                                     {/* No data notices */}
                                     {results.type === 'IP' && results.shodan && (!results.shodan.hasData || results.shodan.message === 'No information available for this IP') && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">Shodan:</td>
                                             <td className="py-2 text-gray-500">No data available</td>
                                         </tr>
                                     )}
 
                                     {results.alienVault && results.alienVault.hasData === false && (
-                                        <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
                                             <td className="py-2 pr-4 font-semibold">AlienVault OTX:</td>
                                             <td className="py-2 text-gray-500">No data available</td>
                                         </tr>
@@ -326,7 +326,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                     {/* AlienVault OTX */}
                     {results.alienVault && !results.alienVault.error && results.alienVault.hasData && (
-                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                     🔮 AlienVault OTX Threat Intelligence
@@ -449,7 +449,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                     {/* URLScan */}
                     {results.urlScan && !results.urlScan.error && (
-                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                     🔎 URLScan.io Analysis
@@ -521,7 +521,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                     {/* GreyNoise */}
                     {results.greyNoise && !results.greyNoise.error && (
-                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                                     🌐 GreyNoise Intelligence
@@ -579,7 +579,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                     {/* Shodan */}
                     {results.shodan && !results.shodan.error && results.shodan.hasData && results.shodan.message !== 'No information available for this IP' && (
-                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>🔍 Shodan Reconnaissance</h4>
                                 <a
@@ -655,13 +655,13 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     <p className={`text-sm font-semibold mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Services Detected</p>
                                     <div className="space-y-3">
                                         {results.shodan.services.map((service, idx) => (
-                                            <div key={idx} className={`p-3 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                            <div key={idx} className={`p-3 rounded ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-gray-50 border border-gray-200'}`}>
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className={`font-mono font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Port {service.port}/{service.protocol}</span>
                                                     <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{service.product} {service.version}</span>
                                                 </div>
                                                 {service.banner && (
-                                                    <pre className={`text-xs mt-2 p-2 rounded overflow-x-auto ${darkMode ? 'bg-gray-900 text-gray-300' : 'bg-white text-gray-700'}`}>
+                                                    <pre className={`text-xs mt-2 p-2 rounded overflow-x-auto border ${darkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
                                                         {service.banner}
                                                     </pre>
                                                 )}
@@ -713,7 +713,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                     {/* AbuseIPDB */}
                     {results.abuseIPDB && !results.abuseIPDB.error && (
-                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>🚨 AbuseIPDB Report</h4>
                                 <a
@@ -741,7 +741,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                     {/* MXToolbox WHOIS/ARIN */}
                     {results.type === 'IP' && results.mxToolbox && !results.mxToolbox.error && results.mxToolbox.hasData && (
-                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>📋 ARIN/WHOIS Registration (MXToolbox)</h4>
                                 <a
@@ -829,7 +829,7 @@ export default function ThreatIntelLookup({ darkMode }) {
 
                     {/* ARIN RDAP (Direct) */}
                     {results.type === 'IP' && results.arin && !results.arin.error && results.arin.hasData && (
-                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                        <div className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-200'}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>🧭 ARIN RDAP (Direct)</h4>
                                 <div className="flex gap-2">
