@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
+import Editor from '@monaco-editor/react';
+import { DiffEditor } from '@monaco-editor/react';
 
 export default function KQLDiffViewer({ darkMode }) {
   const [originalQuery, setOriginalQuery] = useState('');
@@ -10,6 +12,81 @@ export default function KQLDiffViewer({ darkMode }) {
   const [syntaxErrors, setSyntaxErrors] = useState({ original: [], updated: [] });
   const [fpAnalysis, setFpAnalysis] = useState(null);
   const [isFpAnalyzing, setIsFpAnalyzing] = useState(false);
+
+  // Phase 1 & 2: New state for advanced features
+  const [ignoreWhitespace, setIgnoreWhitespace] = useState(false);
+  const [ignoreCase, setIgnoreCase] = useState(false);
+  const [viewMode, setViewMode] = useState('side-by-side'); // 'side-by-side' or 'inline'
+  const [shareUrl, setShareUrl] = useState('');
+
+  // Monaco editor refs for diagnostics
+  const originalEditorRef = useRef(null);
+  const updatedEditorRef = useRef(null);
+  const diffEditorRef = useRef(null);
+
+  // Debounce timer
+  const debounceTimerRef = useRef(null);
+
+  // Phase 1: Load from URL parameters on mount (shareable state)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('original') && params.has('updated')) {
+      try {
+        const original = decodeURIComponent(params.get('original'));
+        const updated = decodeURIComponent(params.get('updated'));
+        setOriginalQuery(original);
+        setUpdatedQuery(updated);
+
+        // Auto-load settings from URL
+        if (params.has('whitespace')) setIgnoreWhitespace(params.get('whitespace') === 'true');
+        if (params.has('case')) setIgnoreCase(params.get('case') === 'true');
+        if (params.has('view')) setViewMode(params.get('view'));
+      } catch (error) {
+        console.error('Error parsing URL parameters:', error);
+      }
+    }
+
+    // Load preferences from localStorage
+    const savedPrefs = localStorage.getItem('kql-diff-preferences');
+    if (savedPrefs) {
+      try {
+        const prefs = JSON.parse(savedPrefs);
+        if (prefs.ignoreWhitespace !== undefined) setIgnoreWhitespace(prefs.ignoreWhitespace);
+        if (prefs.ignoreCase !== undefined) setIgnoreCase(prefs.ignoreCase);
+        if (prefs.viewMode) setViewMode(prefs.viewMode);
+      } catch (error) {
+        console.error('Error loading preferences:', error);
+      }
+    }
+  }, []);
+
+  // Phase 2: Save preferences to localStorage when they change
+  useEffect(() => {
+    const prefs = { ignoreWhitespace, ignoreCase, viewMode };
+    localStorage.setItem('kql-diff-preferences', JSON.stringify(prefs));
+  }, [ignoreWhitespace, ignoreCase, viewMode]);
+
+  // Phase 2: Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyboard = (e) => {
+      // Ctrl+Enter or Cmd+Enter: Compare queries
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !showDiff) {
+        e.preventDefault();
+        if (originalQuery.trim() && updatedQuery.trim()) {
+          handleCompare();
+        }
+      }
+      // Escape: Back to edit
+      if (e.key === 'Escape' && showDiff) {
+        e.preventDefault();
+        setShowDiff(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyboard);
+    return () => window.removeEventListener('keydown', handleKeyboard);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDiff, originalQuery, updatedQuery]);
 
   // KQL Syntax Validator
   const validateKQLSyntax = (query) => {
@@ -72,84 +149,115 @@ export default function KQLDiffViewer({ darkMode }) {
     return errors;
   };
 
-  // Character-level diff for modified lines
-  const getCharDiff = (str1, str2) => {
-    const result1 = [];
-    const result2 = [];
-    let i = 0;
-    let j = 0;
-    
-    while (i < str1.length || j < str2.length) {
-      if (i < str1.length && j < str2.length && str1[i] === str2[j]) {
-        result1.push({ char: str1[i], changed: false });
-        result2.push({ char: str2[j], changed: false });
-        i++;
-        j++;
-      } else {
-        let found = false;
-        
-        // Look ahead to find matching sequence
-        for (let k = 1; k <= Math.min(20, str1.length - i, str2.length - j); k++) {
-          if (str1.substring(i, i + k) === str2.substring(j, j + k)) {
-            // Mark differences before the match
-            while (i < str1.length && str1[i] !== str2[j]) {
-              result1.push({ char: str1[i], changed: true });
-              i++;
-            }
-            while (j < str2.length && str2[j] !== str1[i - (i > 0 ? 1 : 0)]) {
-              result2.push({ char: str2[j], changed: true });
-              j++;
-            }
-            found = true;
-            break;
-          }
-        }
-        
-        if (!found) {
-          if (i < str1.length) {
-            result1.push({ char: str1[i], changed: true });
-            i++;
-          }
-          if (j < str2.length) {
-            result2.push({ char: str2[j], changed: true });
-            j++;
-          }
-        }
-      }
-    }
-    
-    return { original: result1, updated: result2 };
-  };
+  // Phase 1: Apply syntax errors as Monaco markers (inline diagnostics)
+  const applyMonacoMarkers = useCallback((editor, errors, monaco) => {
+    if (!editor || !monaco) return;
 
-  // Simple line-based diff algorithm
-  const computeDiff = (original, updated) => {
-    const originalLines = original.split('\n');
-    const updatedLines = updated.split('\n');
-    const maxLength = Math.max(originalLines.length, updatedLines.length);
-    
-    const diff = [];
-    for (let i = 0; i < maxLength; i++) {
-      const origLine = originalLines[i] || '';
-      const updLine = updatedLines[i] || '';
-      
-      if (origLine === updLine) {
-        diff.push({ type: 'unchanged', original: origLine, updated: updLine, lineNum: i + 1 });
-      } else if (!origLine && updLine) {
-        diff.push({ type: 'added', original: '', updated: updLine, lineNum: i + 1 });
-      } else if (origLine && !updLine) {
-        diff.push({ type: 'removed', original: origLine, updated: '', lineNum: i + 1 });
-      } else {
-        const charDiff = getCharDiff(origLine, updLine);
-        diff.push({ 
-          type: 'modified', 
-          original: origLine, 
-          updated: updLine, 
-          lineNum: i + 1,
-          charDiff 
+    const model = editor.getModel();
+    if (!model) return;
+
+    const markers = errors.map(err => ({
+      severity: err.severity === 'error' ? monaco.MarkerSeverity.Error :
+                err.severity === 'warning' ? monaco.MarkerSeverity.Warning :
+                monaco.MarkerSeverity.Info,
+      message: err.message,
+      startLineNumber: err.line || 1,
+      startColumn: 1,
+      endLineNumber: err.line || 1,
+      endColumn: model.getLineMaxColumn(err.line || 1)
+    }));
+
+    monaco.editor.setModelMarkers(model, 'kql-validator', markers);
+  }, []);
+
+  // Phase 1: Generate shareable URL
+  const generateShareUrl = useCallback(() => {
+    const params = new URLSearchParams();
+    params.set('original', encodeURIComponent(originalQuery));
+    params.set('updated', encodeURIComponent(updatedQuery));
+    params.set('whitespace', ignoreWhitespace.toString());
+    params.set('case', ignoreCase.toString());
+    params.set('view', viewMode);
+
+    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    setShareUrl(url);
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(url).then(() => {
+      alert('Share link copied to clipboard! 🔗');
+    }).catch(() => {
+      // Fallback: show URL in prompt
+      prompt('Copy this shareable link:', url);
+    });
+  }, [originalQuery, updatedQuery, ignoreWhitespace, ignoreCase, viewMode]);
+
+  // Phase 2: Markdown export function - moved after diff computation
+  const exportMarkdownFn = (diffData) => {
+    const diffSummary = diffData.reduce((acc, line) => {
+      if (line.type === 'added') acc.added++;
+      if (line.type === 'removed') acc.removed++;
+      if (line.type === 'modified') acc.modified++;
+      return acc;
+    }, { added: 0, removed: 0, modified: 0 });
+
+    let markdown = `# KQL Query Comparison Report\n\n`;
+    markdown += `**Generated:** ${new Date().toLocaleString()}\n\n`;
+    markdown += `---\n\n`;
+
+    // Summary
+    markdown += `## Change Summary\n\n`;
+    markdown += `- ✅ **Added Lines:** ${diffSummary.added}\n`;
+    markdown += `- ❌ **Removed Lines:** ${diffSummary.removed}\n`;
+    markdown += `- 🔄 **Modified Lines:** ${diffSummary.modified}\n\n`;
+
+    // Syntax errors
+    if (syntaxErrors.original.length > 0 || syntaxErrors.updated.length > 0) {
+      markdown += `## Syntax Validation\n\n`;
+      if (syntaxErrors.original.length > 0) {
+        markdown += `### Original Query Issues (${syntaxErrors.original.length})\n\n`;
+        syntaxErrors.original.forEach(err => {
+          markdown += `- **Line ${err.line}:** ${err.message} \`[${err.severity}]\`\n`;
         });
+        markdown += `\n`;
+      }
+      if (syntaxErrors.updated.length > 0) {
+        markdown += `### Updated Query Issues (${syntaxErrors.updated.length})\n\n`;
+        syntaxErrors.updated.forEach(err => {
+          markdown += `- **Line ${err.line}:** ${err.message} \`[${err.severity}]\`\n`;
+        });
+        markdown += `\n`;
       }
     }
-    return diff;
+
+    // AI Analysis
+    if (aiAnalysis) {
+      markdown += `## AI Analysis\n\n`;
+      aiAnalysis.forEach(section => {
+        markdown += `### ${section.title}\n\n${section.content}\n\n`;
+      });
+    }
+
+    // FP Analysis
+    if (fpAnalysis) {
+      markdown += `## False Positive Analysis\n\n${fpAnalysis}\n\n`;
+    }
+
+    // Queries
+    markdown += `## Original Query\n\n\`\`\`kql\n${originalQuery}\n\`\`\`\n\n`;
+    markdown += `## Updated Query\n\n\`\`\`kql\n${updatedQuery}\n\`\`\`\n\n`;
+    markdown += `---\n\n`;
+    markdown += `*Generated by ThreatDefender KQL Diff App | eGroup Enabling Technologies*\n`;
+
+    // Download
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kql-comparison-${Date.now()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Parse AI response into structured sections
@@ -198,7 +306,6 @@ export default function KQLDiffViewer({ darkMode }) {
   };
 
   const getSectionStyle = (type) => {
-    const base = darkMode ? 'bg-gray-800' : '';
     switch (type) {
       case 'warning':
         return darkMode 
@@ -232,13 +339,27 @@ export default function KQLDiffViewer({ darkMode }) {
     }
   };
 
-  const generateAIAnalysis = async () => {
+  // Phase 2: Debounced AI analysis to prevent spammy API calls
+  const generateAIAnalysis = useCallback(async (debounce = false) => {
+    if (debounce) {
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Set new timer for 500ms debounce
+      debounceTimerRef.current = setTimeout(() => {
+        generateAIAnalysis(false);
+      }, 500);
+      return;
+    }
+
     setIsAnalyzing(true);
     setAiAnalysis(null);
-    
+
     try {
       const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
-      
+
       const response = await fetch(functionUrl, {
         method: "POST",
         headers: {
@@ -264,33 +385,17 @@ export default function KQLDiffViewer({ darkMode }) {
     } finally {
       setIsAnalyzing(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [originalQuery, updatedQuery]);
 
   const generateFPAnalysis = async () => {
     setIsFpAnalyzing(true);
     setFpAnalysis(null);
-    
+
     try {
       const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
-      
-      const response = await fetch(functionUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          originalQuery,
-          updatedQuery
-        })
-      });
 
-      if (!response.ok) {
-        throw new Error(`Worker request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      // Second call for FP analysis
+      // FP-specific analysis call
       const fpResponse = await fetch(functionUrl, {
         method: "POST",
         headers: {
@@ -301,6 +406,10 @@ export default function KQLDiffViewer({ darkMode }) {
           updatedQuery: "Analysis request"
         })
       });
+
+      if (!fpResponse.ok) {
+        throw new Error(`Worker request failed: ${fpResponse.status}`);
+      }
 
       const fpData = await fpResponse.json();
       const fpText = fpData.content[0].text;
@@ -469,35 +578,53 @@ export default function KQLDiffViewer({ darkMode }) {
     setAiAnalysis(null);
     setFpAnalysis(null);
     setSyntaxErrors({ original: [], updated: [] });
+    setShareUrl('');
   };
 
-  const diff = showDiff ? computeDiff(originalQuery, updatedQuery) : [];
+  // Phase 2: Memoize diff computation with new dependencies
+  const diff = React.useMemo(() => {
+    if (!showDiff) return [];
 
-  const getLineStyle = (type) => {
-    if (darkMode) {
-      switch (type) {
-        case 'added':
-          return 'bg-green-900 bg-opacity-30 border-l-4 border-green-500';
-        case 'removed':
-          return 'bg-red-900 bg-opacity-30 border-l-4 border-red-500';
-        case 'modified':
-          return 'bg-yellow-900 bg-opacity-30 border-l-4 border-yellow-500';
-        default:
-          return 'bg-gray-900';
+    const originalLines = originalQuery.split('\n');
+    const updatedLines = updatedQuery.split('\n');
+    const maxLength = Math.max(originalLines.length, updatedLines.length);
+
+    const normalizeLine = (line) => {
+      let normalized = line;
+      if (ignoreWhitespace) {
+        normalized = normalized.replace(/\s+/g, ' ').trim();
       }
-    } else {
-      switch (type) {
-        case 'added':
-          return 'bg-green-100 border-l-4 border-green-500';
-        case 'removed':
-          return 'bg-red-100 border-l-4 border-red-500';
-        case 'modified':
-          return 'bg-yellow-100 border-l-4 border-yellow-500';
-        default:
-          return 'bg-white';
+      if (ignoreCase) {
+        normalized = normalized.toLowerCase();
+      }
+      return normalized;
+    };
+
+    const result = [];
+    for (let i = 0; i < maxLength; i++) {
+      const origLine = originalLines[i] || '';
+      const updLine = updatedLines[i] || '';
+
+      const normalizedOrig = normalizeLine(origLine);
+      const normalizedUpd = normalizeLine(updLine);
+
+      if (normalizedOrig === normalizedUpd) {
+        result.push({ type: 'unchanged', original: origLine, updated: updLine, lineNum: i + 1 });
+      } else if (!origLine && updLine) {
+        result.push({ type: 'added', original: '', updated: updLine, lineNum: i + 1 });
+      } else if (origLine && !updLine) {
+        result.push({ type: 'removed', original: origLine, updated: '', lineNum: i + 1 });
+      } else {
+        result.push({
+          type: 'modified',
+          original: origLine,
+          updated: updLine,
+          lineNum: i + 1
+        });
       }
     }
-  };
+    return result;
+  }, [showDiff, originalQuery, updatedQuery, ignoreWhitespace, ignoreCase]);
 
   return (
     <div className={`min-h-screen p-6 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -515,40 +642,166 @@ export default function KQLDiffViewer({ darkMode }) {
 
         {!showDiff ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Phase 1: Monaco Editor for Original Query */}
             <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Original KQL Query
               </label>
-              <textarea
-                value={originalQuery}
-                onChange={(e) => setOriginalQuery(e.target.value)}
-                className={`w-full h-96 p-3 border rounded-md font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  darkMode 
-                    ? 'bg-gray-900 border-gray-700 text-gray-300' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
-                placeholder="Paste your original Sentinel Analytic Rule query here..."
-              />
+              <div className="border rounded-md overflow-hidden" style={{ height: '400px' }}>
+                <Editor
+                  height="400px"
+                  defaultLanguage="kusto"
+                  language="kusto"
+                  value={originalQuery}
+                  onChange={(value) => setOriginalQuery(value || '')}
+                  theme={darkMode ? 'vs-dark' : 'vs'}
+                  options={{
+                    minimap: { enabled: true },
+                    fontSize: 14,
+                    wordWrap: 'on',
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2
+                  }}
+                  onMount={(editor, monaco) => {
+                    originalEditorRef.current = editor;
+
+                    // Apply initial validation
+                    const errors = validateKQLSyntax(originalQuery);
+                    applyMonacoMarkers(editor, errors, monaco);
+
+                    // Listen for changes and revalidate
+                    editor.onDidChangeModelContent(() => {
+                      const content = editor.getValue();
+                      const newErrors = validateKQLSyntax(content);
+                      applyMonacoMarkers(editor, newErrors, monaco);
+                      setSyntaxErrors(prev => ({ ...prev, original: newErrors }));
+                    });
+                  }}
+                />
+              </div>
             </div>
 
+            {/* Phase 1: Monaco Editor for Updated Query */}
             <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Updated KQL Query
               </label>
-              <textarea
-                value={updatedQuery}
-                onChange={(e) => setUpdatedQuery(e.target.value)}
-                className={`w-full h-96 p-3 border rounded-md font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  darkMode 
-                    ? 'bg-gray-900 border-gray-700 text-gray-300' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
-                placeholder="Paste your updated query here..."
-              />
+              <div className="border rounded-md overflow-hidden" style={{ height: '400px' }}>
+                <Editor
+                  height="400px"
+                  defaultLanguage="kusto"
+                  language="kusto"
+                  value={updatedQuery}
+                  onChange={(value) => setUpdatedQuery(value || '')}
+                  theme={darkMode ? 'vs-dark' : 'vs'}
+                  options={{
+                    minimap: { enabled: true },
+                    fontSize: 14,
+                    wordWrap: 'on',
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2
+                  }}
+                  onMount={(editor, monaco) => {
+                    updatedEditorRef.current = editor;
+
+                    // Apply initial validation
+                    const errors = validateKQLSyntax(updatedQuery);
+                    applyMonacoMarkers(editor, errors, monaco);
+
+                    // Listen for changes and revalidate
+                    editor.onDidChangeModelContent(() => {
+                      const content = editor.getValue();
+                      const newErrors = validateKQLSyntax(content);
+                      applyMonacoMarkers(editor, newErrors, monaco);
+                      setSyntaxErrors(prev => ({ ...prev, updated: newErrors }));
+                    });
+                  }}
+                />
+              </div>
             </div>
           </div>
         ) : (
           <>
+            {/* Phase 2: Noise-Control Toggles */}
+            <div className={`rounded-lg shadow p-4 mb-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+              <div className="flex flex-wrap items-center gap-6">
+                <h3 className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Diff Options:
+                </h3>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={ignoreWhitespace}
+                    onChange={(e) => setIgnoreWhitespace(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Ignore Whitespace
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={ignoreCase}
+                    onChange={(e) => setIgnoreCase(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Ignore Case
+                  </span>
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>View:</span>
+                  <button
+                    onClick={() => setViewMode('side-by-side')}
+                    className={`px-3 py-1 rounded text-sm ${
+                      viewMode === 'side-by-side'
+                        ? 'bg-blue-600 text-white'
+                        : darkMode
+                        ? 'bg-gray-700 text-gray-300'
+                        : 'bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    Side-by-Side
+                  </button>
+                  <button
+                    onClick={() => setViewMode('inline')}
+                    className={`px-3 py-1 rounded text-sm ${
+                      viewMode === 'inline'
+                        ? 'bg-blue-600 text-white'
+                        : darkMode
+                        ? 'bg-gray-700 text-gray-300'
+                        : 'bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    Inline
+                  </button>
+                </div>
+
+                <div className="ml-auto">
+                  <button
+                    onClick={generateShareUrl}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition text-sm"
+                  >
+                    🔗 Share Link
+                  </button>
+                </div>
+              </div>
+
+              {shareUrl && (
+                <div className={`mt-3 p-2 rounded text-xs ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+                  Link copied! Share: <span className="font-mono break-all">{shareUrl}</span>
+                </div>
+              )}
+            </div>
+
             {(syntaxErrors.original.length > 0 || syntaxErrors.updated.length > 0) && (
               <div className="mb-6">
                 <h2 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -641,94 +894,65 @@ export default function KQLDiffViewer({ darkMode }) {
               </div>
             )}
 
+            {/* Phase 1: Monaco DiffEditor - Professional side-by-side or inline diff view */}
             <div className={`rounded-lg shadow overflow-hidden ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <div className={`p-4 border-b ${
                 darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'
               }`}>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-green-100 border-l-4 border-green-500"></div>
-                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Added</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-red-100 border-l-4 border-red-500"></div>
-                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Removed</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-yellow-100 border-l-4 border-yellow-500"></div>
-                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Modified</span>
-                  </div>
-                </div>
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Query Comparison
+                </h2>
               </div>
 
-              <div className={`grid grid-cols-2 divide-x ${
-                darkMode ? 'divide-gray-700' : 'divide-gray-200'
-              }`}>
-                <div className="p-4">
-                  <h3 className={`text-sm font-semibold mb-3 ${
-                    darkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>Original</h3>
-                  <div className="space-y-1">
-                    {diff.map((line, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-2 ${getLineStyle(line.type)} font-mono text-xs whitespace-pre-wrap break-all ${
-                          darkMode ? 'text-gray-300' : 'text-gray-900'
-                        }`}
-                      >
-                        <span className={`mr-3 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                          {line.lineNum}
-                        </span>
-                        {line.type === 'modified' && line.charDiff ? (
-                          <span>
-                            {line.charDiff.original.map((item, i) => (
-                              <span
-                                key={i}
-                                className={item.changed ? (darkMode ? 'bg-red-500' : 'bg-red-300') : ''}
-                              >
-                                {item.char}
-                              </span>
-                            ))}
-                          </span>
-                        ) : (
-                          <span>{line.original || ' '}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div style={{ height: '600px' }}>
+                <DiffEditor
+                  height="600px"
+                  language="kusto"
+                  original={originalQuery}
+                  modified={updatedQuery}
+                  theme={darkMode ? 'vs-dark' : 'vs'}
+                  options={{
+                    renderSideBySide: viewMode === 'side-by-side',
+                    readOnly: true,
+                    minimap: { enabled: true },
+                    fontSize: 14,
+                    wordWrap: 'on',
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    ignoreTrimWhitespace: ignoreWhitespace,
+                    originalEditable: false,
+                    enableSplitViewResizing: true,
+                    renderOverviewRuler: true
+                  }}
+                  onMount={(editor, monaco) => {
+                    diffEditorRef.current = editor;
+                  }}
+                />
+              </div>
 
-                <div className="p-4">
-                  <h3 className={`text-sm font-semibold mb-3 ${
-                    darkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>Updated</h3>
-                  <div className="space-y-1">
-                    {diff.map((line, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-2 ${getLineStyle(line.type)} font-mono text-xs whitespace-pre-wrap break-all ${
-                          darkMode ? 'text-gray-300' : 'text-gray-900'
-                        }`}
-                      >
-                        <span className={`mr-3 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                          {line.lineNum}
-                        </span>
-                        {line.type === 'modified' && line.charDiff ? (
-                          <span>
-                            {line.charDiff.updated.map((item, i) => (
-                              <span
-                                key={i}
-                                className={item.changed ? (darkMode ? 'bg-green-500' : 'bg-green-300') : ''}
-                              >
-                                {item.char}
-                              </span>
-                            ))}
-                          </span>
-                        ) : (
-                          <span>{line.updated || ' '}</span>
-                        )}
-                      </div>
-                    ))}
+              {/* Diff Statistics */}
+              <div className={`p-4 border-t ${
+                darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'
+              }`}>
+                <div className="flex items-center gap-6 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-green-500 rounded"></div>
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                      Added: {diff.filter(l => l.type === 'added').length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-red-500 rounded"></div>
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                      Removed: {diff.filter(l => l.type === 'removed').length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+                    <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                      Modified: {diff.filter(l => l.type === 'modified').length}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -736,54 +960,82 @@ export default function KQLDiffViewer({ darkMode }) {
           </>
         )}
 
-        <div className="mt-6 flex gap-4 flex-wrap">
-          {!showDiff ? (
-            <button
-              onClick={handleCompare}
-              disabled={!originalQuery.trim() || !updatedQuery.trim()}
-              className="px-6 py-3 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-            >
-              Compare Queries
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => setShowDiff(false)}
-                className="px-6 py-3 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition"
-              >
-                Back to Edit
-              </button>
-              <button
-                onClick={handleReset}
-                className="px-6 py-3 bg-gray-600 text-white rounded-md font-semibold hover:bg-gray-700 transition"
-              >
-                Start Over
-              </button>
-              {!aiAnalysis && (
+        <div className="mt-6 space-y-4">
+          <div className="flex gap-4 flex-wrap">
+            {!showDiff ? (
+              <>
                 <button
-                  onClick={generateAIAnalysis}
-                  disabled={isAnalyzing}
-                  className="px-6 py-3 bg-purple-600 text-white rounded-md font-semibold hover:bg-purple-700 disabled:bg-purple-300 transition"
+                  onClick={handleCompare}
+                  disabled={!originalQuery.trim() || !updatedQuery.trim()}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
                 >
-                  {isAnalyzing ? 'Analyzing...' : 'Generate AI Summary'}
+                  Compare Queries
                 </button>
-              )}
-              {!fpAnalysis && (
+                <span className={`text-sm self-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  (Ctrl+Enter)
+                </span>
+              </>
+            ) : (
+              <>
                 <button
-                  onClick={generateFPAnalysis}
-                  disabled={isFpAnalyzing}
-                  className="px-6 py-3 bg-yellow-600 text-white rounded-md font-semibold hover:bg-yellow-700 disabled:bg-yellow-300 transition"
+                  onClick={() => setShowDiff(false)}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition"
                 >
-                  {isFpAnalyzing ? 'Analyzing...' : '🎯 False Positive Check'}
+                  Back to Edit
                 </button>
-              )}
-              <button
-                onClick={exportReport}
-                className="px-6 py-3 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 transition"
-              >
-                📄 Export Report
-              </button>
-            </>
+                <button
+                  onClick={handleReset}
+                  className="px-6 py-3 bg-gray-600 text-white rounded-md font-semibold hover:bg-gray-700 transition"
+                >
+                  Start Over
+                </button>
+                {!aiAnalysis && (
+                  <button
+                    onClick={() => generateAIAnalysis(false)}
+                    disabled={isAnalyzing}
+                    className="px-6 py-3 bg-purple-600 text-white rounded-md font-semibold hover:bg-purple-700 disabled:bg-purple-300 transition"
+                  >
+                    {isAnalyzing ? 'Analyzing...' : 'Generate AI Summary'}
+                  </button>
+                )}
+                {!fpAnalysis && (
+                  <button
+                    onClick={generateFPAnalysis}
+                    disabled={isFpAnalyzing}
+                    className="px-6 py-3 bg-yellow-600 text-white rounded-md font-semibold hover:bg-yellow-700 disabled:bg-yellow-300 transition"
+                  >
+                    {isFpAnalyzing ? 'Analyzing...' : 'False Positive Check'}
+                  </button>
+                )}
+
+                {/* Phase 2: Export buttons with both HTML and Markdown */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={exportReport}
+                    className="px-6 py-3 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700 transition"
+                  >
+                    Export HTML
+                  </button>
+                  <button
+                    onClick={() => exportMarkdownFn(diff)}
+                    className="px-6 py-3 bg-teal-600 text-white rounded-md font-semibold hover:bg-teal-700 transition"
+                  >
+                    Export Markdown
+                  </button>
+                </div>
+
+                <span className={`text-sm self-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  (ESC to go back)
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Phase 2: Keyboard shortcuts help */}
+          {!showDiff && (
+            <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+              <strong>Keyboard Shortcuts:</strong> Ctrl+Enter to compare | ESC to go back
+            </div>
           )}
         </div>
       </div>
