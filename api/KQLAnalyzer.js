@@ -34,7 +34,7 @@ try {
             }
 
             const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-            const apiKey = process.env.AZURE_OPENAI_KEY;
+            const apiKey = process.env.AZURE_OPENAI_API_KEY;
             const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4';
 
             const client = new OpenAIClient(endpoint, new AzureKeyCredential(apiKey));
@@ -93,8 +93,8 @@ Provide analysis with:
             if (!process.env.AZURE_OPENAI_ENDPOINT) {
                 errorDetails.configIssue = 'AZURE_OPENAI_ENDPOINT environment variable not set';
             }
-            if (!process.env.AZURE_OPENAI_KEY) {
-                errorDetails.configIssue = 'AZURE_OPENAI_KEY environment variable not set';
+            if (!process.env.AZURE_OPENAI_API_KEY) {
+                errorDetails.configIssue = 'AZURE_OPENAI_API_KEY environment variable not set';
             }
 
             return {
