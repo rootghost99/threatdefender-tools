@@ -15,12 +15,15 @@ app.http('KQLAnalyzer', {
                     'Access-Control-Allow-Origin': '*',
                     'Access-Control-Allow-Methods': 'POST, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type'
-                }
-            };
+               }
+          };
         }
 
-        try {
-            const body = await request.json();
+context.log('Request received from origin:', request.headers.get('origin'));
+context.log('Request URL:', request.url);
+
+try {
+    const body = await request.json();
             const { originalQuery, updatedQuery } = body;
 
             if (!originalQuery || !updatedQuery) {
