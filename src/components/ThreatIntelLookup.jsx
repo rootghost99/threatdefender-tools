@@ -27,8 +27,8 @@ export default function ThreatIntelLookup({ darkMode }) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ indicator: indicator.trim() })
                 }).catch(err => {
-                    console.log('Hybrid Analysis lookup skipped or failed:', err.message);
-                    return null;
+                    console.error('Hybrid Analysis API call failed:', err);
+                    return { ok: false, error: err };
                 })
             ]);
 
@@ -45,7 +45,16 @@ export default function ThreatIntelLookup({ darkMode }) {
             // Process HybridAnalysisLookup response if available
             if (hybridAnalysisResponse && hybridAnalysisResponse.ok) {
                 const hybridData = await hybridAnalysisResponse.json();
+                console.log('Hybrid Analysis response:', hybridData);
                 setHybridAnalysisResults(hybridData);
+            } else if (hybridAnalysisResponse && !hybridAnalysisResponse.ok) {
+                console.error('Hybrid Analysis API returned non-OK status:', hybridAnalysisResponse.status);
+                try {
+                    const errorData = await hybridAnalysisResponse.text();
+                    console.error('Hybrid Analysis error details:', errorData);
+                } catch (e) {
+                    console.error('Could not read Hybrid Analysis error response');
+                }
             }
         } catch (error) {
             console.error('Lookup failed:', error);
