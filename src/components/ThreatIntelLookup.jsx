@@ -4,6 +4,7 @@ export default function ThreatIntelLookup({ darkMode }) {
     const [indicator, setIndicator] = useState('');
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
+    const [hybridAnalysisResults, setHybridAnalysisResults] = useState(null);
     const [showRdapModal, setShowRdapModal] = useState(false);
 
     const handleLookup = async () => {
@@ -11,23 +12,41 @@ export default function ThreatIntelLookup({ darkMode }) {
 
         setLoading(true);
         setResults(null);
+        setHybridAnalysisResults(null);
 
         try {
-            const response = await fetch('/api/ThreatIntelLookup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ indicator: indicator.trim() })
-            });
+            // Call both APIs in parallel
+            const [threatIntelResponse, hybridAnalysisResponse] = await Promise.all([
+                fetch('/api/ThreatIntelLookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ indicator: indicator.trim() })
+                }),
+                fetch('/api/HybridAnalysisLookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ indicator: indicator.trim() })
+                }).catch(err => {
+                    console.log('Hybrid Analysis lookup skipped or failed:', err.message);
+                    return null;
+                })
+            ]);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('API Error:', response.status, errorText);
-                setResults({ error: `API Error: ${response.status} - ${errorText}` });
-                return;
+            // Process ThreatIntelLookup response
+            if (!threatIntelResponse.ok) {
+                const errorText = await threatIntelResponse.text();
+                console.error('API Error:', threatIntelResponse.status, errorText);
+                setResults({ error: `API Error: ${threatIntelResponse.status} - ${errorText}` });
+            } else {
+                const data = await threatIntelResponse.json();
+                setResults(data);
             }
 
-            const data = await response.json();
-            setResults(data);
+            // Process HybridAnalysisLookup response if available
+            if (hybridAnalysisResponse && hybridAnalysisResponse.ok) {
+                const hybridData = await hybridAnalysisResponse.json();
+                setHybridAnalysisResults(hybridData);
+            }
         } catch (error) {
             console.error('Lookup failed:', error);
             setResults({ error: 'Failed to perform lookup: ' + error.message });
@@ -87,7 +106,7 @@ export default function ThreatIntelLookup({ darkMode }) {
                     🔍 Threat Intel Lookup
                 </h2>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Query indicators against VirusTotal, AbuseIPDB, URLScan, GreyNoise, Shodan, OTX, MXToolbox, and ARIN RDAP
+                    Query indicators against VirusTotal, AbuseIPDB, URLScan, GreyNoise, Shodan, OTX, MXToolbox, ARIN RDAP, and Hybrid Analysis
                 </p>
             </div>
 
@@ -320,6 +339,330 @@ export default function ThreatIntelLookup({ darkMode }) {
                                     <strong>Last Analysis:</strong> {results.virusTotal.lastAnalysis !== 'N/A' 
                                         ? new Date(results.virusTotal.lastAnalysis).toLocaleString() 
                                         : 'N/A'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Hybrid Analysis */}
+                    {hybridAnalysisResults && hybridAnalysisResults.hybridAnalysis && !hybridAnalysisResults.hybridAnalysis.error && hybridAnalysisResults.hybridAnalysis.found && (
+                        <div className={`p-6 rounded-lg border-2 ${
+                            hybridAnalysisResults.hybridAnalysis.verdict === 'malicious'
+                                ? darkMode ? 'bg-red-900 border-red-700' : 'bg-red-50 border-red-300'
+                                : hybridAnalysisResults.hybridAnalysis.verdict === 'suspicious'
+                                ? darkMode ? 'bg-yellow-900 border-yellow-700' : 'bg-yellow-50 border-yellow-300'
+                                : darkMode ? 'bg-green-900 border-green-700' : 'bg-green-50 border-green-300'
+                        }`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    🦅 Hybrid Analysis (CrowdStrike Falcon Sandbox)
+                                </h4>
+                                {hybridAnalysisResults.hybridAnalysis.reportUrl && hybridAnalysisResults.hybridAnalysis.reportUrl !== 'N/A' && (
+                                    <a
+                                        href={hybridAnalysisResults.hybridAnalysis.reportUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
+                                    >
+                                        View Full Report →
+                                    </a>
+                                )}
+                            </div>
+
+                            {/* Verdict Badge */}
+                            <div className="mb-4 flex items-center gap-3">
+                                <span className={`px-4 py-2 rounded-full text-lg font-bold ${
+                                    hybridAnalysisResults.hybridAnalysis.verdict === 'malicious'
+                                        ? 'bg-red-600 text-white'
+                                        : hybridAnalysisResults.hybridAnalysis.verdict === 'suspicious'
+                                        ? 'bg-yellow-600 text-white'
+                                        : 'bg-green-600 text-white'
+                                }`}>
+                                    {hybridAnalysisResults.hybridAnalysis.verdict === 'malicious' && '❌ Malicious'}
+                                    {hybridAnalysisResults.hybridAnalysis.verdict === 'suspicious' && '⚠️ Suspicious'}
+                                    {hybridAnalysisResults.hybridAnalysis.verdict === 'clean' && '✅ Clean'}
+                                    {!['malicious', 'suspicious', 'clean'].includes(hybridAnalysisResults.hybridAnalysis.verdict) && `⚠️ ${hybridAnalysisResults.hybridAnalysis.verdict}`}
+                                </span>
+                                <div>
+                                    <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        {hybridAnalysisResults.hybridAnalysis.threatScore}/100
+                                    </p>
+                                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Threat Score</p>
+                                </div>
+                            </div>
+
+                            {/* Behavior Summary */}
+                            <div className={`mb-4 p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                <h5 className={`text-md font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    📊 Behavior Summary
+                                </h5>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    {hybridAnalysisResults.hybridAnalysis.totalProcesses > 0 && (
+                                        <div className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Processes</p>
+                                            <p className={`text-xl font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>{hybridAnalysisResults.hybridAnalysis.totalProcesses}</p>
+                                        </div>
+                                    )}
+                                    {hybridAnalysisResults.hybridAnalysis.totalDomains > 0 && (
+                                        <div className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Domains</p>
+                                            <p className={`text-xl font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>{hybridAnalysisResults.hybridAnalysis.totalDomains}</p>
+                                        </div>
+                                    )}
+                                    {hybridAnalysisResults.hybridAnalysis.totalCompromisedHosts > 0 && (
+                                        <div className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Compromised Hosts</p>
+                                            <p className={`text-xl font-bold ${darkMode ? 'text-red-400' : 'text-red-600'}`}>{hybridAnalysisResults.hybridAnalysis.totalCompromisedHosts}</p>
+                                        </div>
+                                    )}
+                                    {hybridAnalysisResults.hybridAnalysis.totalExtractedFiles > 0 && (
+                                        <div className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                                            <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Dropped Files</p>
+                                            <p className={`text-xl font-bold ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>{hybridAnalysisResults.hybridAnalysis.totalExtractedFiles}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Detected Families */}
+                            {hybridAnalysisResults.hybridAnalysis.detectedFamily && hybridAnalysisResults.hybridAnalysis.detectedFamily !== 'Unknown' && (
+                                <div className={`mb-4 p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <h5 className={`text-md font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        🦠 Detected Families
+                                    </h5>
+                                    <div className="flex gap-2 flex-wrap">
+                                        <span className={`px-3 py-2 rounded-lg text-sm font-bold ${darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-800'}`}>
+                                            {hybridAnalysisResults.hybridAnalysis.detectedFamily}
+                                        </span>
+                                        {hybridAnalysisResults.hybridAnalysis.avDetect > 0 && (
+                                            <span className={`px-3 py-2 rounded-lg text-sm ${darkMode ? 'bg-orange-900 text-orange-300' : 'bg-orange-100 text-orange-800'}`}>
+                                                {hybridAnalysisResults.hybridAnalysis.avDetect} AV Detections
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* MITRE ATT&CK Techniques */}
+                            {hybridAnalysisResults.hybridAnalysis.mitreTechniques && hybridAnalysisResults.hybridAnalysis.mitreTechniques.length > 0 && (
+                                <div className={`mb-4 p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <h5 className={`text-md font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        🎯 MITRE ATT&CK Techniques
+                                    </h5>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                                    <th className={`text-left py-2 px-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>ID</th>
+                                                    <th className={`text-left py-2 px-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Tactic</th>
+                                                    <th className={`text-left py-2 px-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Technique</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {hybridAnalysisResults.hybridAnalysis.mitreTechniques.slice(0, 10).map((technique, idx) => (
+                                                    <tr key={idx} className={`border-b ${darkMode ? 'border-gray-700 hover:bg-gray-750' : 'border-gray-100 hover:bg-gray-50'}`}>
+                                                        <td className="py-2 px-2">
+                                                            <a
+                                                                href={`https://attack.mitre.org/techniques/${technique.attackId?.replace('.', '/')}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`font-mono font-semibold ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                                                            >
+                                                                {technique.attackId}
+                                                            </a>
+                                                        </td>
+                                                        <td className={`py-2 px-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{technique.tactic}</td>
+                                                        <td className={`py-2 px-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{technique.technique}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {hybridAnalysisResults.hybridAnalysis.mitreTechniques.length > 10 && (
+                                        <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                                            Showing 10 of {hybridAnalysisResults.hybridAnalysis.mitreTechniques.length} techniques
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Network IoCs */}
+                            {((hybridAnalysisResults.hybridAnalysis.domains && hybridAnalysisResults.hybridAnalysis.domains.length > 0) ||
+                              (hybridAnalysisResults.hybridAnalysis.compromisedHosts && hybridAnalysisResults.hybridAnalysis.compromisedHosts.length > 0) ||
+                              (hybridAnalysisResults.hybridAnalysis.contactedHosts && hybridAnalysisResults.hybridAnalysis.contactedHosts.length > 0)) && (
+                                <div className={`mb-4 p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <h5 className={`text-md font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        🌐 Network Indicators of Compromise (IoCs)
+                                    </h5>
+
+                                    {hybridAnalysisResults.hybridAnalysis.domains && hybridAnalysisResults.hybridAnalysis.domains.length > 0 && (
+                                        <div className="mb-3">
+                                            <p className={`text-xs font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Domains ({hybridAnalysisResults.hybridAnalysis.domains.length})</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {hybridAnalysisResults.hybridAnalysis.domains.slice(0, 10).map((domain, idx) => (
+                                                    <span key={idx} className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-purple-900 text-purple-300' : 'bg-purple-100 text-purple-800'}`}>
+                                                        {domain}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            {hybridAnalysisResults.hybridAnalysis.domains.length > 10 && (
+                                                <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                                                    +{hybridAnalysisResults.hybridAnalysis.domains.length - 10} more
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {hybridAnalysisResults.hybridAnalysis.compromisedHosts && hybridAnalysisResults.hybridAnalysis.compromisedHosts.length > 0 && (
+                                        <div className="mb-3">
+                                            <p className={`text-xs font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Compromised Hosts ({hybridAnalysisResults.hybridAnalysis.compromisedHosts.length})</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {hybridAnalysisResults.hybridAnalysis.compromisedHosts.slice(0, 10).map((host, idx) => (
+                                                    <span key={idx} className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-800'}`}>
+                                                        {host}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {hybridAnalysisResults.hybridAnalysis.contactedHosts && hybridAnalysisResults.hybridAnalysis.contactedHosts.length > 0 && (
+                                        <div>
+                                            <p className={`text-xs font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Contacted Hosts ({hybridAnalysisResults.hybridAnalysis.contactedHosts.length})</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {hybridAnalysisResults.hybridAnalysis.contactedHosts.slice(0, 10).map((host, idx) => (
+                                                    <span key={idx} className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
+                                                        {host}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Processes */}
+                            {hybridAnalysisResults.hybridAnalysis.processes && hybridAnalysisResults.hybridAnalysis.processes.length > 0 && (
+                                <div className={`mb-4 p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <h5 className={`text-md font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        ⚙️ Process Tree (Top 10)
+                                    </h5>
+                                    <div className="space-y-2">
+                                        {hybridAnalysisResults.hybridAnalysis.processes.map((process, idx) => (
+                                            <div key={idx} className={`p-2 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`font-mono text-xs px-2 py-1 rounded ${darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
+                                                        PID: {process.pid}
+                                                    </span>
+                                                    <span className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                        {process.name}
+                                                    </span>
+                                                </div>
+                                                {process.normalized_path && process.normalized_path !== 'N/A' && (
+                                                    <p className={`text-xs mt-1 font-mono ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {process.normalized_path}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Extracted Files */}
+                            {hybridAnalysisResults.hybridAnalysis.extractedFiles && hybridAnalysisResults.hybridAnalysis.extractedFiles.length > 0 && (
+                                <div className={`mb-4 p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                    <h5 className={`text-md font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        📁 Extracted Files (Top 10)
+                                    </h5>
+                                    <div className="space-y-2">
+                                        {hybridAnalysisResults.hybridAnalysis.extractedFiles.map((file, idx) => (
+                                            <div key={idx} className={`p-3 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                        {file.name}
+                                                    </span>
+                                                    {file.threatscore > 0 && (
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                            file.threatscore > 70
+                                                                ? 'bg-red-600 text-white'
+                                                                : file.threatscore > 30
+                                                                ? 'bg-yellow-600 text-white'
+                                                                : 'bg-green-600 text-white'
+                                                        }`}>
+                                                            Threat: {file.threatscore}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-3 text-xs">
+                                                    <span className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        Size: {file.fileSize} bytes
+                                                    </span>
+                                                    {file.sha256 && file.sha256 !== 'N/A' && (
+                                                        <span className={`font-mono ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                            SHA256: {file.sha256.substring(0, 16)}...
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Analysis Metadata */}
+                            <div className={`pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    {hybridAnalysisResults.hybridAnalysis.environment && (
+                                        <div>
+                                            <p className={`font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Environment</p>
+                                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{hybridAnalysisResults.hybridAnalysis.environment}</p>
+                                        </div>
+                                    )}
+                                    {hybridAnalysisResults.hybridAnalysis.analysisDate && hybridAnalysisResults.hybridAnalysis.analysisDate !== 'N/A' && (
+                                        <div>
+                                            <p className={`font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Analysis Date</p>
+                                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                {new Date(hybridAnalysisResults.hybridAnalysis.analysisDate).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {hybridAnalysisResults.hybridAnalysis.submitName && hybridAnalysisResults.hybridAnalysis.submitName !== 'N/A' && (
+                                        <div>
+                                            <p className={`font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Submitted As</p>
+                                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} truncate`}>{hybridAnalysisResults.hybridAnalysis.submitName}</p>
+                                        </div>
+                                    )}
+                                    {hybridAnalysisResults.hybridAnalysis.sha256 && hybridAnalysisResults.hybridAnalysis.sha256 !== 'N/A' && (
+                                        <div>
+                                            <p className={`font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>SHA256</p>
+                                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} font-mono text-xs truncate`}>{hybridAnalysisResults.hybridAnalysis.sha256}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Hybrid Analysis - Not Found */}
+                    {hybridAnalysisResults && hybridAnalysisResults.hybridAnalysis && !hybridAnalysisResults.hybridAnalysis.error && !hybridAnalysisResults.hybridAnalysis.found && (
+                        <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'}`}>
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg">🦅</span>
+                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <strong>Hybrid Analysis:</strong> {hybridAnalysisResults.hybridAnalysis.message || 'No analysis reports found'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Hybrid Analysis - Error */}
+                    {hybridAnalysisResults && hybridAnalysisResults.hybridAnalysis && hybridAnalysisResults.hybridAnalysis.error && (
+                        <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'}`}>
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg">🦅</span>
+                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <strong>Hybrid Analysis:</strong> {hybridAnalysisResults.hybridAnalysis.error}
                                 </p>
                             </div>
                         </div>
