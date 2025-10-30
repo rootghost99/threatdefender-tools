@@ -393,7 +393,7 @@ export default function KQLDiffViewer({ darkMode }) {
     setFpAnalysis(null);
 
     try {
-      const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
+      const functionUrl = '/api/kqlanalyzer';
 
       // FP-specific analysis call
       const fpResponse = await fetch(functionUrl, {
