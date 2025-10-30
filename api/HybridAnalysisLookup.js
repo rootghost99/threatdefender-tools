@@ -6,23 +6,37 @@ app.http('HybridAnalysisLookup', {
   methods: ['POST', 'OPTIONS'],
   authLevel: 'anonymous',
   handler: async (request, context) => {
-    context.log('Hybrid Analysis Lookup function triggered');
-
-    // CORS preflight
-    if (request.method === 'OPTIONS') {
-      return {
-        status: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        }
-      };
-    }
-
     try {
-      const body = await request.json();
-      const { indicator } = body || {};
+      context.log('Hybrid Analysis Lookup function triggered');
+
+      // CORS preflight
+      if (request.method === 'OPTIONS') {
+        return {
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
+        };
+      }
+
+      let body, indicator;
+
+      try {
+        body = await request.json();
+        indicator = body?.indicator;
+      } catch (parseError) {
+        context.log.error('Failed to parse request body:', parseError);
+        return {
+          status: 400,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+          },
+          jsonBody: { error: 'Invalid JSON in request body', details: parseError.message }
+        };
+      }
 
       if (!indicator) {
         return {
@@ -97,33 +111,54 @@ app.http('HybridAnalysisLookup', {
       };
 
     } catch (error) {
-      context.log.error('CRITICAL ERROR in HybridAnalysisLookup:', error.message);
-      context.log.error('Error stack:', error.stack);
-      context.log.error('Error details:', JSON.stringify(error, null, 2));
+      // Absolute fail-safe error handler
+      try {
+        context.log.error('CRITICAL ERROR in HybridAnalysisLookup:', error?.message || 'Unknown');
+        context.log.error('Error stack:', error?.stack || 'No stack');
+        context.log.error('Error type:', error?.constructor?.name || 'Unknown type');
 
-      // Build detailed error response
-      const errorResponse = {
-        error: 'Failed to perform Hybrid Analysis lookup',
-        details: error.message || 'Unknown error',
-        errorType: error.constructor.name,
-        stack: error.stack
-      };
+        // Build detailed error response with maximum safety
+        const errorResponse = {
+          error: 'Failed to perform Hybrid Analysis lookup',
+          details: error?.message || String(error) || 'Unknown error',
+          errorType: error?.constructor?.name || 'Error'
+        };
 
-      // Add response details if it's an axios error
-      if (error.response) {
-        errorResponse.apiStatus = error.response.status;
-        errorResponse.apiStatusText = error.response.statusText;
-        errorResponse.apiData = error.response.data;
+        // Add axios error details if available
+        if (error?.response) {
+          try {
+            errorResponse.apiStatus = error.response.status;
+            errorResponse.apiStatusText = error.response.statusText;
+            if (error.response.data) {
+              errorResponse.apiData = typeof error.response.data === 'string'
+                ? error.response.data.substring(0, 500)
+                : error.response.data;
+            }
+          } catch (e) {
+            context.log.error('Error extracting axios error details');
+          }
+        }
+
+        return {
+          status: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+          },
+          jsonBody: errorResponse
+        };
+      } catch (innerError) {
+        // Last resort - absolutely cannot fail
+        context.log.error('ERROR IN ERROR HANDLER:', innerError);
+        return {
+          status: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+          },
+          jsonBody: { error: 'Internal server error', details: 'Error handler failed' }
+        };
       }
-
-      return {
-        status: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json'
-        },
-        jsonBody: errorResponse
-      };
     }
   }
 });
