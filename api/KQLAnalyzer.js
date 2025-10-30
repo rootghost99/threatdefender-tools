@@ -78,9 +78,33 @@ Provide analysis with:
 
         } catch (error) {
             context.log.error('Error:', error);
+            context.log.error('Error stack:', error.stack);
+
+            // Provide more detailed error information
+            let errorDetails = {
+                message: error.message,
+                type: error.constructor.name
+            };
+
+            // Check for common configuration issues
+            if (!process.env.AZURE_OPENAI_ENDPOINT) {
+                errorDetails.configIssue = 'AZURE_OPENAI_ENDPOINT environment variable not set';
+            }
+            if (!process.env.AZURE_OPENAI_KEY) {
+                errorDetails.configIssue = 'AZURE_OPENAI_KEY environment variable not set';
+            }
+
             return {
                 status: 500,
-                jsonBody: { error: 'Failed to generate analysis', details: error.message }
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                jsonBody: {
+                    error: 'Failed to generate analysis',
+                    details: error.message,
+                    errorInfo: errorDetails
+                }
             };
         }
     }
