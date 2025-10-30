@@ -193,19 +193,19 @@ async function queryHybridAnalysisHash(hash, apiKey, context) {
     const sha256 = latestReport.sha256 || hash;
     const jobId = latestReport.job_id || 'N/A';
 
-    // Extract MITRE ATT&CK techniques
-    const mitreTechniques = latestReport.mitre_attcks || [];
+    // Extract MITRE ATT&CK techniques (ensure it's an array)
+    const mitreTechniques = Array.isArray(latestReport.mitre_attcks) ? latestReport.mitre_attcks : [];
 
-    // Extract network indicators
-    const domains = latestReport.domains || [];
-    const compromisedHosts = latestReport.compromised_hosts || [];
-    const contacted_hosts = latestReport.contacted_hosts || [];
+    // Extract network indicators (ensure they're arrays)
+    const domains = Array.isArray(latestReport.domains) ? latestReport.domains : [];
+    const compromisedHosts = Array.isArray(latestReport.compromised_hosts) ? latestReport.compromised_hosts : [];
+    const contacted_hosts = Array.isArray(latestReport.contacted_hosts) ? latestReport.contacted_hosts : [];
 
-    // Extract processes
-    const processes = latestReport.processes || [];
+    // Extract processes (ensure it's an array)
+    const processes = Array.isArray(latestReport.processes) ? latestReport.processes : [];
 
-    // Extract extracted files
-    const extractedFiles = latestReport.extracted_files || [];
+    // Extract extracted files (ensure it's an array)
+    const extractedFiles = Array.isArray(latestReport.extracted_files) ? latestReport.extracted_files : [];
 
     // Build normalized response
     return {
@@ -336,12 +336,12 @@ async function queryHybridAnalysisUrl(url, apiKey, context) {
     const sha256 = latestReport.sha256 || 'N/A';
     const jobId = latestReport.job_id || 'N/A';
 
-    // Extract MITRE ATT&CK techniques
-    const mitreTechniques = latestReport.mitre_attcks || [];
+    // Extract MITRE ATT&CK techniques (ensure it's an array)
+    const mitreTechniques = Array.isArray(latestReport.mitre_attcks) ? latestReport.mitre_attcks : [];
 
-    // Extract network indicators
-    const domains = latestReport.domains || [];
-    const compromisedHosts = latestReport.compromised_hosts || [];
+    // Extract network indicators (ensure they're arrays)
+    const domains = Array.isArray(latestReport.domains) ? latestReport.domains : [];
+    const compromisedHosts = Array.isArray(latestReport.compromised_hosts) ? latestReport.compromised_hosts : [];
 
     return {
       found: true,
