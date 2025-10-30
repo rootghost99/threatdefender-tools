@@ -944,11 +944,193 @@ export default function ThreatIntelLookup({ darkMode }) {
                         <div className={`p-6 overflow-y-auto max-h-[calc(90vh-140px)] ${
                             darkMode ? 'bg-gray-900' : 'bg-gray-50'
                         }`}>
-                            <pre className={`text-xs font-mono whitespace-pre-wrap break-words ${
-                                darkMode ? 'text-green-400' : 'text-gray-800'
-                            }`}>
-                                {JSON.stringify(results.arin.rawData, null, 2)}
-                            </pre>
+                            {/* Parsed RDAP Data with Headers */}
+                            <div className="space-y-6">
+                                {/* Network Information Section */}
+                                <div>
+                                    <h4 className={`text-lg font-bold mb-3 pb-2 border-b ${
+                                        darkMode ? 'text-blue-400 border-gray-700' : 'text-blue-600 border-gray-300'
+                                    }`}>
+                                        Network Information
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {results.arin.rawData.handle && (
+                                            <div>
+                                                <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Handle:</span>
+                                                <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{results.arin.rawData.handle}</span>
+                                            </div>
+                                        )}
+                                        {results.arin.rawData.name && (
+                                            <div>
+                                                <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Name:</span>
+                                                <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{results.arin.rawData.name}</span>
+                                            </div>
+                                        )}
+                                        {results.arin.rawData.type && (
+                                            <div>
+                                                <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Type:</span>
+                                                <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{results.arin.rawData.type}</span>
+                                            </div>
+                                        )}
+                                        {results.arin.rawData.ipVersion && (
+                                            <div>
+                                                <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>IP Version:</span>
+                                                <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{results.arin.rawData.ipVersion}</span>
+                                            </div>
+                                        )}
+                                        {results.arin.rawData.startAddress && (
+                                            <div>
+                                                <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Start Address:</span>
+                                                <span className={`ml-2 font-mono ${darkMode ? 'text-green-400' : 'text-green-600'}`}>{results.arin.rawData.startAddress}</span>
+                                            </div>
+                                        )}
+                                        {results.arin.rawData.endAddress && (
+                                            <div>
+                                                <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>End Address:</span>
+                                                <span className={`ml-2 font-mono ${darkMode ? 'text-green-400' : 'text-green-600'}`}>{results.arin.rawData.endAddress}</span>
+                                            </div>
+                                        )}
+                                        {results.arin.rawData.country && (
+                                            <div>
+                                                <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Country:</span>
+                                                <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{results.arin.rawData.country}</span>
+                                            </div>
+                                        )}
+                                        {results.arin.rawData.parentHandle && (
+                                            <div>
+                                                <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Parent Handle:</span>
+                                                <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{results.arin.rawData.parentHandle}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Entities Section */}
+                                {results.arin.rawData.entities && results.arin.rawData.entities.length > 0 && (
+                                    <div>
+                                        <h4 className={`text-lg font-bold mb-3 pb-2 border-b ${
+                                            darkMode ? 'text-purple-400 border-gray-700' : 'text-purple-600 border-gray-300'
+                                        }`}>
+                                            Entities & Contacts
+                                        </h4>
+                                        {results.arin.rawData.entities.map((entity, idx) => (
+                                            <div key={idx} className={`mb-4 p-4 rounded ${
+                                                darkMode ? 'bg-gray-800' : 'bg-white'
+                                            }`}>
+                                                <div className="mb-2">
+                                                    {entity.handle && (
+                                                        <span className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                                                            {entity.handle}
+                                                        </span>
+                                                    )}
+                                                    {entity.roles && entity.roles.length > 0 && (
+                                                        <span className={`ml-2 text-sm px-2 py-1 rounded ${
+                                                            darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-700'
+                                                        }`}>
+                                                            {entity.roles.join(', ')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {entity.vcardArray && entity.vcardArray[1] && (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm mt-2">
+                                                        {entity.vcardArray[1].map((vcard, vIdx) => {
+                                                            const [type, , , value] = vcard;
+                                                            if (type && value && type !== 'version') {
+                                                                return (
+                                                                    <div key={vIdx}>
+                                                                        <span className={`font-semibold capitalize ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                            {type.replace('-', ' ')}:
+                                                                        </span>
+                                                                        <span className={`ml-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                            {Array.isArray(value) ? value.join(', ') : value}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Events Timeline Section */}
+                                {results.arin.rawData.events && results.arin.rawData.events.length > 0 && (
+                                    <div>
+                                        <h4 className={`text-lg font-bold mb-3 pb-2 border-b ${
+                                            darkMode ? 'text-orange-400 border-gray-700' : 'text-orange-600 border-gray-300'
+                                        }`}>
+                                            Events Timeline
+                                        </h4>
+                                        <div className="space-y-2">
+                                            {results.arin.rawData.events.map((event, idx) => (
+                                                <div key={idx} className={`flex justify-between items-center p-3 rounded ${
+                                                    darkMode ? 'bg-gray-800' : 'bg-white'
+                                                }`}>
+                                                    <span className={`font-semibold capitalize ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                        {event.eventAction}:
+                                                    </span>
+                                                    <span className={`font-mono ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {new Date(event.eventDate).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Links Section */}
+                                {results.arin.rawData.links && results.arin.rawData.links.length > 0 && (
+                                    <div>
+                                        <h4 className={`text-lg font-bold mb-3 pb-2 border-b ${
+                                            darkMode ? 'text-green-400 border-gray-700' : 'text-green-600 border-gray-300'
+                                        }`}>
+                                            Related Links
+                                        </h4>
+                                        <div className="space-y-2">
+                                            {results.arin.rawData.links.map((link, idx) => (
+                                                <div key={idx} className={`p-3 rounded ${
+                                                    darkMode ? 'bg-gray-800' : 'bg-white'
+                                                }`}>
+                                                    {link.rel && (
+                                                        <div className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                            {link.rel}
+                                                        </div>
+                                                    )}
+                                                    {link.value && (
+                                                        <a
+                                                            href={link.value}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className={`text-sm break-all hover:underline ${
+                                                                darkMode ? 'text-blue-400' : 'text-blue-600'
+                                                            }`}
+                                                        >
+                                                            {link.value}
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Raw JSON Toggle */}
+                                <div className="mt-6 pt-4 border-t border-gray-700">
+                                    <details className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                                        <summary className="cursor-pointer font-semibold hover:underline">
+                                            View Raw JSON
+                                        </summary>
+                                        <pre className={`mt-3 text-xs font-mono whitespace-pre-wrap break-words p-4 rounded ${
+                                            darkMode ? 'bg-gray-800 text-green-400' : 'bg-gray-100 text-gray-800'
+                                        }`}>
+                                            {JSON.stringify(results.arin.rawData, null, 2)}
+                                        </pre>
+                                    </details>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Modal Footer */}
