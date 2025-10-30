@@ -550,7 +550,8 @@ async function queryArinRdap(ip) {
       country: data.country || 'N/A',
       lastChanged,
       registrationDate,
-      hasData: true
+      hasData: true,
+      rawData: data // Include full raw RDAP response
     };
   } catch (error) {
     return {
