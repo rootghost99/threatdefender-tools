@@ -2,6 +2,7 @@
   "IsEncrypted": false,
   "Values": {
     "FUNCTIONS_WORKER_RUNTIME": "node",
-    "AzureWebJobsStorage": ""
+    "AzureWebJobsStorage": "",
+    "HYBRID_ANALYSIS_API_KEY": "qvnujgxlb030b451u9g4ao4q07cc3c652fdb5c2t016aec5e4dibtkbn8df5666c"
   }
 }

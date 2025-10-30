@@ -4,3 +4,4 @@ require('./IRPlaybook');
 require('./KQLAnalyzer');
 require('./ThreatIntelLookup');
 require('./EmailPosture');
+require('./HybridAnalysisLookup');
