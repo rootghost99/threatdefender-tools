@@ -59,13 +59,32 @@ app.http('HybridAnalysisLookup', {
           results.hybridAnalysis = await queryHybridAnalysisUrl(indicator, hybridAnalysisApiKey, context);
         } else {
           results.hybridAnalysis = {
+            found: false,
             error: `Unsupported indicator type: ${indicatorType}. Hybrid Analysis supports hashes (MD5, SHA1, SHA256) and URLs.`
           };
         }
-        context.log('Hybrid Analysis query successful');
+        context.log('Hybrid Analysis query completed. Found:', results.hybridAnalysis?.found !== false);
       } catch (error) {
-        context.log.error('Hybrid Analysis error:', error.message);
-        results.hybridAnalysis = { error: error.message };
+        context.log.error('Hybrid Analysis query error:', error.message);
+        context.log.error('Error stack:', error.stack);
+
+        // Create detailed error object
+        const errorDetail = {
+          found: false,
+          error: error.message || 'Query failed',
+          errorType: error.constructor?.name,
+        };
+
+        // Add axios-specific error details
+        if (error.response) {
+          errorDetail.apiStatus = error.response.status;
+          errorDetail.apiStatusText = error.response.statusText;
+          errorDetail.apiError = error.response.data;
+        } else if (error.request) {
+          errorDetail.requestError = 'No response received from Hybrid Analysis API';
+        }
+
+        results.hybridAnalysis = errorDetail;
       }
 
       return {
@@ -80,16 +99,30 @@ app.http('HybridAnalysisLookup', {
     } catch (error) {
       context.log.error('CRITICAL ERROR in HybridAnalysisLookup:', error.message);
       context.log.error('Error stack:', error.stack);
+      context.log.error('Error details:', JSON.stringify(error, null, 2));
+
+      // Build detailed error response
+      const errorResponse = {
+        error: 'Failed to perform Hybrid Analysis lookup',
+        details: error.message || 'Unknown error',
+        errorType: error.constructor.name,
+        stack: error.stack
+      };
+
+      // Add response details if it's an axios error
+      if (error.response) {
+        errorResponse.apiStatus = error.response.status;
+        errorResponse.apiStatusText = error.response.statusText;
+        errorResponse.apiData = error.response.data;
+      }
+
       return {
         status: 500,
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json'
         },
-        jsonBody: {
-          error: 'Failed to perform Hybrid Analysis lookup',
-          details: error.message
-        }
+        jsonBody: errorResponse
       };
     }
   }
@@ -116,6 +149,10 @@ function detectIndicatorType(indicator) {
  */
 async function queryHybridAnalysisHash(hash, apiKey, context) {
   try {
+    context.log('Making request to Hybrid Analysis API for hash:', hash);
+    context.log('API endpoint: https://www.hybrid-analysis.com/api/v2/search/hash');
+    context.log('API key configured:', apiKey ? `Yes (${apiKey.substring(0, 8)}...)` : 'No');
+
     const response = await axios.post(
       'https://www.hybrid-analysis.com/api/v2/search/hash',
       `hash=${encodeURIComponent(hash)}`,
@@ -128,6 +165,9 @@ async function queryHybridAnalysisHash(hash, apiKey, context) {
         timeout: 15000
       }
     );
+
+    context.log('Hybrid Analysis API response status:', response.status);
+    context.log('Response data length:', response.data?.length || 0);
 
     const data = response.data;
 
@@ -252,6 +292,10 @@ async function queryHybridAnalysisHash(hash, apiKey, context) {
  */
 async function queryHybridAnalysisUrl(url, apiKey, context) {
   try {
+    context.log('Making request to Hybrid Analysis API for URL:', url);
+    context.log('API endpoint: https://www.hybrid-analysis.com/api/v2/search/terms');
+    context.log('API key configured:', apiKey ? `Yes (${apiKey.substring(0, 8)}...)` : 'No');
+
     // For URL searches, we use the terms endpoint with url field
     const response = await axios.post(
       'https://www.hybrid-analysis.com/api/v2/search/terms',
@@ -265,6 +309,9 @@ async function queryHybridAnalysisUrl(url, apiKey, context) {
         timeout: 15000
       }
     );
+
+    context.log('Hybrid Analysis API response status:', response.status);
+    context.log('Response data results length:', response.data?.result?.length || 0);
 
     const data = response.data;
 
