@@ -358,9 +358,10 @@ export default function KQLDiffViewer({ darkMode }) {
     setAiAnalysis(null);
 
     try {
-      const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
+      // Use relative URL for Azure Static Web Apps - works with custom domains
+const functionUrl = '/api/kqlanalyzer';
 
-      console.log('🔍 Sending AI analysis request:', { originalLength: originalQuery.length, updatedLength: updatedQuery.length });
+console.log('🔍 Sending AI analysis request:', { originalLength: originalQuery.length, updatedLength: updatedQuery.length, url: functionUrl });
 
       const response = await fetch(functionUrl, {
         method: "POST",
@@ -412,9 +413,10 @@ export default function KQLDiffViewer({ darkMode }) {
     setFpAnalysis(null);
 
     try {
-      const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
+      // Use relative URL for Azure Static Web Apps - works with custom domains
+const functionUrl = '/api/kqlanalyzer';
 
-      console.log('🔍 Sending FP analysis request');
+console.log('🔍 Sending FP analysis request:', { url: functionUrl });
 
       // FP-specific analysis call
       const fpResponse = await fetch(functionUrl, {
