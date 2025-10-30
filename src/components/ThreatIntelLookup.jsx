@@ -49,11 +49,35 @@ export default function ThreatIntelLookup({ darkMode }) {
                 setHybridAnalysisResults(hybridData);
             } else if (hybridAnalysisResponse && !hybridAnalysisResponse.ok) {
                 console.error('Hybrid Analysis API returned non-OK status:', hybridAnalysisResponse.status);
+                console.error('Full response object:', hybridAnalysisResponse);
+                console.error('Response headers:', Object.fromEntries(hybridAnalysisResponse.headers.entries()));
+
                 try {
-                    const errorData = await hybridAnalysisResponse.text();
-                    console.error('Hybrid Analysis error details:', errorData);
+                    const contentType = hybridAnalysisResponse.headers.get('content-type');
+                    console.error('Content-Type:', contentType);
+
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await hybridAnalysisResponse.json();
+                        console.error('Hybrid Analysis error details (JSON):', errorData);
+                        // Set error state to display to user
+                        setHybridAnalysisResults({
+                            hybridAnalysis: {
+                                found: false,
+                                error: errorData.error || errorData.details || 'Unknown error'
+                            }
+                        });
+                    } else {
+                        const errorText = await hybridAnalysisResponse.text();
+                        console.error('Hybrid Analysis error details (text):', errorText);
+                        setHybridAnalysisResults({
+                            hybridAnalysis: {
+                                found: false,
+                                error: errorText || 'Unknown error'
+                            }
+                        });
+                    }
                 } catch (e) {
-                    console.error('Could not read Hybrid Analysis error response');
+                    console.error('Could not read Hybrid Analysis error response:', e);
                 }
             }
         } catch (error) {
