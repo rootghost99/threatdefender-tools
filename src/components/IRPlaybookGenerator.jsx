@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 
 /** Small card renderer with light code-fence support */
 const SectionCard = ({ title, content, darkMode }) => {
-  const base = darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-200 text-gray-900';
+  const base = darkMode ? 'bg-gray-700 border-gray-700 text-gray-100' : 'bg-white border-gray-200 text-gray-900';
   const sub  = darkMode ? 'text-gray-300' : 'text-gray-700';
   const onCopy = () => content && navigator.clipboard.writeText(String(content || ''));
 
@@ -22,7 +22,7 @@ const SectionCard = ({ title, content, darkMode }) => {
           {before && before.split('\n').map((line, i) => (
             <p key={`b-${i}`} className={sub} style={{ whiteSpace: 'pre-wrap', margin: '0.35rem 0' }}>{line}</p>
           ))}
-          <pre className={`rounded p-3 overflow-auto ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+          <pre className={`rounded p-3 overflow-auto ${darkMode ? 'bg-gray-900 border border-gray-700' : 'bg-gray-100 border border-gray-200'}`}>
             <code className={`language-${lang}`} style={{ whiteSpace: 'pre' }}>{code}</code>
           </pre>
           {after && after.split('\n').map((line, i) => (
@@ -144,7 +144,7 @@ export default function IRPlaybookGenerator({ darkMode }) {
     }
   };
 
-  const base = darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900';
+  const base = darkMode ? 'bg-gray-800 border border-gray-700 text-gray-100' : 'bg-white border border-gray-200 text-gray-900';
   const sub  = darkMode ? 'text-gray-300' : 'text-gray-700';
 
   return (
@@ -164,7 +164,7 @@ export default function IRPlaybookGenerator({ darkMode }) {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className={`w-full px-3 py-2 rounded border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
+            className={`w-full px-3 py-2 rounded border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-300'}`}
           >
             <optgroup label="Initial Access & Credential Theft">
               <option>Phishing</option>
@@ -210,7 +210,7 @@ export default function IRPlaybookGenerator({ darkMode }) {
           <select
             value={severity}
             onChange={(e) => setSeverity(e.target.value)}
-            className={`w-full px-3 py-2 rounded border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
+            className={`w-full px-3 py-2 rounded border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-300'}`}
           >
             <option>Informational</option>
             <option>Low</option>
@@ -227,7 +227,7 @@ export default function IRPlaybookGenerator({ darkMode }) {
             placeholder="Affected users, hosts, domains, observables, timestamps."
             value={details}
             onChange={(e) => setDetails(e.target.value)}
-            className={`w-full px-3 py-2 rounded border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
+            className={`w-full px-3 py-2 rounded border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-300'}`}
           />
         </div>
       </div>
@@ -240,7 +240,7 @@ export default function IRPlaybookGenerator({ darkMode }) {
           { key: 'mdi', label: 'Defender for Identity' },
           { key: 'mdo', label: 'Defender for Office 365' }
         ].map(x => (
-          <label key={x.key} className={`inline-flex items-center gap-2 px-3 py-2 rounded border ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+          <label key={x.key} className={`inline-flex items-center gap-2 px-3 py-2 rounded border ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
             <input
               type="checkbox"
               checked={!!env[x.key]}
@@ -298,7 +298,7 @@ export default function IRPlaybookGenerator({ darkMode }) {
             // Arrays as bullet lists
             if (Array.isArray(val)) {
               return (
-                <div key={item.key} className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                <div key={item.key} className={`p-6 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-700' : 'bg-white border-gray-200'}`}>
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-lg font-bold">{item.title}</h4>
                     <button

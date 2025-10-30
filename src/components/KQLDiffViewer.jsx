@@ -483,7 +483,7 @@ export default function KQLDiffViewer({ darkMode }) {
         case 'modified':
           return 'bg-yellow-900 bg-opacity-30 border-l-4 border-yellow-500';
         default:
-          return 'bg-gray-800';
+          return 'bg-gray-900';
       }
     } else {
       switch (type) {
@@ -515,7 +515,7 @@ export default function KQLDiffViewer({ darkMode }) {
 
         {!showDiff ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Original KQL Query
               </label>
@@ -531,7 +531,7 @@ export default function KQLDiffViewer({ darkMode }) {
               />
             </div>
 
-            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`rounded-lg shadow p-6 ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Updated KQL Query
               </label>
@@ -641,7 +641,7 @@ export default function KQLDiffViewer({ darkMode }) {
               </div>
             )}
 
-            <div className={`rounded-lg shadow overflow-hidden ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`rounded-lg shadow overflow-hidden ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
               <div className={`p-4 border-b ${
                 darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'
               }`}>
