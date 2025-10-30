@@ -4,6 +4,7 @@ export default function ThreatIntelLookup({ darkMode }) {
     const [indicator, setIndicator] = useState('');
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
+    const [showRdapModal, setShowRdapModal] = useState(false);
 
     const handleLookup = async () => {
         if (!indicator.trim()) return;
@@ -833,16 +834,14 @@ export default function ThreatIntelLookup({ darkMode }) {
                             <div className="flex items-center justify-between mb-4">
                                 <h4 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>🧭 ARIN RDAP (Direct)</h4>
                                 <div className="flex gap-2">
-                                    <a
-                                        href={`https://rdap.arin.net/registry/ip/${encodeURIComponent(results.indicator)}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                    <button
+                                        onClick={() => setShowRdapModal(true)}
                                         className="text-blue-500 hover:text-blue-600 font-semibold text-sm"
                                     >
-                                        Open RDAP →
-                                    </a>
+                                        View RDAP Data →
+                                    </button>
                                     <button
-                                        onClick={() => copyToClipboard(JSON.stringify(results.arin, null, 2))}
+                                        onClick={() => copyToClipboard(JSON.stringify(results.arin.rawData || results.arin, null, 2))}
                                         className={`text-xs px-3 py-1 rounded ${
                                             darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
@@ -909,6 +908,71 @@ export default function ThreatIntelLookup({ darkMode }) {
                             </p>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* RDAP Modal */}
+            {showRdapModal && results?.arin?.rawData && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                    onClick={() => setShowRdapModal(false)}
+                >
+                    <div
+                        className={`rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden ${
+                            darkMode ? 'bg-gray-800' : 'bg-white'
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className={`flex items-center justify-between p-6 border-b ${
+                            darkMode ? 'border-gray-700' : 'border-gray-200'
+                        }`}>
+                            <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                ARIN RDAP Data for {results.indicator}
+                            </h3>
+                            <button
+                                onClick={() => setShowRdapModal(false)}
+                                className={`text-2xl font-bold px-3 py-1 rounded hover:bg-opacity-80 ${
+                                    darkMode ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                }`}
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className={`p-6 overflow-y-auto max-h-[calc(90vh-140px)] ${
+                            darkMode ? 'bg-gray-900' : 'bg-gray-50'
+                        }`}>
+                            <pre className={`text-xs font-mono whitespace-pre-wrap break-words ${
+                                darkMode ? 'text-green-400' : 'text-gray-800'
+                            }`}>
+                                {JSON.stringify(results.arin.rawData, null, 2)}
+                            </pre>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className={`flex items-center justify-end gap-3 p-6 border-t ${
+                            darkMode ? 'border-gray-700' : 'border-gray-200'
+                        }`}>
+                            <button
+                                onClick={() => copyToClipboard(JSON.stringify(results.arin.rawData, null, 2))}
+                                className={`px-4 py-2 rounded font-semibold ${
+                                    darkMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-blue-600 text-white hover:bg-blue-700'
+                                }`}
+                            >
+                                Copy to Clipboard
+                            </button>
+                            <button
+                                onClick={() => setShowRdapModal(false)}
+                                className={`px-4 py-2 rounded font-semibold ${
+                                    darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
