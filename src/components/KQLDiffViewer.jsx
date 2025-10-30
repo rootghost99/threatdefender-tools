@@ -358,7 +358,7 @@ export default function KQLDiffViewer({ darkMode }) {
     setAiAnalysis(null);
 
     try {
-      const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
+      const functionUrl = '/api/kqlanalyzer';
 
       const response = await fetch(functionUrl, {
         method: "POST",
