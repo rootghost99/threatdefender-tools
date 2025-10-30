@@ -360,6 +360,8 @@ export default function KQLDiffViewer({ darkMode }) {
     try {
       const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
 
+      console.log('🔍 Sending AI analysis request:', { originalLength: originalQuery.length, updatedLength: updatedQuery.length });
+
       const response = await fetch(functionUrl, {
         method: "POST",
         headers: {
@@ -371,17 +373,34 @@ export default function KQLDiffViewer({ darkMode }) {
         })
       });
 
+      console.log('📡 Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`Worker request failed: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ API Error Response:', errorData);
+        throw new Error(`API Error (${response.status}): ${errorData.error || errorData.details || response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('✅ Received data:', { hasContent: !!data.content, contentLength: data.content?.length });
+
+      if (!data.content || !data.content[0] || !data.content[0].text) {
+        console.error('❌ Invalid response format:', data);
+        throw new Error('Invalid response format from API');
+      }
+
       const analysis = data.content[0].text;
       const parsedSections = parseAIResponse(analysis);
+      console.log('✅ Parsed sections:', parsedSections.length);
       setAiAnalysis(parsedSections);
     } catch (error) {
-      console.error("Error generating AI analysis:", error);
-      setAiAnalysis([{ title: 'Error', content: 'Failed to generate analysis. Please try again.', type: 'warning' }]);
+      console.error("❌ Error generating AI analysis:", error);
+      const errorMessage = error.message || 'Unknown error occurred';
+      setAiAnalysis([{
+        title: 'Error',
+        content: `Failed to generate analysis: ${errorMessage}\n\nPlease check:\n- Azure Function is running\n- Azure OpenAI credentials are configured\n- Network connectivity`,
+        type: 'warning'
+      }]);
     } finally {
       setIsAnalyzing(false);
     }
@@ -395,6 +414,8 @@ export default function KQLDiffViewer({ darkMode }) {
     try {
       const functionUrl = 'https://threatdefender-functions-befyasdqduhsa8at.eastus-01.azurewebsites.net/api/kqlanalyzer';
 
+      console.log('🔍 Sending FP analysis request');
+
       // FP-specific analysis call
       const fpResponse = await fetch(functionUrl, {
         method: "POST",
@@ -407,16 +428,29 @@ export default function KQLDiffViewer({ darkMode }) {
         })
       });
 
+      console.log('📡 FP Response status:', fpResponse.status, fpResponse.statusText);
+
       if (!fpResponse.ok) {
-        throw new Error(`Worker request failed: ${fpResponse.status}`);
+        const errorData = await fpResponse.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ FP API Error Response:', errorData);
+        throw new Error(`API Error (${fpResponse.status}): ${errorData.error || errorData.details || fpResponse.statusText}`);
       }
 
       const fpData = await fpResponse.json();
+      console.log('✅ Received FP data:', { hasContent: !!fpData.content });
+
+      if (!fpData.content || !fpData.content[0] || !fpData.content[0].text) {
+        console.error('❌ Invalid FP response format:', fpData);
+        throw new Error('Invalid response format from API');
+      }
+
       const fpText = fpData.content[0].text;
+      console.log('✅ FP Analysis received:', fpText.substring(0, 100) + '...');
       setFpAnalysis(fpText);
     } catch (error) {
-      console.error("Error generating FP analysis:", error);
-      setFpAnalysis("Failed to generate false positive analysis. Please try again.");
+      console.error("❌ Error generating FP analysis:", error);
+      const errorMessage = error.message || 'Unknown error occurred';
+      setFpAnalysis(`Failed to generate false positive analysis: ${errorMessage}\n\nPlease check:\n- Azure Function is running\n- Azure OpenAI credentials are configured\n- Network connectivity`);
     } finally {
       setIsFpAnalyzing(false);
     }
