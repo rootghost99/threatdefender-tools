@@ -6,14 +6,14 @@ import ThreatIntelLookup from './components/ThreatIntelLookup';
 import EmailPostureCheck from './components/EmailPostureCheck';
 
 export default function ThreatDefenderDashboard() {
-  const [activeTab, setActiveTab] = useState('kql-diff');
+  const [activeTab, setActiveTab] = useState('threat-intel');
   const [darkMode, setDarkMode] = useState(true);
 
   const tabs = [
-    { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
+    { id: 'threat-intel', name: 'Threat Intel Lookup', icon: '🛡️', component: ThreatIntelLookup },
     { id: 'ir-playbook', name: 'IR Playbook Generator', icon: '🚨', component: IRPlaybookGenerator },
     { id: 'soc-handoff', name: 'SOC Shift Handoff', icon: '🔄', component: SOCHandoffTool },
-    { id: 'threat-intel', name: 'Threat Intel Lookup', icon: '🛡️', component: ThreatIntelLookup },
+    { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
     { id: 'email-posture', name: 'Email Posture Check', icon: '📧', component: EmailPostureCheck },
   ];
 
