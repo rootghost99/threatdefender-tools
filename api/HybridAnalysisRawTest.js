@@ -16,26 +16,37 @@ app.http('HybridAnalysisRawTest', {
       context.log('API Key (first 8):', apiKey?.substring(0, 8));
 
       try {
-        // Use URLSearchParams and explicitly convert to string
-        const params = new URLSearchParams();
-        params.append('hash', hash);
-        const requestBody = params.toString();
+        // Try different encoding methods
+        context.log('=== Testing encoding methods ===');
 
-        context.log('Request body string:', requestBody);
-        context.log('Request body length:', requestBody.length);
+        // Method 1: Direct string (no encoding)
+        const method1 = `hash=${hash}`;
+        context.log('Method 1 (direct string):', method1);
 
-        const response = await axios.post(
-          'https://www.hybrid-analysis.com/api/v2/search/hash',
-          requestBody,
-          {
-            headers: {
-              'api-key': apiKey,
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'User-Agent': 'Falcon Sandbox'
-            },
-            timeout: 15000
-          }
-        );
+        // Method 2: URLSearchParams
+        const params2 = new URLSearchParams();
+        params2.append('hash', hash);
+        const method2 = params2.toString();
+        context.log('Method 2 (URLSearchParams):', method2);
+
+        // Method 3: Using axios's built-in URLSearchParams support
+        const method3 = new URLSearchParams({ hash: hash });
+        context.log('Method 3 (URLSearchParams from object):', method3.toString());
+
+        context.log('=== Attempting API call with direct string ===');
+
+        const response = await axios({
+          method: 'post',
+          url: 'https://www.hybrid-analysis.com/api/v2/search/hash',
+          data: method1,
+          headers: {
+            'api-key': apiKey,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Falcon Sandbox',
+            'Content-Length': Buffer.byteLength(method1)
+          },
+          timeout: 15000
+        });
 
         return {
           status: 200,
