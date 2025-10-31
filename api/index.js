@@ -8,3 +8,4 @@ require('./HybridAnalysisLookup');
 require('./HybridAnalysisLookupTest');
 require('./HybridAnalysisDiag');
 require('./HybridAnalysisRawTest');
+require('./HybridAnalysisTest2');
