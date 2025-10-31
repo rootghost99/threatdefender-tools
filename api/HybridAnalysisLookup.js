@@ -27,7 +27,7 @@ app.http('HybridAnalysisLookup', {
         body = await request.json();
         indicator = body?.indicator;
       } catch (parseError) {
-        context.log.error('Failed to parse request body:', parseError);
+        context.log('Failed to parse request body:', parseError);
         return {
           status: 400,
           headers: {
@@ -79,8 +79,8 @@ app.http('HybridAnalysisLookup', {
         }
         context.log('Hybrid Analysis query completed. Found:', results.hybridAnalysis?.found !== false);
       } catch (error) {
-        context.log.error('Hybrid Analysis query error:', error.message);
-        context.log.error('Error stack:', error.stack);
+        context.log('Hybrid Analysis query error:', error.message);
+        context.log('Error stack:', error.stack);
 
         // Create detailed error object
         const errorDetail = {
@@ -113,9 +113,9 @@ app.http('HybridAnalysisLookup', {
     } catch (error) {
       // Absolute fail-safe error handler
       try {
-        context.log.error('CRITICAL ERROR in HybridAnalysisLookup:', error?.message || 'Unknown');
-        context.log.error('Error stack:', error?.stack || 'No stack');
-        context.log.error('Error type:', error?.constructor?.name || 'Unknown type');
+        context.log('CRITICAL ERROR in HybridAnalysisLookup:', error?.message || 'Unknown');
+        context.log('Error stack:', error?.stack || 'No stack');
+        context.log('Error type:', error?.constructor?.name || 'Unknown type');
 
         // Build detailed error response with maximum safety
         const errorResponse = {
@@ -135,7 +135,7 @@ app.http('HybridAnalysisLookup', {
                 : error.response.data;
             }
           } catch (e) {
-            context.log.error('Error extracting axios error details');
+            context.log('Error extracting axios error details');
           }
         }
 
@@ -149,7 +149,7 @@ app.http('HybridAnalysisLookup', {
         };
       } catch (innerError) {
         // Last resort - absolutely cannot fail
-        context.log.error('ERROR IN ERROR HANDLER:', innerError);
+        context.log('ERROR IN ERROR HANDLER:', innerError);
         return {
           status: 500,
           headers: {
