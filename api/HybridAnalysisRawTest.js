@@ -47,7 +47,7 @@ app.http('HybridAnalysisRawTest', {
         };
 
       } catch (apiError) {
-        context.log.error('Hybrid Analysis API Error:', apiError.message);
+        context.log('Hybrid Analysis API Error:', apiError.message);
 
         return {
           status: 200,
