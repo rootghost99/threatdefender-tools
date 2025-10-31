@@ -16,9 +16,15 @@ app.http('HybridAnalysisRawTest', {
       context.log('API Key (first 8):', apiKey?.substring(0, 8));
 
       try {
+        // Use URLSearchParams for proper form-urlencoded data
+        const params = new URLSearchParams();
+        params.append('hash', hash);
+
+        context.log('Request body:', params.toString());
+
         const response = await axios.post(
           'https://www.hybrid-analysis.com/api/v2/search/hash',
-          `hash=${encodeURIComponent(hash)}`,
+          params,
           {
             headers: {
               'api-key': apiKey,
