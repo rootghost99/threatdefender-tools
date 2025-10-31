@@ -10,3 +10,4 @@ require('./HybridAnalysisDiag');
 require('./HybridAnalysisRawTest');
 require('./HybridAnalysisTest2');
 require('./HybridAnalysisTest3');
+require('./HybridAnalysisTest4');
