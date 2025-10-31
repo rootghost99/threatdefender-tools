@@ -288,6 +288,35 @@ export default function ThreatIntelLookup({ darkMode }) {
                                         </tr>
                                     )}
 
+                                    {/* Hybrid Analysis summary */}
+                                    {hybridAnalysisResults && hybridAnalysisResults.hybridAnalysis && hybridAnalysisResults.hybridAnalysis.found && (
+                                        <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
+                                            <td className="py-2 pr-4 font-semibold">Hybrid Analysis:</td>
+                                            <td className="py-2">
+                                                {hybridAnalysisResults.hybridAnalysis.verdict === 'malicious' && (
+                                                    <span className="text-red-600 font-semibold">⚠️ Malicious</span>
+                                                )}
+                                                {hybridAnalysisResults.hybridAnalysis.verdict === 'suspicious' && (
+                                                    <span className="text-yellow-600 font-semibold">⚠️ Suspicious</span>
+                                                )}
+                                                {hybridAnalysisResults.hybridAnalysis.verdict === 'clean' && (
+                                                    <span className="text-green-600 font-semibold">✅ Clean</span>
+                                                )}
+                                                {hybridAnalysisResults.hybridAnalysis.verdict === 'no-result' && (
+                                                    <span className="text-gray-500">No verdict</span>
+                                                )}
+                                                {hybridAnalysisResults.hybridAnalysis.verdict && hybridAnalysisResults.hybridAnalysis.verdict !== 'unknown' && (
+                                                    <> | Threat Score: {hybridAnalysisResults.hybridAnalysis.threatScore || 0}/100</>
+                                                )}
+                                                {hybridAnalysisResults.hybridAnalysis.detectedFamily &&
+                                                 hybridAnalysisResults.hybridAnalysis.detectedFamily !== 'Unknown' &&
+                                                 hybridAnalysisResults.hybridAnalysis.detectedFamily !== 'N/A' && (
+                                                    <> | Family: {hybridAnalysisResults.hybridAnalysis.detectedFamily}</>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    )}
+
                                     {/* MXToolbox WHOIS summary */}
                                     {results.type === 'IP' && results.mxToolbox && results.mxToolbox.hasData && !results.mxToolbox.error && (
                                         <tr className={`border-b ${darkMode ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-300 even:bg-gray-50'}`}>
