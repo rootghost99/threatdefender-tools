@@ -180,29 +180,23 @@ function detectIndicatorType(indicator) {
 
 /**
  * Query Hybrid Analysis API for hash lookups
- * Endpoint: POST https://www.hybrid-analysis.com/api/v2/search/hash
+ * Endpoint: GET https://hybrid-analysis.com/api/v2/search/hash
  */
 async function queryHybridAnalysisHash(hash, apiKey, context) {
   try {
     context.log('Making request to Hybrid Analysis API for hash:', hash);
-    context.log('API endpoint: https://hybrid-analysis.com/api/v2/search/hash');
+    context.log('API endpoint: GET https://hybrid-analysis.com/api/v2/search/hash');
     context.log('API key configured:', apiKey ? `Yes (${apiKey.substring(0, 8)}...)` : 'No');
 
-    // Use URLSearchParams and explicitly convert to string
-    const params = new URLSearchParams();
-    params.append('hash', hash);
-    const requestBody = params.toString();
+    // Use GET request with query parameter
+    const url = `https://hybrid-analysis.com/api/v2/search/hash?hash=${encodeURIComponent(hash)}`;
+    context.log('Full URL:', url);
 
-    context.log('Request body string:', requestBody);
-    context.log('Request body length:', requestBody.length);
-
-    const response = await axios.post(
-      'https://hybrid-analysis.com/api/v2/search/hash',
-      requestBody,
+    const response = await axios.get(
+      url,
       {
         headers: {
           'api-key': apiKey,
-          'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': 'Falcon Sandbox'
         },
         timeout: 15000
@@ -336,25 +330,19 @@ async function queryHybridAnalysisHash(hash, apiKey, context) {
 async function queryHybridAnalysisUrl(url, apiKey, context) {
   try {
     context.log('Making request to Hybrid Analysis API for URL:', url);
-    context.log('API endpoint: https://hybrid-analysis.com/api/v2/search/terms');
+    context.log('API endpoint: GET https://hybrid-analysis.com/api/v2/search/terms');
     context.log('API key configured:', apiKey ? `Yes (${apiKey.substring(0, 8)}...)` : 'No');
 
-    // For URL searches, we use the terms endpoint with url field
-    // Use URLSearchParams and explicitly convert to string
-    const params = new URLSearchParams();
-    params.append('url', url);
-    const requestBody = params.toString();
+    // For URL searches, we use the terms endpoint with url parameter
+    // Use GET request with query parameter
+    const apiUrl = `https://hybrid-analysis.com/api/v2/search/terms?url=${encodeURIComponent(url)}`;
+    context.log('Full URL:', apiUrl);
 
-    context.log('Request body string:', requestBody);
-    context.log('Request body length:', requestBody.length);
-
-    const response = await axios.post(
-      'https://hybrid-analysis.com/api/v2/search/terms',
-      requestBody,
+    const response = await axios.get(
+      apiUrl,
       {
         headers: {
           'api-key': apiKey,
-          'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': 'Falcon Sandbox'
         },
         timeout: 15000
