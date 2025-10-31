@@ -188,13 +188,17 @@ async function queryHybridAnalysisHash(hash, apiKey, context) {
     context.log('API endpoint: https://www.hybrid-analysis.com/api/v2/search/hash');
     context.log('API key configured:', apiKey ? `Yes (${apiKey.substring(0, 8)}...)` : 'No');
 
-    // Use URLSearchParams for proper form-urlencoded data
+    // Use URLSearchParams and explicitly convert to string
     const params = new URLSearchParams();
     params.append('hash', hash);
+    const requestBody = params.toString();
+
+    context.log('Request body string:', requestBody);
+    context.log('Request body length:', requestBody.length);
 
     const response = await axios.post(
       'https://www.hybrid-analysis.com/api/v2/search/hash',
-      params,
+      requestBody,
       {
         headers: {
           'api-key': apiKey,
@@ -336,13 +340,17 @@ async function queryHybridAnalysisUrl(url, apiKey, context) {
     context.log('API key configured:', apiKey ? `Yes (${apiKey.substring(0, 8)}...)` : 'No');
 
     // For URL searches, we use the terms endpoint with url field
-    // Use URLSearchParams for proper form-urlencoded data
+    // Use URLSearchParams and explicitly convert to string
     const params = new URLSearchParams();
     params.append('url', url);
+    const requestBody = params.toString();
+
+    context.log('Request body string:', requestBody);
+    context.log('Request body length:', requestBody.length);
 
     const response = await axios.post(
       'https://www.hybrid-analysis.com/api/v2/search/terms',
-      params,
+      requestBody,
       {
         headers: {
           'api-key': apiKey,
