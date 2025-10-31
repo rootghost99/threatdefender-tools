@@ -205,46 +205,42 @@ async function queryHybridAnalysisHash(hash, apiKey, context) {
 
     context.log('Hybrid Analysis API response status:', response.status);
     context.log('Response data type:', typeof response.data);
-    context.log('Response data is array:', Array.isArray(response.data));
     context.log('Response data keys:', response.data ? Object.keys(response.data) : 'null');
-    context.log('Full response data:', JSON.stringify(response.data, null, 2));
 
     const data = response.data;
 
-    // Check if response has a different structure
-    let results;
-    if (Array.isArray(data)) {
-      results = data;
-      context.log('Data is array with length:', data.length);
-    } else if (data && typeof data === 'object') {
-      // Response might be wrapped in an object
-      if (data.data && Array.isArray(data.data)) {
-        results = data.data;
-        context.log('Data is wrapped, using data.data with length:', results.length);
-      } else if (data.result && Array.isArray(data.result)) {
-        results = data.result;
-        context.log('Data is wrapped, using data.result with length:', results.length);
-      } else {
-        // Might be a single object response
-        results = [data];
-        context.log('Data is single object, wrapping in array');
-      }
-    } else {
-      results = [];
-      context.log('Data format not recognized');
-    }
-
-    // If no results found
-    if (!results || results.length === 0) {
+    // GET /search/hash returns { sha256s: [...], reports: [...] }
+    if (!data || !data.reports || !Array.isArray(data.reports) || data.reports.length === 0) {
+      context.log('No reports found in response');
       return {
         found: false,
         message: 'No analysis reports found for this hash'
       };
     }
 
-    // Get the most recent report
-    const latestReport = results[0];
-    context.log('Latest report keys:', Object.keys(latestReport || {}));
+    context.log(`Found ${data.reports.length} report(s)`);
+
+    // Get the first report's ID to fetch full details
+    const reportSummary = data.reports[0];
+    const reportId = reportSummary.id;
+
+    context.log('Fetching full report details for ID:', reportId);
+
+    // Fetch full report details using the report ID
+    const reportResponse = await axios.get(
+      `https://hybrid-analysis.com/api/v2/report/${reportId}/summary`,
+      {
+        headers: {
+          'api-key': apiKey,
+          'User-Agent': 'Falcon Sandbox'
+        },
+        timeout: 15000
+      }
+    );
+
+    context.log('Full report response status:', reportResponse.status);
+    const latestReport = reportResponse.data;
+    context.log('Full report keys:', Object.keys(latestReport || {}));
 
     // Extract key information
     const verdict = latestReport.verdict || 'unknown';
