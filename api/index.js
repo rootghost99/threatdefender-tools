@@ -7,3 +7,4 @@ require('./EmailPosture');
 require('./HybridAnalysisLookup');
 require('./HybridAnalysisLookupTest');
 require('./HybridAnalysisDiag');
+require('./HybridAnalysisRawTest');
