@@ -64,7 +64,7 @@ app.http('PromptsAPI-List', {
     }
 
     try {
-      context.log('Listing prompts');
+      context.log('Listing prompts - START');
       const client = getTableClient();
 
       // Query parameters for filtering
@@ -73,19 +73,26 @@ app.http('PromptsAPI-List', {
       const tag = url.searchParams.get('tag');
       const search = url.searchParams.get('search');
 
-      // Build query filter - only filter by PartitionKey
-      // We'll filter out deleted items in JavaScript to avoid issues with missing isDeleted fields
-      let filter = "PartitionKey eq 'PROMPT'";
-      if (category) {
-        filter += ` and category eq '${category}'`;
-      }
+      context.log('Query params:', { category, tag, search });
 
+      // REMOVED PARTITION KEY FILTER - Get all entities and filter in code
+      // This ensures we get all prompts regardless of how they were created
       const prompts = [];
-      const entities = client.listEntities({ queryOptions: { filter } });
+      const entities = client.listEntities();
+
+      let entityCount = 0;
+      let deletedCount = 0;
 
       for await (const entity of entities) {
+        entityCount++;
+        context.log(`Processing entity ${entityCount}: ${entity.rowKey}`);
+
         // Skip deleted prompts (but include those without isDeleted field)
-        if (entity.isDeleted === true) continue;
+        if (entity.isDeleted === true) {
+          deletedCount++;
+          context.log(`  Skipping deleted prompt: ${entity.rowKey}`);
+          continue;
+        }
 
         // Parse JSON fields with error handling
         let tags = [];
@@ -96,18 +103,21 @@ app.http('PromptsAPI-List', {
           tags = entity.tags ? JSON.parse(entity.tags) : [];
         } catch (e) {
           context.warn(`Failed to parse tags for prompt ${entity.rowKey}: ${e.message}`);
+          tags = [];
         }
 
         try {
           variables = entity.variables ? JSON.parse(entity.variables) : [];
         } catch (e) {
           context.warn(`Failed to parse variables for prompt ${entity.rowKey}: ${e.message}`);
+          variables = [];
         }
 
         try {
           modelSettings = entity.modelSettings ? JSON.parse(entity.modelSettings) : {};
         } catch (e) {
           context.warn(`Failed to parse modelSettings for prompt ${entity.rowKey}: ${e.message}`);
+          modelSettings = {};
         }
 
         const prompt = {
@@ -140,10 +150,19 @@ app.http('PromptsAPI-List', {
         }
 
         prompts.push(prompt);
+        context.log(`  Added prompt: ${prompt.title}`);
       }
 
+      context.log(`Processed ${entityCount} total entities, ${deletedCount} deleted, ${prompts.length} active`);
+
       // Sort by creation date (newest first)
-      prompts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      try {
+        prompts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      } catch (e) {
+        context.warn(`Failed to sort prompts: ${e.message}`);
+      }
+
+      context.log(`Returning ${prompts.length} prompts`);
 
       return {
         status: 200,
