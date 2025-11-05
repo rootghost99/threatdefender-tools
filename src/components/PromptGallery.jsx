@@ -1,0 +1,280 @@
+// /src/components/PromptGallery.jsx
+import React, { useState, useEffect } from 'react';
+
+export default function PromptGallery({ darkMode }) {
+  const [prompts, setPrompts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [view, setView] = useState('gallery'); // 'gallery', 'detail', 'editor', 'admin'
+  const [selectedPromptId, setSelectedPromptId] = useState(null);
+  const [editPromptId, setEditPromptId] = useState(null);
+
+  // Fetch prompts
+  useEffect(() => {
+    fetchPrompts();
+  }, [categoryFilter]);
+
+  const fetchPrompts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let url = '/api/prompts';
+      if (categoryFilter) {
+        url += `?category=${encodeURIComponent(categoryFilter)}`;
+      }
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch prompts');
+      const data = await response.json();
+      setPrompts(data.prompts || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter prompts by search term
+  const filteredPrompts = prompts.filter(p => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      p.title.toLowerCase().includes(search) ||
+      p.description.toLowerCase().includes(search) ||
+      p.tags.some(t => t.toLowerCase().includes(search))
+    );
+  });
+
+  // Get unique categories
+  const categories = ['', ...new Set(prompts.map(p => p.category).filter(Boolean))];
+
+  // Navigate to detail view
+  const viewPrompt = (id) => {
+    setSelectedPromptId(id);
+    setView('detail');
+  };
+
+  // Navigate to editor
+  const createPrompt = () => {
+    setEditPromptId(null);
+    setView('editor');
+  };
+
+  const editPrompt = (id) => {
+    setEditPromptId(id);
+    setView('editor');
+  };
+
+  // Navigate to admin
+  const viewAdmin = () => {
+    setView('admin');
+  };
+
+  // Back to gallery
+  const backToGallery = () => {
+    setView('gallery');
+    setSelectedPromptId(null);
+    setEditPromptId(null);
+    fetchPrompts(); // Refresh
+  };
+
+  // Conditional rendering based on view
+  if (view === 'detail') {
+    // Lazy load PromptDetail component
+    const PromptDetail = require('./PromptDetail').default;
+    return <PromptDetail darkMode={darkMode} promptId={selectedPromptId} onBack={backToGallery} onEdit={editPrompt} />;
+  }
+
+  if (view === 'editor') {
+    // Lazy load PromptEditor component
+    const PromptEditor = require('./PromptEditor').default;
+    return <PromptEditor darkMode={darkMode} promptId={editPromptId} onBack={backToGallery} />;
+  }
+
+  if (view === 'admin') {
+    // Lazy load PromptAdmin component
+    const PromptAdmin = require('./PromptAdmin').default;
+    return <PromptAdmin darkMode={darkMode} onBack={backToGallery} />;
+  }
+
+  // Gallery View
+  const cardBg = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
+  const textPrimary = darkMode ? 'text-white' : 'text-gray-900';
+  const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-700';
+  const textMuted = darkMode ? 'text-gray-400' : 'text-gray-500';
+  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900';
+  const buttonPrimary = darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600';
+  const buttonSecondary = darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300';
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className={`p-6 rounded-lg border ${cardBg}`}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className={`text-2xl font-bold ${textPrimary}`}>
+              📚 Prompt Gallery
+            </h2>
+            <p className={`text-sm mt-1 ${textMuted}`}>
+              Browse, search, and run vetted AI prompts for security analysis
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={viewAdmin}
+              className={`px-4 py-2 rounded font-semibold ${buttonSecondary} ${textPrimary}`}
+            >
+              📊 Audit
+            </button>
+            <button
+              onClick={createPrompt}
+              className={`px-4 py-2 rounded font-semibold text-white ${buttonPrimary}`}
+            >
+              ➕ New Prompt
+            </button>
+          </div>
+        </div>
+
+        {/* Search and Filter */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${textSecondary}`}>
+              Search
+            </label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by title, description, or tags..."
+              className={`w-full px-4 py-2 rounded border ${inputBg}`}
+            />
+          </div>
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${textSecondary}`}>
+              Category
+            </label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className={`w-full px-4 py-2 rounded border ${inputBg}`}
+            >
+              <option value="">All Categories</option>
+              {categories.filter(c => c).map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div className={`text-center py-12 ${textMuted}`}>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <p className="mt-4">Loading prompts...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="p-4 rounded bg-red-500/10 border border-red-500/50 text-red-400">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && filteredPrompts.length === 0 && (
+        <div className={`text-center py-12 ${cardBg} rounded-lg border`}>
+          <div className="text-6xl mb-4">🔍</div>
+          <h3 className={`text-xl font-bold mb-2 ${textPrimary}`}>No prompts found</h3>
+          <p className={textMuted}>
+            {searchTerm || categoryFilter
+              ? 'Try adjusting your search or filters'
+              : 'Get started by creating your first prompt'
+            }
+          </p>
+          {!searchTerm && !categoryFilter && (
+            <button
+              onClick={createPrompt}
+              className={`mt-4 px-6 py-2 rounded font-semibold text-white ${buttonPrimary}`}
+            >
+              Create First Prompt
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Prompt Cards */}
+      {!loading && !error && filteredPrompts.length > 0 && (
+        <div>
+          <div className={`mb-4 ${textMuted}`}>
+            Found {filteredPrompts.length} prompt{filteredPrompts.length !== 1 ? 's' : ''}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredPrompts.map(prompt => (
+              <div
+                key={prompt.id}
+                className={`p-5 rounded-lg border ${cardBg} hover:shadow-lg transition-shadow cursor-pointer`}
+                onClick={() => viewPrompt(prompt.id)}
+              >
+                {/* Category Badge */}
+                <div className="flex items-start justify-between mb-3">
+                  <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>
+                    {prompt.category || 'General'}
+                  </span>
+                  {prompt.collection && (
+                    <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
+                      {prompt.collection}
+                    </span>
+                  )}
+                </div>
+
+                {/* Title */}
+                <h3 className={`text-lg font-bold mb-2 ${textPrimary}`}>
+                  {prompt.title}
+                </h3>
+
+                {/* Description */}
+                <p className={`text-sm mb-3 line-clamp-2 ${textSecondary}`}>
+                  {prompt.description || 'No description provided'}
+                </p>
+
+                {/* Tags */}
+                {prompt.tags && prompt.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {prompt.tags.slice(0, 3).map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className={`text-xs px-2 py-0.5 rounded ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'}`}
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                    {prompt.tags.length > 3 && (
+                      <span className={`text-xs ${textMuted}`}>
+                        +{prompt.tags.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Variables Count */}
+                {prompt.variables && prompt.variables.length > 0 && (
+                  <div className={`text-xs ${textMuted}`}>
+                    📝 {prompt.variables.length} variable{prompt.variables.length !== 1 ? 's' : ''}
+                  </div>
+                )}
+
+                {/* Metadata */}
+                <div className={`text-xs mt-3 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} ${textMuted}`}>
+                  Created by {prompt.createdBy} • {new Date(prompt.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
