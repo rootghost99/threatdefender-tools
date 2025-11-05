@@ -87,18 +87,40 @@ app.http('PromptsAPI-List', {
         // Skip deleted prompts (but include those without isDeleted field)
         if (entity.isDeleted === true) continue;
 
-        // Parse JSON fields
+        // Parse JSON fields with error handling
+        let tags = [];
+        let variables = [];
+        let modelSettings = {};
+
+        try {
+          tags = entity.tags ? JSON.parse(entity.tags) : [];
+        } catch (e) {
+          context.warn(`Failed to parse tags for prompt ${entity.rowKey}: ${e.message}`);
+        }
+
+        try {
+          variables = entity.variables ? JSON.parse(entity.variables) : [];
+        } catch (e) {
+          context.warn(`Failed to parse variables for prompt ${entity.rowKey}: ${e.message}`);
+        }
+
+        try {
+          modelSettings = entity.modelSettings ? JSON.parse(entity.modelSettings) : {};
+        } catch (e) {
+          context.warn(`Failed to parse modelSettings for prompt ${entity.rowKey}: ${e.message}`);
+        }
+
         const prompt = {
           id: entity.rowKey,
           title: entity.title || '',
           description: entity.description || '',
           category: entity.category || 'General',
-          tags: entity.tags ? JSON.parse(entity.tags) : [],
+          tags: tags,
           collection: entity.collection || '',
-          variables: entity.variables ? JSON.parse(entity.variables) : [],
+          variables: variables,
           systemGuidance: entity.systemGuidance || '',
           userInstructions: entity.userInstructions || '',
-          modelSettings: entity.modelSettings ? JSON.parse(entity.modelSettings) : {},
+          modelSettings: modelSettings,
           status: entity.status || 'active',
           createdBy: entity.createdBy || 'system',
           createdAt: entity.createdAt || new Date().toISOString(),
@@ -107,13 +129,13 @@ app.http('PromptsAPI-List', {
         };
 
         // Client-side filtering for tag and search
-        if (tag && !prompt.tags.includes(tag)) continue;
+        if (tag && prompt.tags && !prompt.tags.includes(tag)) continue;
         if (search) {
           const s = search.toLowerCase();
           const matches =
-            prompt.title.toLowerCase().includes(s) ||
-            prompt.description.toLowerCase().includes(s) ||
-            prompt.tags.some(t => t.toLowerCase().includes(s));
+            (prompt.title && prompt.title.toLowerCase().includes(s)) ||
+            (prompt.description && prompt.description.toLowerCase().includes(s)) ||
+            (prompt.tags && prompt.tags.some(t => t && t.toLowerCase().includes(s)));
           if (!matches) continue;
         }
 
@@ -164,17 +186,40 @@ app.http('PromptsAPI-Get', {
         };
       }
 
+      // Parse JSON fields with error handling
+      let tags = [];
+      let variables = [];
+      let modelSettings = {};
+
+      try {
+        tags = entity.tags ? JSON.parse(entity.tags) : [];
+      } catch (e) {
+        context.warn(`Failed to parse tags for prompt ${id}: ${e.message}`);
+      }
+
+      try {
+        variables = entity.variables ? JSON.parse(entity.variables) : [];
+      } catch (e) {
+        context.warn(`Failed to parse variables for prompt ${id}: ${e.message}`);
+      }
+
+      try {
+        modelSettings = entity.modelSettings ? JSON.parse(entity.modelSettings) : {};
+      } catch (e) {
+        context.warn(`Failed to parse modelSettings for prompt ${id}: ${e.message}`);
+      }
+
       const prompt = {
         id: entity.rowKey,
         title: entity.title || '',
         description: entity.description || '',
         category: entity.category || 'General',
-        tags: entity.tags ? JSON.parse(entity.tags) : [],
+        tags: tags,
         collection: entity.collection || '',
-        variables: entity.variables ? JSON.parse(entity.variables) : [],
+        variables: variables,
         systemGuidance: entity.systemGuidance || '',
         userInstructions: entity.userInstructions || '',
-        modelSettings: entity.modelSettings ? JSON.parse(entity.modelSettings) : {},
+        modelSettings: modelSettings,
         status: entity.status || 'active',
         createdBy: entity.createdBy || 'system',
         createdAt: entity.createdAt || new Date().toISOString(),
