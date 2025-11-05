@@ -43,9 +43,9 @@ export default function PromptGallery({ darkMode }) {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
-      p.title.toLowerCase().includes(search) ||
-      p.description.toLowerCase().includes(search) ||
-      p.tags.some(t => t.toLowerCase().includes(search))
+      p.title?.toLowerCase().includes(search) ||
+      p.description?.toLowerCase().includes(search) ||
+      (p.tags && p.tags.some(t => t.toLowerCase().includes(search)))
     );
   });
 

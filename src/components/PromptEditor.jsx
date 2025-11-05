@@ -40,16 +40,16 @@ export default function PromptEditor({ darkMode, promptId, onBack }) {
       if (!response.ok) throw new Error('Failed to fetch prompt');
       const data = await response.json();
 
-      setTitle(data.title);
-      setDescription(data.description);
-      setCategory(data.category);
-      setTags(data.tags.join(', '));
-      setCollection(data.collection);
-      setSystemGuidance(data.systemGuidance);
-      setUserInstructions(data.userInstructions);
+      setTitle(data.title || '');
+      setDescription(data.description || '');
+      setCategory(data.category || 'General');
+      setTags(data.tags ? data.tags.join(', ') : '');
+      setCollection(data.collection || '');
+      setSystemGuidance(data.systemGuidance || '');
+      setUserInstructions(data.userInstructions || '');
       setVariables(data.variables || []);
-      setTemperature(data.modelSettings.temperature || 0.7);
-      setMaxTokens(data.modelSettings.maxTokens || 2000);
+      setTemperature(data.modelSettings?.temperature || 0.7);
+      setMaxTokens(data.modelSettings?.maxTokens || 2000);
     } catch (err) {
       setError(err.message);
     } finally {
