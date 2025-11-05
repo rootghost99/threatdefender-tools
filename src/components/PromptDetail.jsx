@@ -174,7 +174,7 @@ export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
               {prompt.collection}
             </span>
           )}
-          {prompt.tags.map((tag, idx) => (
+          {prompt.tags && prompt.tags.map((tag, idx) => (
             <span key={idx} className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
               #{tag}
             </span>
