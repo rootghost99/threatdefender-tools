@@ -68,38 +68,7 @@ app.http('PromptsDiagnostics', {
         results.tests.tableClient.endpoint = `https://${account}.table.core.windows.net`;
         results.tests.tableClient.tableName = tableName;
 
-        // Test 4: Try WITHOUT filter first
-        try {
-          const entities = tableClient.listEntities();
-          let count = 0;
-          const firstFew = [];
-          for await (const entity of entities) {
-            count++;
-            if (count <= 3) {
-              firstFew.push({
-                id: entity.rowKey,
-                partitionKey: entity.partitionKey,
-                title: entity.title || 'No title',
-                hasDeletedFlag: entity.isDeleted !== undefined,
-                isDeleted: entity.isDeleted
-              });
-            }
-            if (count >= 10) break;
-          }
-
-          results.tests.tableConnectionNoFilter = {
-            status: '✓ Connected (no filter)',
-            totalPrompts: count >= 10 ? '10+' : count,
-            samplePrompts: firstFew
-          };
-        } catch (e) {
-          results.tests.tableConnectionNoFilter = {
-            status: '✗ Connection failed (no filter)',
-            error: e.message
-          };
-        }
-
-        // Test 5: Try WITH filter like PromptsAPI
+        // Test 4: Try to connect and list entities
         try {
           const filter = "PartitionKey eq 'PROMPT'";
           const entities = tableClient.listEntities({ queryOptions: { filter } });
@@ -111,26 +80,25 @@ app.http('PromptsDiagnostics', {
             if (count <= 3) {
               firstFew.push({
                 id: entity.rowKey,
-                partitionKey: entity.partitionKey,
                 title: entity.title || 'No title',
                 hasDeletedFlag: entity.isDeleted !== undefined,
                 isDeleted: entity.isDeleted
               });
             }
-            if (count >= 10) break;
+            if (count >= 10) break; // Limit to first 10 to avoid timeout
           }
 
-          results.tests.tableConnectionWithFilter = {
-            status: '✓ Connected (with filter)',
-            filter: filter,
+          results.tests.tableConnection = {
+            status: '✓ Connected successfully',
             totalPrompts: count >= 10 ? '10+' : count,
             samplePrompts: firstFew
           };
         } catch (e) {
-          results.tests.tableConnectionWithFilter = {
-            status: '✗ Connection failed (with filter)',
+          results.tests.tableConnection = {
+            status: '✗ Connection failed',
             error: e.message,
-            errorCode: e.statusCode || e.code
+            errorCode: e.statusCode || e.code,
+            details: e.details || 'No additional details'
           };
         }
       }
@@ -176,8 +144,7 @@ app.http('PromptsDiagnostics', {
       results.tests.dependencies.azureFunctions?.startsWith('✓') &&
       results.tests.dependencies.dataTables?.startsWith('✓') &&
       results.tests.tableClient.creation?.startsWith('✓') &&
-      (results.tests.tableConnectionNoFilter?.status?.startsWith('✓') ||
-       results.tests.tableConnectionWithFilter?.status?.startsWith('✓'));
+      results.tests.tableConnection?.status?.startsWith('✓');
 
     results.summary = allPassed
       ? '✅ All tests passed - PromptsAPI should work!'
