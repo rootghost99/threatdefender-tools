@@ -74,7 +74,7 @@ app.http('PromptsAPI-List', {
       const search = url.searchParams.get('search');
 
       // Build query filter
-      let filter = "PartitionKey eq 'PROMPT' and isDeleted eq false";
+      let filter = "PartitionKey eq 'PROMPT' and not (isDeleted eq true)";
       if (category) {
         filter += ` and category eq '${category}'`;
       }
