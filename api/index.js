@@ -5,5 +5,6 @@ require('./KQLAnalyzer');
 require('./ThreatIntelLookup');
 require('./EmailPosture');
 require('./HybridAnalysisLookup');
+require('./PromptsHealthCheck');
 require('./PromptsAPI');
 require('./PromptRunAPI');
