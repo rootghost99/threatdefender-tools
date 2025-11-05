@@ -4,6 +4,7 @@ import IRPlaybookGenerator from './components/IRPlaybookGenerator';
 import SOCHandoffTool from './components/SOCHandoffTool';
 import ThreatIntelLookup from './components/ThreatIntelLookup';
 import EmailPostureCheck from './components/EmailPostureCheck';
+import PromptGallery from './components/PromptGallery';
 
 export default function ThreatDefenderDashboard() {
   const [activeTab, setActiveTab] = useState('threat-intel');
@@ -12,6 +13,7 @@ export default function ThreatDefenderDashboard() {
   const tabs = [
     { id: 'threat-intel', name: 'Threat Intel Lookup', icon: '🛡️', component: ThreatIntelLookup },
     { id: 'ir-playbook', name: 'IR Playbook Generator', icon: '🚨', component: IRPlaybookGenerator },
+    { id: 'prompt-gallery', name: 'Prompt Gallery', icon: '📚', component: PromptGallery },
     { id: 'soc-handoff', name: 'SOC Shift Handoff', icon: '🔄', component: SOCHandoffTool },
     { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
     { id: 'email-posture', name: 'Email Posture Check', icon: '📧', component: EmailPostureCheck },

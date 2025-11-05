@@ -45,9 +45,22 @@ Include ongoing incidents, key investigations, and alerts of note to ensure smoo
 
 ---
 
-### 🌐 **Threat Intel Lookup **
-Real-time IOC enrichment and correlation from sources like AlienVault OTX, VirusTotal, Defender TI, AbuseIPDB, Greynoise and Shodan.  
+### 🌐 **Threat Intel Lookup**
+Real-time IOC enrichment and correlation from sources like AlienVault OTX, VirusTotal, Defender TI, AbuseIPDB, Greynoise and Shodan.
 Turn raw indicators into actionable insights.
+
+---
+
+### 📚 **Prompt Gallery**
+A centralized library of reusable AI prompts for security analysis workflows.
+Features include:
+- **Browse & Search** - Find the right prompt for your task (triage, forensics, client communication)
+- **Dynamic Variables** - Fill in context-specific details like usernames, IPs, or severity levels
+- **Run & Export** - Execute prompts with incident data and copy results to tickets or emails
+- **Audit Trail** - Track all prompt executions with full usage statistics and accountability
+- **Custom Prompts** - Create and edit prompts with Markdown support and variable definitions
+
+> Streamline repetitive analysis tasks with AI-powered prompts while maintaining full audit compliance.
 
 ---
 
@@ -63,8 +76,10 @@ ThreatDefender bridges that gap — giving analysts practical tools that **ampli
 | Layer | Technology |
 |-------|-------------|
 | Frontend | React + Tailwind CSS |
-| Backend | Node.js / Express |
-| Integration | Microsoft Sentinel, Defender APIs, OpenAI (for summaries) |
+| Backend | Azure Functions (Node.js) |
+| Storage | Azure Table Storage |
+| AI | Azure OpenAI (GPT-4) |
+| Integration | Microsoft Sentinel, Defender APIs, Threat Intel APIs |
 | Hosting | Azure Static Web Apps |
 
 ---
