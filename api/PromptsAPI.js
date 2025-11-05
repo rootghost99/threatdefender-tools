@@ -73,8 +73,9 @@ app.http('PromptsAPI-List', {
       const tag = url.searchParams.get('tag');
       const search = url.searchParams.get('search');
 
-      // Build query filter
-      let filter = "PartitionKey eq 'PROMPT' and not (isDeleted eq true)";
+      // Build query filter - only filter by PartitionKey
+      // We'll filter out deleted items in JavaScript to avoid issues with missing isDeleted fields
+      let filter = "PartitionKey eq 'PROMPT'";
       if (category) {
         filter += ` and category eq '${category}'`;
       }
@@ -83,6 +84,9 @@ app.http('PromptsAPI-List', {
       const entities = client.listEntities({ queryOptions: { filter } });
 
       for await (const entity of entities) {
+        // Skip deleted prompts (but include those without isDeleted field)
+        if (entity.isDeleted === true) continue;
+
         // Parse JSON fields
         const prompt = {
           id: entity.rowKey,

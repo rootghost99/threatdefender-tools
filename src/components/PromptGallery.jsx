@@ -1,5 +1,8 @@
 // /src/components/PromptGallery.jsx
 import React, { useState, useEffect } from 'react';
+import PromptDetail from './PromptDetail';
+import PromptEditor from './PromptEditor';
+import PromptAdmin from './PromptAdmin';
 
 export default function PromptGallery({ darkMode }) {
   const [prompts, setPrompts] = useState([]);
@@ -81,20 +84,14 @@ export default function PromptGallery({ darkMode }) {
 
   // Conditional rendering based on view
   if (view === 'detail') {
-    // Lazy load PromptDetail component
-    const PromptDetail = require('./PromptDetail').default;
     return <PromptDetail darkMode={darkMode} promptId={selectedPromptId} onBack={backToGallery} onEdit={editPrompt} />;
   }
 
   if (view === 'editor') {
-    // Lazy load PromptEditor component
-    const PromptEditor = require('./PromptEditor').default;
     return <PromptEditor darkMode={darkMode} promptId={editPromptId} onBack={backToGallery} />;
   }
 
   if (view === 'admin') {
-    // Lazy load PromptAdmin component
-    const PromptAdmin = require('./PromptAdmin').default;
     return <PromptAdmin darkMode={darkMode} onBack={backToGallery} />;
   }
 
