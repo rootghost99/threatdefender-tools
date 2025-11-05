@@ -1,6 +1,11 @@
 // Entry point for Azure Functions
 // This file imports all function definitions
 // Wrap requires in try-catch to debug loading errors
+
+console.log('========================================');
+console.log('Starting Azure Functions initialization');
+console.log('Node version:', process.version);
+console.log('========================================');
 try {
   require('./IRPlaybook');
   console.log('✓ IRPlaybook loaded');
@@ -64,4 +69,28 @@ try {
   console.error('✗ PromptRunAPI failed:', e.message);
 }
 
+try {
+  require('./test-simple');
+  console.log('✓ test-simple loaded');
+} catch (e) {
+  console.error('✗ test-simple failed:', e.message);
+}
+
+try {
+  require('./DiagnosticEndpoint');
+  console.log('✓ DiagnosticEndpoint loaded');
+} catch (e) {
+  console.error('✗ DiagnosticEndpoint failed:', e.message, e.stack);
+}
+
+try {
+  require('./PromptsMinimal');
+  console.log('✓ PromptsMinimal loaded');
+} catch (e) {
+  console.error('✗ PromptsMinimal failed:', e.message, e.stack);
+}
+
+console.log('========================================');
 console.log('All Azure Functions modules loaded');
+console.log('Total modules in cache:', Object.keys(require.cache).length);
+console.log('========================================');
