@@ -44,6 +44,13 @@ try {
 }
 
 try {
+  require('./PromptsDiagnostics');
+  console.log('✓ PromptsDiagnostics loaded');
+} catch (e) {
+  console.error('✗ PromptsDiagnostics failed:', e.message);
+}
+
+try {
   require('./PromptsAPI');
   console.log('✓ PromptsAPI loaded');
 } catch (e) {
