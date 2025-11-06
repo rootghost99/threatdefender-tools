@@ -27,11 +27,21 @@ export default function PromptGallery({ darkMode }) {
       if (categoryFilter) {
         url += `?category=${encodeURIComponent(categoryFilter)}`;
       }
+      console.log('[PromptGallery] Fetching from:', url);
       const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch prompts');
+      console.log('[PromptGallery] Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[PromptGallery] Error response body:', errorText);
+        throw new Error(`Failed to fetch prompts (${response.status} ${response.statusText}): ${errorText.substring(0, 200)}`);
+      }
+
       const data = await response.json();
+      console.log('[PromptGallery] Received data:', { promptCount: data.prompts?.length, data });
       setPrompts(data.prompts || []);
     } catch (err) {
+      console.error('[PromptGallery] Fetch error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
