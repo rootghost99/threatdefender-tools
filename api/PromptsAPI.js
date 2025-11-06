@@ -2,6 +2,11 @@
 const { app } = require('@azure/functions');
 const { TableClient, AzureNamedKeyCredential } = require('@azure/data-tables');
 
+console.log('========================================');
+console.log('[PromptsAPI] Module loading started');
+console.log('[PromptsAPI] @azure/functions version:', require('@azure/functions/package.json').version);
+console.log('========================================');
+
 // Initialize Table Client
 let tableClient = null;
 
@@ -59,12 +64,19 @@ app.http('PromptsAPI-List', {
   authLevel: 'anonymous',
   route: 'prompts',
   handler: async (request, context) => {
+    context.log('========================================');
+    context.log('[PromptsAPI-List] HANDLER CALLED');
+    context.log('[PromptsAPI-List] Method:', request.method);
+    context.log('[PromptsAPI-List] URL:', request.url);
+    context.log('========================================');
+
     if (request.method === 'OPTIONS') {
+      context.log('[PromptsAPI-List] Responding to OPTIONS request');
       return { status: 200, headers: corsHeaders };
     }
 
     try {
-      context.log('Listing prompts - START');
+      context.log('[PromptsAPI-List] Listing prompts - START');
       const client = getTableClient();
 
       // Query parameters for filtering
@@ -515,3 +527,13 @@ app.http('PromptsAPI-Delete', {
     }
   }
 });
+
+console.log('========================================');
+console.log('[PromptsAPI] All 5 routes registered:');
+console.log('  - GET    /api/prompts         (PromptsAPI-List)');
+console.log('  - GET    /api/prompts/{id}    (PromptsAPI-Get)');
+console.log('  - POST   /api/prompts         (PromptsAPI-Create)');
+console.log('  - PUT    /api/prompts/{id}    (PromptsAPI-Update)');
+console.log('  - DELETE /api/prompts/{id}    (PromptsAPI-Delete)');
+console.log('[PromptsAPI] Module loaded successfully');
+console.log('========================================');
