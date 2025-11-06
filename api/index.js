@@ -62,11 +62,20 @@ try {
   console.error('✗ LoadingDiagnostic failed:', e.message);
 }
 
+// DISABLED: Old multi-handler version causes route registration conflicts in Azure Functions v4
+// try {
+//   require('./PromptsAPI');
+//   console.log('✓ PromptsAPI loaded');
+// } catch (e) {
+//   console.error('✗ PromptsAPI failed:', e.message, e.stack);
+// }
+
+// NEW: Unified single-handler version that works with Azure Functions v4
 try {
-  require('./PromptsAPI');
-  console.log('✓ PromptsAPI loaded');
+  require('./PromptsAPI-Unified');
+  console.log('✓ PromptsAPI-Unified loaded');
 } catch (e) {
-  console.error('✗ PromptsAPI failed:', e.message, e.stack);
+  console.error('✗ PromptsAPI-Unified failed:', e.message, e.stack);
 }
 
 try {
