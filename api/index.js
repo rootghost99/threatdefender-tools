@@ -56,6 +56,13 @@ try {
 }
 
 try {
+  require('./LoadingDiagnostic');
+  console.log('✓ LoadingDiagnostic loaded');
+} catch (e) {
+  console.error('✗ LoadingDiagnostic failed:', e.message);
+}
+
+try {
   require('./PromptsAPI');
   console.log('✓ PromptsAPI loaded');
 } catch (e) {
