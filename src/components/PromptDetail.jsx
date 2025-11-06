@@ -311,7 +311,7 @@ export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
               📋 Copy
             </button>
           </div>
-          <div className={`prose prose-sm max-w-none ${darkMode ? 'prose-invert' : ''}`}>
+          <div className={`prose prose-sm max-w-none ${darkMode ? 'prose-invert [&_*]:text-gray-100 [&_code]:bg-gray-700 [&_code]:text-gray-100 [&_pre]:bg-gray-900 [&_pre]:text-gray-100' : ''}`}>
             <ReactMarkdown>{output}</ReactMarkdown>
           </div>
         </div>
