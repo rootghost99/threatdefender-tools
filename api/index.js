@@ -104,6 +104,13 @@ try {
   console.error('✗ RouteDiagnostic failed:', e.message, e.stack);
 }
 
+try {
+  require('./PromptsStorageTest');
+  console.log('✓ PromptsStorageTest loaded');
+} catch (e) {
+  console.error('✗ PromptsStorageTest failed:', e.message, e.stack);
+}
+
 console.log('========================================');
 console.log('All Azure Functions modules loaded');
 console.log('Total modules in cache:', Object.keys(require.cache).length);
