@@ -104,7 +104,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
           onClick={() => toggleDropdown(categoryKey)}
           whileHover={{ y: -1 }}
           whileTap={{ y: 0 }}
-          className={`relative px-4 py-2 font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+          className={`relative px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
             isActive
               ? darkMode
                 ? 'text-blue-400'
@@ -120,7 +120,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
           aria-expanded={isOpen}
           aria-haspopup="true"
         >
-          <span className="text-lg">{category.icon}</span>
+          <span className="text-base">{category.icon}</span>
           <span>{category.name}</span>
           <motion.span
             animate={{ rotate: isOpen ? 180 : 0 }}
@@ -163,7 +163,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                     <Link
                       key={item.id}
                       to={`/${item.id}`}
-                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
+                      className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
                         isItemActive
                           ? darkMode
                             ? 'bg-gray-700 text-blue-400'
@@ -173,7 +173,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      <span className="text-lg">{item.icon}</span>
+                      <span className="text-base">{item.icon}</span>
                       <span className="font-medium">{item.name}</span>
                     </Link>
                   );
@@ -196,9 +196,9 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
       aria-label="Main navigation"
     >
       <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h1 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
               🛡️ ThreatDefender
             </h1>
             <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -212,7 +212,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
               whileHover={{ y: -1 }}
               whileTap={{ y: 0 }}
               onClick={onDarkModeToggle}
-              className={`px-4 py-2 font-medium transition-colors ${
+              className={`px-3 py-1.5 text-sm transition-colors ${
                 darkMode
                   ? 'text-yellow-400 hover:text-yellow-300'
                   : 'text-gray-700 hover:text-gray-900'
@@ -254,7 +254,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
           <motion.div whileHover={{ y: -1 }} whileTap={{ y: 0 }}>
             <Link
               to={`/${categories.home.id}`}
-              className={`relative px-3 py-2 font-medium transition-colors flex items-center gap-2 ${
+              className={`relative px-2 py-1.5 text-sm font-medium transition-colors flex items-center gap-2 ${
                 currentPath.startsWith(`/${categories.home.id}`)
                   ? darkMode
                     ? 'text-blue-400'
@@ -266,7 +266,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
               aria-label="Home"
               title="Home (⌘H)"
             >
-              <span className="text-xl">{categories.home.icon}</span>
+              <span className="text-lg">{categories.home.icon}</span>
 
               {/* Active underline */}
               {currentPath.startsWith(`/${categories.home.id}`) && (
@@ -286,7 +286,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
           <motion.div whileHover={{ y: -1 }} whileTap={{ y: 0 }}>
             <Link
               to={`/${categories.promptGallery.id}`}
-              className={`relative px-4 py-2 font-medium transition-colors flex items-center gap-2 ${
+              className={`relative px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-2 ${
                 currentPath.startsWith(`/${categories.promptGallery.id}`)
                   ? darkMode
                     ? 'text-blue-400'
@@ -296,7 +296,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <span className="text-lg">{categories.promptGallery.icon}</span>
+              <span className="text-base">{categories.promptGallery.icon}</span>
               <span>{categories.promptGallery.name}</span>
 
               {/* Active underline */}
