@@ -27,8 +27,7 @@ jobs:
       - name: Setup API
         run: |
           cd api
-          rm -rf node_modules package-lock.json
-          npm install --force
+          npm ci
           
       - name: List build output
         run: |
