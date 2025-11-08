@@ -230,10 +230,10 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                 ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
             }`}
+            aria-label="Home"
+            title="Home (⌘H)"
           >
-            <span className="text-lg">{categories.home.icon}</span>
-            {categories.home.name}
-            <span className="text-xs text-gray-500 ml-1">⌘H</span>
+            <span className="text-xl">{categories.home.icon}</span>
 
             {currentPath.startsWith(`/${categories.home.id}`) && (
               <motion.div
