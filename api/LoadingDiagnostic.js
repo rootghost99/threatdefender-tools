@@ -6,16 +6,16 @@ const loadingResults = {
   modules: {}
 };
 
-// Track PromptsAPI loading
+// Track PromptsAPI-Unified loading
 try {
-  const testModule = require('./PromptsAPI');
-  loadingResults.modules.PromptsAPI = {
+  const testModule = require('./PromptsAPI-Unified');
+  loadingResults.modules['PromptsAPI-Unified'] = {
     status: 'SUCCESS',
     message: 'Module loaded without errors',
     exports: Object.keys(testModule || {})
   };
 } catch (error) {
-  loadingResults.modules.PromptsAPI = {
+  loadingResults.modules['PromptsAPI-Unified'] = {
     status: 'FAILED',
     error: error.message,
     stack: error.stack,
