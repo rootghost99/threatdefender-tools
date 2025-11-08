@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function ThreatIntelLookup({ darkMode }) {
     const [indicator, setIndicator] = useState('');
@@ -6,6 +6,16 @@ export default function ThreatIntelLookup({ darkMode }) {
     const [results, setResults] = useState(null);
     const [hybridAnalysisResults, setHybridAnalysisResults] = useState(null);
     const [showRdapModal, setShowRdapModal] = useState(false);
+    const [showSplash, setShowSplash] = useState(true);
+
+    // Show splash screen on mount
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setShowSplash(false);
+        }, 1500); // Show splash for 1.5 seconds
+
+        return () => clearTimeout(timer);
+    }, []);
 
     const handleLookup = async () => {
         if (!indicator.trim()) return;
@@ -131,6 +141,29 @@ export default function ThreatIntelLookup({ darkMode }) {
                 return null;
         }
     };
+
+    // Show splash screen on initial load
+    if (showSplash) {
+        return (
+            <div className={`flex items-center justify-center min-h-[60vh] ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                <div className="text-center">
+                    <div className="mb-6">
+                        <div className="inline-block animate-pulse text-6xl mb-4">🛡️</div>
+                    </div>
+                    <h2 className="text-3xl font-bold mb-2 animate-pulse">
+                        Initializing global defense systems…
+                    </h2>
+                    <div className="flex justify-center mt-6">
+                        <div className="flex space-x-2">
+                            <div className={`w-3 h-3 rounded-full animate-bounce ${darkMode ? 'bg-blue-400' : 'bg-blue-600'}`} style={{ animationDelay: '0ms' }}></div>
+                            <div className={`w-3 h-3 rounded-full animate-bounce ${darkMode ? 'bg-blue-400' : 'bg-blue-600'}`} style={{ animationDelay: '150ms' }}></div>
+                            <div className={`w-3 h-3 rounded-full animate-bounce ${darkMode ? 'bg-blue-400' : 'bg-blue-600'}`} style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`rounded-lg shadow-md ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} p-6`}>
