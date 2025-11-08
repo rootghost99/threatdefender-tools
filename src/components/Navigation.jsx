@@ -102,20 +102,20 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
       <div className="relative" ref={isOpen ? dropdownRef : null}>
         <motion.button
           onClick={() => toggleDropdown(categoryKey)}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className={`relative px-4 py-2 rounded-full font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+          whileHover={{ y: -1 }}
+          whileTap={{ y: 0 }}
+          className={`relative px-4 py-2 font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
             isActive
               ? darkMode
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
-                : 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                ? 'text-blue-400'
+                : 'text-blue-600'
               : isOpen
               ? darkMode
-                ? 'bg-gray-700 text-white'
-                : 'bg-gray-100 text-gray-900'
+                ? 'text-white'
+                : 'text-gray-900'
               : darkMode
-              ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+              ? 'text-gray-400 hover:text-gray-200'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
           aria-expanded={isOpen}
           aria-haspopup="true"
@@ -129,36 +129,48 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
           >
             ▼
           </motion.span>
+
+          {/* Active underline */}
+          {isActive && (
+            <motion.div
+              layoutId="activeDropdown"
+              className={`absolute bottom-0 left-0 right-0 h-0.5 ${
+                darkMode ? 'bg-blue-400' : 'bg-blue-600'
+              }`}
+              initial={false}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
+          )}
         </motion.button>
 
         <AnimatePresence>
           {isOpen && (
             <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.95 }}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
-              className={`absolute top-full left-0 mt-2 min-w-[220px] rounded-2xl shadow-xl overflow-hidden z-50 backdrop-blur-xl ${
+              className={`absolute top-full left-0 mt-2 min-w-[220px] rounded-lg overflow-hidden z-50 border ${
                 darkMode
-                  ? 'bg-gray-800/95 border border-gray-700/50'
-                  : 'bg-white/95 border border-gray-200/50'
+                  ? 'bg-gray-800 border-gray-700'
+                  : 'bg-white border-gray-200'
               }`}
             >
-              <div className="p-2">
+              <div className="py-1">
                 {category.items.map((item) => {
                   const isItemActive = currentPath.startsWith(`/${item.id}`);
                   return (
                     <Link
                       key={item.id}
                       to={`/${item.id}`}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
                         isItemActive
                           ? darkMode
-                            ? 'bg-blue-600 text-white shadow-md'
-                            : 'bg-blue-500 text-white shadow-md'
+                            ? 'bg-gray-700 text-blue-400'
+                            : 'bg-gray-100 text-blue-600'
                           : darkMode
                           ? 'text-gray-300 hover:bg-gray-700'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
                       <span className="text-lg">{item.icon}</span>
@@ -176,11 +188,11 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
 
   return (
     <nav
-      className={`border-b backdrop-blur-sm ${
+      className={`border-b ${
         darkMode
-          ? 'bg-gray-900/80 border-gray-800'
-          : 'bg-white/80 border-gray-200'
-      } sticky top-0 z-50 shadow-sm`}
+          ? 'bg-gray-900 border-gray-800'
+          : 'bg-white border-gray-200'
+      } sticky top-0 z-50`}
       aria-label="Main navigation"
     >
       <div className="max-w-7xl mx-auto px-6 py-4">
@@ -197,13 +209,13 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
           <div className="flex items-center gap-3">
             {/* Dark Mode Toggle */}
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ y: -1 }}
+              whileTap={{ y: 0 }}
               onClick={onDarkModeToggle}
-              className={`px-4 py-2 rounded-full font-medium transition-all ${
+              className={`px-4 py-2 font-medium transition-colors ${
                 darkMode
-                  ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'text-yellow-400 hover:text-yellow-300'
+                  : 'text-gray-700 hover:text-gray-900'
               }`}
               aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
             >
@@ -214,8 +226,8 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className={`md:hidden p-2 rounded-full ${
-                darkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+              className={`md:hidden p-2 ${
+                darkMode ? 'text-white hover:text-gray-300' : 'text-gray-900 hover:text-gray-700'
               }`}
               aria-label="Toggle mobile menu"
               aria-expanded={mobileMenuOpen}
@@ -237,43 +249,67 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
         </div>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-3" role="navigation">
+        <div className="hidden md:flex items-center gap-6" role="navigation">
           {/* Home Button */}
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <motion.div whileHover={{ y: -1 }} whileTap={{ y: 0 }}>
             <Link
               to={`/${categories.home.id}`}
-              className={`relative px-4 py-2 rounded-full font-medium transition-all flex items-center gap-2 ${
+              className={`relative px-3 py-2 font-medium transition-colors flex items-center gap-2 ${
                 currentPath.startsWith(`/${categories.home.id}`)
                   ? darkMode
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
-                    : 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                    ? 'text-blue-400'
+                    : 'text-blue-600'
                   : darkMode
-                  ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'text-gray-400 hover:text-gray-200'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
               aria-label="Home"
               title="Home (⌘H)"
             >
               <span className="text-xl">{categories.home.icon}</span>
+
+              {/* Active underline */}
+              {currentPath.startsWith(`/${categories.home.id}`) && (
+                <motion.div
+                  layoutId="activeTab"
+                  className={`absolute bottom-0 left-0 right-0 h-0.5 ${
+                    darkMode ? 'bg-blue-400' : 'bg-blue-600'
+                  }`}
+                  initial={false}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
             </Link>
           </motion.div>
 
           {/* Prompt Gallery Button */}
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <motion.div whileHover={{ y: -1 }} whileTap={{ y: 0 }}>
             <Link
               to={`/${categories.promptGallery.id}`}
-              className={`px-5 py-2 rounded-full font-medium transition-all flex items-center gap-2 ${
+              className={`relative px-4 py-2 font-medium transition-colors flex items-center gap-2 ${
                 currentPath.startsWith(`/${categories.promptGallery.id}`)
                   ? darkMode
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
-                    : 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                    ? 'text-blue-400'
+                    : 'text-blue-600'
                   : darkMode
-                  ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'text-gray-400 hover:text-gray-200'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               <span className="text-lg">{categories.promptGallery.icon}</span>
               <span>{categories.promptGallery.name}</span>
+
+              {/* Active underline */}
+              {currentPath.startsWith(`/${categories.promptGallery.id}`) && (
+                <motion.div
+                  layoutId="activeTab"
+                  className={`absolute bottom-0 left-0 right-0 h-0.5 ${
+                    darkMode ? 'bg-blue-400' : 'bg-blue-600'
+                  }`}
+                  initial={false}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
             </Link>
           </motion.div>
 
@@ -292,18 +328,18 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden overflow-hidden"
             >
-              <div className="py-3 space-y-2" role="menu">
+              <div className="py-3 space-y-1" role="menu">
                 {/* Home */}
                 <Link
                   to={`/${categories.home.id}`}
-                  className={`flex items-center px-4 py-3 rounded-xl font-medium transition ${
+                  className={`flex items-center px-4 py-2.5 font-medium transition-colors ${
                     currentPath.startsWith(`/${categories.home.id}`)
                       ? darkMode
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-blue-500 text-white'
+                        ? 'text-blue-400 bg-gray-800'
+                        : 'text-blue-600 bg-gray-50'
                       : darkMode
                       ? 'text-gray-300 hover:bg-gray-800'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   <span className="mr-3 text-xl">{categories.home.icon}</span>
@@ -313,14 +349,14 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                 {/* Prompt Gallery */}
                 <Link
                   to={`/${categories.promptGallery.id}`}
-                  className={`flex items-center px-4 py-3 rounded-xl font-medium transition ${
+                  className={`flex items-center px-4 py-2.5 font-medium transition-colors ${
                     currentPath.startsWith(`/${categories.promptGallery.id}`)
                       ? darkMode
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-blue-500 text-white'
+                        ? 'text-blue-400 bg-gray-800'
+                        : 'text-blue-600 bg-gray-50'
                       : darkMode
                       ? 'text-gray-300 hover:bg-gray-800'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   <span className="mr-3 text-xl">{categories.promptGallery.icon}</span>
@@ -332,27 +368,27 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                   if (key === 'home' || key === 'promptGallery' || !category.items) return null;
 
                   return (
-                    <div key={key} className="pt-2">
+                    <div key={key} className="pt-3">
                       <div className={`px-4 py-2 text-xs font-bold uppercase tracking-wider ${
                         darkMode ? 'text-gray-500' : 'text-gray-400'
                       }`}>
                         {category.icon} {category.name}
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-0.5">
                         {category.items.map((item) => {
                           const isActive = currentPath.startsWith(`/${item.id}`);
                           return (
                             <Link
                               key={item.id}
                               to={`/${item.id}`}
-                              className={`flex items-center px-6 py-3 rounded-xl font-medium transition ${
+                              className={`flex items-center px-6 py-2.5 font-medium transition-colors ${
                                 isActive
                                   ? darkMode
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-blue-500 text-white'
+                                    ? 'text-blue-400 bg-gray-800'
+                                    : 'text-blue-600 bg-gray-50'
                                   : darkMode
                                   ? 'text-gray-300 hover:bg-gray-800'
-                                  : 'text-gray-700 hover:bg-gray-100'
+                                  : 'text-gray-700 hover:bg-gray-50'
                               }`}
                             >
                               <span className="mr-3 text-xl">{item.icon}</span>
