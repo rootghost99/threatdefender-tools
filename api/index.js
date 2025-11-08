@@ -28,6 +28,13 @@ try {
 }
 
 try {
+  require('./KQLAnalyzerSimple');
+  console.log('✓ KQLAnalyzerSimple loaded');
+} catch (e) {
+  console.error('✗ KQLAnalyzerSimple failed:', e.message);
+}
+
+try {
   require('./ThreatIntelLookup');
   console.log('✓ ThreatIntelLookup loaded');
 } catch (e) {
