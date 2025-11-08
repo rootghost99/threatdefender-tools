@@ -42,6 +42,13 @@ try {
 }
 
 try {
+  require('./OpenAISafeTest');
+  console.log('✓ OpenAISafeTest loaded');
+} catch (e) {
+  console.error('✗ OpenAISafeTest failed:', e.message);
+}
+
+try {
   require('./ThreatIntelLookup');
   console.log('✓ ThreatIntelLookup loaded');
 } catch (e) {
