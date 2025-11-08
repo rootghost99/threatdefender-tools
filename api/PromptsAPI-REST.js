@@ -13,35 +13,31 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Helper to generate SharedKey authentication for Azure Table Storage
-// Uses SharedKey (not SharedKeyLite) with canonicalized headers
-function getStorageAuth(method, url, headers, accountName, accountKey) {
-  const urlObj = new URL(url);
+// Generate SAS token for Azure Table Storage (simpler than SharedKey)
+function generateTableSAS(accountName, accountKey, tableName) {
+  const version = '2019-02-02';
+  const now = new Date();
+  const start = new Date(now.getTime() - 5 * 60 * 1000).toISOString(); // 5 min ago
+  const expiry = new Date(now.getTime() + 60 * 60 * 1000).toISOString(); // 1 hour from now
 
-  // Canonicalized resource: /{account}{path}
-  const canonicalResource = `/${accountName}${urlObj.pathname}`;
+  const permissions = 'raud'; // read, add, update, delete
+  const resourceType = 't'; // table
 
-  // Canonicalized headers: all x-ms-* headers, sorted, lowercase, with newlines
-  const canonicalHeaders = Object.keys(headers)
-    .filter(k => k.toLowerCase().startsWith('x-ms-'))
-    .map(k => k.toLowerCase())
-    .sort()
-    .map(k => {
-      const originalKey = Object.keys(headers).find(h => h.toLowerCase() === k);
-      return `${k}:${headers[originalKey]}`;
-    })
-    .join('\n');
-
-  // String to sign for SharedKey:
-  // VERB + "\n" + Content-MD5 + "\n" + Content-Type + "\n" + Date + "\n" + CanonicalizedHeaders + "\n" + CanonicalizedResource
-  // NOTE: If x-ms-date is present, Date should be empty string
+  // String to sign for SAS token
   const stringToSign = [
-    method,
-    headers['Content-MD5'] || '',
-    headers['Content-Type'] || '',
-    headers['x-ms-date'] ? '' : (headers['Date'] || ''), // Empty if x-ms-date present
-    canonicalHeaders,
-    canonicalResource
+    accountName,
+    permissions,
+    'table',
+    start,
+    expiry,
+    '',  // canonicalized resource
+    '',  // identifier
+    version,
+    '',  // rscc
+    '',  // rscd
+    '',  // rsce
+    '',  // rscl
+    ''   // rsct
   ].join('\n');
 
   const signature = crypto
@@ -49,26 +45,42 @@ function getStorageAuth(method, url, headers, accountName, accountKey) {
     .update(stringToSign, 'utf-8')
     .digest('base64');
 
-  return `SharedKey ${accountName}:${signature}`;
+  const sasParams = new URLSearchParams({
+    sv: version,
+    tn: tableName,
+    sp: permissions,
+    st: start,
+    se: expiry,
+    sig: signature
+  });
+
+  return sasParams.toString();
 }
 
-// Make REST API call to Azure Table Storage
+// Make REST API call using SAS token authentication
 async function callTableAPI(method, path, body = null, context) {
   const account = process.env.AZURE_STORAGE_ACCOUNT_NAME;
   const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
+  const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
 
   if (!account || !accountKey) {
     throw new Error('Azure Storage credentials not configured');
   }
 
-  const url = `https://${account}.table.core.windows.net${path}`;
+  // Generate SAS token
+  const sasToken = generateTableSAS(account, accountKey, tableName);
+
+  // Add SAS token to URL
+  const separator = path.includes('?') ? '&' : '?';
+  const url = `https://${account}.table.core.windows.net${path}${separator}${sasToken}`;
+
   const dateStr = new Date().toUTCString();
 
   const headers = {
     'x-ms-date': dateStr,
     'x-ms-version': '2019-02-02',
     'Accept': 'application/json;odata=nometadata',
-    'DataServiceVersion': '3.0;NetFx'
+    'DataServiceVersion': '3.0'
   };
 
   if (body) {
@@ -77,9 +89,7 @@ async function callTableAPI(method, path, body = null, context) {
     headers['Content-Length'] = Buffer.byteLength(bodyStr).toString();
   }
 
-  headers['Authorization'] = getStorageAuth(method, url, headers, account, accountKey);
-
-  context.log(`[REST] ${method} ${path}`);
+  context.log(`[REST-SAS] ${method} ${path}`);
 
   try {
     const response = await axios({
@@ -92,7 +102,7 @@ async function callTableAPI(method, path, body = null, context) {
 
     return response;
   } catch (error) {
-    context.error(`[REST] ${method} ${path} failed:`, error.message);
+    context.error(`[REST-SAS] ${method} ${path} failed:`, error.message);
     throw error;
   }
 }
@@ -472,4 +482,4 @@ async function deletePrompt(request, context, id) {
   };
 }
 
-console.log('[PromptsAPI-REST] Module loaded successfully (using REST API, no SDK)');
+console.log('[PromptsAPI-REST] Module loaded successfully (using SAS token authentication)');
