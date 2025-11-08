@@ -2,7 +2,6 @@
 const { app } = require('@azure/functions');
 const axios = require('axios');
 const crypto = require('crypto');
-const { OpenAIClient, AzureKeyCredential } = require('@azure/openai');
 
 console.log('[PromptsAPI-REST] Module loading...');
 
@@ -13,23 +12,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Content-Type': 'application/json'
 };
-
-// OpenAI client (lazy initialization)
-let openAIClient = null;
-
-function getOpenAIClient() {
-  if (!openAIClient) {
-    const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const apiKey = process.env.AZURE_OPENAI_API_KEY;
-
-    if (!endpoint || !apiKey) {
-      throw new Error('Azure OpenAI credentials not configured.');
-    }
-
-    openAIClient = new OpenAIClient(endpoint, new AzureKeyCredential(apiKey));
-  }
-  return openAIClient;
-}
 
 // Helper functions for prompt execution
 function generateId() {
@@ -638,11 +620,16 @@ async function runPrompt(request, context, id) {
 
     context.log('Calling Azure OpenAI...');
 
-    // Call Azure OpenAI
-    const openAI = getOpenAIClient();
+    // Call Azure OpenAI using REST API directly (avoids SDK crypto issues)
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const apiKey = process.env.AZURE_OPENAI_API_KEY;
     const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4';
     const temperature = prompt.modelSettings.temperature || 0.7;
     const maxTokens = prompt.modelSettings.maxTokens || 2000;
+
+    if (!endpoint || !apiKey) {
+      throw new Error('Azure OpenAI credentials not configured');
+    }
 
     const messages = [];
     if (systemMessage) {
@@ -650,11 +637,34 @@ async function runPrompt(request, context, id) {
     }
     messages.push({ role: 'user', content: finalUserMessage });
 
-    const result = await openAI.getChatCompletions(deployment, messages, {
-      temperature,
-      maxTokens
+    // Use REST API directly instead of SDK to avoid crypto issues
+    const apiVersion = '2024-02-01';
+    const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+
+    context.log(`Calling Azure OpenAI REST API: ${url}`);
+
+    const openAIResponse = await axios({
+      method: 'POST',
+      url: url,
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        messages: messages,
+        max_tokens: maxTokens,
+        temperature: temperature
+      },
+      timeout: 60000,
+      validateStatus: () => true
     });
 
+    if (openAIResponse.status !== 200) {
+      context.error('OpenAI API error:', openAIResponse.data);
+      throw new Error(`Azure OpenAI API call failed: ${openAIResponse.data?.error?.message || openAIResponse.status}`);
+    }
+
+    const result = openAIResponse.data;
     const output = result.choices[0]?.message?.content || '';
     const usage = result.usage || {};
 
