@@ -1,7 +1,6 @@
 // Diagnostic endpoint to test Azure Table Storage authentication
 const { app } = require('@azure/functions');
-const axios = require('axios');
-const crypto = require('crypto');
+const { TableClient, AzureNamedKeyCredential } = require('@azure/data-tables');
 
 console.log('[TableStorageDiagnostic] Module loading...');
 
@@ -11,57 +10,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
   'Content-Type': 'application/json'
 };
-
-// Account SAS generation (same as PromptsAPI-REST)
-function generateTableSAS(accountName, accountKey, tableName) {
-  const version = '2019-02-02';
-  const now = new Date();
-
-  const start = new Date(now.getTime() - 5 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const expiry = new Date(now.getTime() + 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-
-  const stringToSign = [
-    accountName,
-    'raud',     // signedpermissions
-    't',        // signedservice (table)
-    'sco',      // signedresourcetype
-    start,
-    expiry,
-    '',         // signedIP
-    '',         // signedProtocol
-    version,
-    ''
-  ].join('\n');
-
-  const signature = crypto
-    .createHmac('sha256', Buffer.from(accountKey, 'base64'))
-    .update(stringToSign, 'utf-8')
-    .digest('base64');
-
-  return {
-    sasParams: new URLSearchParams({
-      sv: version,
-      ss: 't',
-      srt: 'sco',
-      sp: 'raud',
-      st: start,
-      se: expiry,
-      sig: signature
-    }).toString(),
-    debugInfo: {
-      sasType: 'Account SAS',
-      version,
-      accountName,
-      signedService: 't (table)',
-      signedResourceType: 'sco (service, container, object)',
-      permissions: 'raud',
-      start,
-      expiry,
-      stringToSign: stringToSign.split('\n').map((line, i) => `Line ${i}: "${line}"`),
-      signatureGenerated: signature
-    }
-  };
-}
 
 app.http('TableStorageDiagnostic', {
   methods: ['GET', 'OPTIONS'],
@@ -89,50 +37,50 @@ app.http('TableStorageDiagnostic', {
     }
 
     try {
-      const { sasParams, debugInfo } = generateTableSAS(account, accountKey, tableName);
+      context.log('Attempting Table Storage request with @azure/data-tables SDK...');
 
-      const path = `/${tableName}()`;
-      const url = `https://${account}.table.core.windows.net${path}?${sasParams}`;
+      const credential = new AzureNamedKeyCredential(account, accountKey);
+      const tableClient = new TableClient(
+        `https://${account}.table.core.windows.net`,
+        tableName,
+        credential
+      );
 
-      // When using SAS tokens, don't include x-ms-date or x-ms-version headers
-      // These are only for SharedKey authentication
-      const headers = {
-        'Accept': 'application/json;odata=nometadata',
-        'DataServiceVersion': '3.0'
-      };
-
-      context.log('Attempting Table Storage request with SAS token...');
-
-      const response = await axios({
-        method: 'GET',
-        url,
-        headers,
-        validateStatus: () => true
+      // Try to list entities
+      const entities = tableClient.listEntities({
+        queryOptions: { filter: "PartitionKey eq 'PROMPT'" }
       });
+
+      let count = 0;
+      let firstEntity = null;
+
+      for await (const entity of entities) {
+        if (count === 0) {
+          firstEntity = {
+            partitionKey: entity.partitionKey,
+            rowKey: entity.rowKey,
+            title: entity.title || 'N/A'
+          };
+        }
+        count++;
+        if (count >= 10) break; // Only count first 10 for performance
+      }
 
       return {
         status: 200,
         headers: corsHeaders,
         jsonBody: {
-          message: 'Table Storage Connection Test',
+          message: 'Table Storage Connection Test - SUCCESS',
           environment: {
             accountName: account,
             accountKeyLength: accountKey.length,
-            tableName
+            tableName,
+            sdkUsed: '@azure/data-tables'
           },
-          sasTokenDebug: debugInfo,
-          requestDetails: {
-            method: 'GET',
-            url: url.substring(0, 150) + '...',
-            headers
-          },
-          azureResponse: {
-            status: response.status,
-            statusText: response.statusText,
-            headers: response.headers,
-            dataPreview: response.status === 200
-              ? `Success! Got ${response.data?.value?.length || 0} entities`
-              : JSON.stringify(response.data).substring(0, 500)
+          testResults: {
+            success: true,
+            entitiesFound: count,
+            firstEntitySample: firstEntity
           }
         }
       };
@@ -144,7 +92,8 @@ app.http('TableStorageDiagnostic', {
         jsonBody: {
           error: 'Test failed',
           message: error.message,
-          stack: error.stack
+          statusCode: error.statusCode || 'N/A',
+          details: error.details || 'No additional details'
         }
       };
     }
