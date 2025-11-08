@@ -8,6 +8,18 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showScrollIndicators, setShowScrollIndicators] = useState({ left: false, right: false });
 
+  // Scroll navigation
+  const scrollTabs = (direction) => {
+    const container = document.getElementById('tab-container');
+    if (container) {
+      const scrollAmount = 200;
+      container.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   const currentPath = location.pathname;
   const activeTabId = tabs.find(t => currentPath.startsWith(`/${t.id}`))?.id || tabs[0]?.id;
 
@@ -61,9 +73,13 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
     const checkScroll = () => {
       const container = document.getElementById('tab-container');
       if (container) {
+        const scrollLeft = container.scrollLeft;
+        const scrollWidth = container.scrollWidth;
+        const clientWidth = container.clientWidth;
+
         setShowScrollIndicators({
-          left: container.scrollLeft > 0,
-          right: container.scrollLeft < container.scrollWidth - container.clientWidth - 10
+          left: scrollLeft > 5,
+          right: scrollLeft < scrollWidth - clientWidth - 5
         });
       }
     };
@@ -76,9 +92,13 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
       // Also check on resize
       window.addEventListener('resize', checkScroll);
 
+      // Check after a short delay to ensure content is loaded
+      const timer = setTimeout(checkScroll, 100);
+
       return () => {
         container.removeEventListener('scroll', checkScroll);
         window.removeEventListener('resize', checkScroll);
+        clearTimeout(timer);
       };
     }
   }, []);
@@ -133,23 +153,37 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
         </div>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:block relative">
-          {/* Scroll Indicators */}
+        <div className="hidden md:flex relative items-center gap-2">
+          {/* Left Scroll Button */}
           {showScrollIndicators.left && (
-            <div className={`absolute left-0 top-0 bottom-0 w-8 pointer-events-none z-10 ${
+            <button
+              onClick={() => scrollTabs('left')}
+              className={`flex-shrink-0 px-2 py-2 rounded-md transition z-20 ${
+                darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+              }`}
+              aria-label="Scroll tabs left"
+            >
+              ◀
+            </button>
+          )}
+
+          {/* Scroll Indicator Gradient */}
+          {showScrollIndicators.left && (
+            <div className={`absolute left-12 top-0 bottom-0 w-8 pointer-events-none z-10 ${
               darkMode ? 'bg-gradient-to-r from-gray-800' : 'bg-gradient-to-r from-white'
             }`} />
           )}
           {showScrollIndicators.right && (
-            <div className={`absolute right-0 top-0 bottom-0 w-8 pointer-events-none z-10 ${
+            <div className={`absolute right-12 top-0 bottom-0 w-8 pointer-events-none z-10 ${
               darkMode ? 'bg-gradient-to-l from-gray-800' : 'bg-gradient-to-l from-white'
             }`} />
           )}
 
           <div
             id="tab-container"
-            className="flex gap-2 overflow-x-auto scrollbar-hide"
+            className="flex gap-2 overflow-x-auto scrollbar-hide pr-4 flex-1"
             role="tablist"
+            style={{ scrollPaddingRight: '1rem' }}
           >
             {tabs.map((tab, index) => {
               const isActive = activeTabId === tab.id;
@@ -202,6 +236,19 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
               );
             })}
           </div>
+
+          {/* Right Scroll Button */}
+          {showScrollIndicators.right && (
+            <button
+              onClick={() => scrollTabs('right')}
+              className={`flex-shrink-0 px-2 py-2 rounded-md transition z-20 ${
+                darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+              }`}
+              aria-label="Scroll tabs right"
+            >
+              ▶
+            </button>
+          )}
         </div>
 
         {/* Mobile Navigation */}
