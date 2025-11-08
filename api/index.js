@@ -56,13 +56,13 @@ try {
 //   console.error('✗ PromptsAPI failed:', e.message, e.stack);
 // }
 
-// NEW: Unified single-handler version that works with Azure Functions v4
-// This uses a single wildcard route handler for all /api/prompts/* endpoints
+// NEW: REST API version (bypasses @azure/data-tables crypto issues)
+// Uses direct Azure Table Storage REST API with axios
 try {
-  require('./PromptsAPI-Unified');
-  console.log('✓ PromptsAPI-Unified loaded');
+  require('./PromptsAPI-REST');
+  console.log('✓ PromptsAPI-REST loaded');
 } catch (e) {
-  console.error('✗ PromptsAPI-Unified failed:', e.message, e.stack);
+  console.error('✗ PromptsAPI-REST failed:', e.message, e.stack);
 }
 
 // Load PromptRunAPI after PromptsAPI-Unified
