@@ -13,31 +13,46 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Generate SAS token for Azure Table Storage (simpler than SharedKey)
+// Generate SAS token for Azure Table Storage
+// Uses Table Service SAS (not Account SAS)
 function generateTableSAS(accountName, accountKey, tableName) {
   const version = '2019-02-02';
   const now = new Date();
-  const start = new Date(now.getTime() - 5 * 60 * 1000).toISOString(); // 5 min ago
-  const expiry = new Date(now.getTime() + 60 * 60 * 1000).toISOString(); // 1 hour from now
+
+  // Format: yyyy-MM-ddTHH:mm:ssZ
+  const start = new Date(now.getTime() - 5 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const expiry = new Date(now.getTime() + 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
 
   const permissions = 'raud'; // read, add, update, delete
-  const resourceType = 't'; // table
 
-  // String to sign for SAS token
+  // String to sign for Table SAS:
+  // signedpermissions + "\n" +
+  // signedstart + "\n" +
+  // signedexpiry + "\n" +
+  // canonicalizedresource + "\n" +
+  // signedidentifier + "\n" +
+  // signedIP + "\n" +
+  // signedProtocol + "\n" +
+  // signedversion + "\n" +
+  // startpk + "\n" +
+  // startrk + "\n" +
+  // endpk + "\n" +
+  // endrk
+  const canonicalizedResource = `/table/${accountName}/${tableName}`;
+
   const stringToSign = [
-    accountName,
     permissions,
-    'table',
     start,
     expiry,
-    '',  // canonicalized resource
-    '',  // identifier
+    canonicalizedResource,
+    '', // signedidentifier
+    '', // signedIP
+    '', // signedProtocol
     version,
-    '',  // rscc
-    '',  // rscd
-    '',  // rsce
-    '',  // rscl
-    ''   // rsct
+    '', // startpk
+    '', // startrk
+    '', // endpk
+    ''  // endrk
   ].join('\n');
 
   const signature = crypto
@@ -90,6 +105,8 @@ async function callTableAPI(method, path, body = null, context) {
   }
 
   context.log(`[REST-SAS] ${method} ${path}`);
+  context.log(`[REST-SAS] Full URL: ${url.substring(0, 100)}...`);
+  context.log(`[REST-SAS] Headers:`, JSON.stringify(headers));
 
   try {
     const response = await axios({
@@ -99,6 +116,11 @@ async function callTableAPI(method, path, body = null, context) {
       data: body,
       validateStatus: () => true
     });
+
+    context.log(`[REST-SAS] Response status: ${response.status}`);
+    if (response.status !== 200 && response.status !== 201 && response.status !== 204) {
+      context.log(`[REST-SAS] Error response:`, JSON.stringify(response.data));
+    }
 
     return response;
   } catch (error) {
