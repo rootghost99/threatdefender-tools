@@ -14,20 +14,33 @@ const corsHeaders = {
 };
 
 // Helper to generate SharedKey authentication for Azure Table Storage
-// Azure Table Storage uses SharedKeyLite authentication format
+// Uses SharedKey (not SharedKeyLite) with canonicalized headers
 function getStorageAuth(method, url, headers, accountName, accountKey) {
   const urlObj = new URL(url);
 
-  // Canonicalized resource is just: /{account}{path}
+  // Canonicalized resource: /{account}{path}
   const canonicalResource = `/${accountName}${urlObj.pathname}`;
 
-  // String to sign for SharedKeyLite (used by Table Storage):
-  // VERB + "\n" + Content-MD5 + "\n" + Content-Type + "\n" + Date + "\n" + CanonicalizedResource
+  // Canonicalized headers: all x-ms-* headers, sorted, lowercase, with newlines
+  const canonicalHeaders = Object.keys(headers)
+    .filter(k => k.toLowerCase().startsWith('x-ms-'))
+    .map(k => k.toLowerCase())
+    .sort()
+    .map(k => {
+      const originalKey = Object.keys(headers).find(h => h.toLowerCase() === k);
+      return `${k}:${headers[originalKey]}`;
+    })
+    .join('\n');
+
+  // String to sign for SharedKey:
+  // VERB + "\n" + Content-MD5 + "\n" + Content-Type + "\n" + Date + "\n" + CanonicalizedHeaders + "\n" + CanonicalizedResource
+  // NOTE: If x-ms-date is present, Date should be empty string
   const stringToSign = [
     method,
     headers['Content-MD5'] || '',
     headers['Content-Type'] || '',
-    headers['x-ms-date'] || '',
+    headers['x-ms-date'] ? '' : (headers['Date'] || ''), // Empty if x-ms-date present
+    canonicalHeaders,
     canonicalResource
   ].join('\n');
 
@@ -36,7 +49,7 @@ function getStorageAuth(method, url, headers, accountName, accountKey) {
     .update(stringToSign, 'utf-8')
     .digest('base64');
 
-  return `SharedKeyLite ${accountName}:${signature}`;
+  return `SharedKey ${accountName}:${signature}`;
 }
 
 // Make REST API call to Azure Table Storage
