@@ -14,6 +14,16 @@ function PromptGalleryList({ darkMode }) {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [showSplash, setShowSplash] = useState(true);
+
+  // Show splash screen on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3500); // Show splash for 3.5 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Fetch prompts
   useEffect(() => {
@@ -71,6 +81,29 @@ function PromptGalleryList({ darkMode }) {
   const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900';
   const buttonPrimary = darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600';
   const buttonSecondary = darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300';
+
+  // Show splash screen on initial load
+  if (showSplash) {
+    return (
+      <div className={`flex items-center justify-center min-h-[60vh] ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div className="text-center">
+          <div className="mb-6">
+            <div className="inline-block animate-pulse text-6xl mb-4">📚</div>
+          </div>
+          <h2 className="text-3xl font-bold mb-2 animate-pulse">
+            Remember: No blind Copypasta here!
+          </h2>
+          <div className="flex justify-center mt-6">
+            <div className="flex space-x-2">
+              <div className={`w-3 h-3 rounded-full animate-bounce ${darkMode ? 'bg-blue-400' : 'bg-blue-600'}`} style={{ animationDelay: '0ms' }}></div>
+              <div className={`w-3 h-3 rounded-full animate-bounce ${darkMode ? 'bg-blue-400' : 'bg-blue-600'}`} style={{ animationDelay: '150ms' }}></div>
+              <div className={`w-3 h-3 rounded-full animate-bounce ${darkMode ? 'bg-blue-400' : 'bg-blue-600'}`} style={{ animationDelay: '300ms' }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

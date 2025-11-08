@@ -1,5 +1,5 @@
 // /src/components/IRPlaybookGenerator.jsx
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 
 /** Small card renderer with light code-fence support */
 const SectionCard = ({ title, content, darkMode }) => {
@@ -87,6 +87,16 @@ export default function IRPlaybookGenerator({ darkMode }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr]         = useState(null);
   const [pb, setPb]           = useState(null);
+  const [showSplash, setShowSplash] = useState(true);
+
+  // Show splash screen on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3500); // Show splash for 3.5 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const ordered = useMemo(() => [
     { key: 'executiveSummary',      title: 'Executive Summary' },
@@ -146,6 +156,29 @@ export default function IRPlaybookGenerator({ darkMode }) {
 
   const base = darkMode ? 'bg-gray-800 border border-gray-700 text-gray-100' : 'bg-white border border-gray-200 text-gray-900';
   const sub  = darkMode ? 'text-gray-300' : 'text-gray-700';
+
+  // Show splash screen on initial load
+  if (showSplash) {
+    return (
+      <div className={`flex items-center justify-center min-h-[60vh] ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div className="text-center">
+          <div className="mb-6">
+            <div className="inline-block animate-pulse text-6xl mb-4">📋</div>
+          </div>
+          <h2 className="text-3xl font-bold mb-2 animate-pulse">
+            Remember: No blind Copypasta here!
+          </h2>
+          <div className="flex justify-center mt-6">
+            <div className="flex space-x-2">
+              <div className={`w-3 h-3 rounded-full animate-bounce ${darkMode ? 'bg-blue-400' : 'bg-blue-600'}`} style={{ animationDelay: '0ms' }}></div>
+              <div className={`w-3 h-3 rounded-full animate-bounce ${darkMode ? 'bg-blue-400' : 'bg-blue-600'}`} style={{ animationDelay: '150ms' }}></div>
+              <div className={`w-3 h-3 rounded-full animate-bounce ${darkMode ? 'bg-blue-400' : 'bg-blue-600'}`} style={{ animationDelay: '300ms' }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`rounded-lg shadow-md p-6 ${base}`}>
