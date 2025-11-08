@@ -18,6 +18,11 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
       name: 'Home',
       icon: '🏠'
     },
+    promptGallery: {
+      id: 'prompt-gallery',
+      name: 'Prompt Gallery',
+      icon: '📚'
+    },
     threatIntel: {
       name: 'Threat Intelligence',
       icon: '🛡️',
@@ -29,7 +34,6 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
       name: 'Engineering',
       icon: '⚙️',
       items: [
-        tabs.find(t => t.id === 'prompt-gallery'),
         tabs.find(t => t.id === 'kql-diff')
       ].filter(Boolean)
     },
@@ -243,6 +247,34 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
             )}
           </Link>
 
+          {/* Prompt Gallery Button */}
+          <Link
+            to={`/${categories.promptGallery.id}`}
+            className={`relative px-4 py-2 rounded-t-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+              currentPath.startsWith(`/${categories.promptGallery.id}`)
+                ? darkMode
+                  ? 'bg-gray-900 text-white shadow-lg'
+                  : 'bg-gray-50 text-gray-900 shadow-lg'
+                : darkMode
+                ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            <span className="text-lg">{categories.promptGallery.icon}</span>
+            {categories.promptGallery.name}
+
+            {currentPath.startsWith(`/${categories.promptGallery.id}`) && (
+              <motion.div
+                layoutId="activeTab"
+                className={`absolute bottom-0 left-0 right-0 h-1 ${
+                  darkMode ? 'bg-blue-500' : 'bg-blue-600'
+                } rounded-t-full`}
+                initial={false}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              />
+            )}
+          </Link>
+
           {/* Category Dropdowns */}
           <DropdownMenu categoryKey="threatIntel" category={categories.threatIntel} />
           <DropdownMenu categoryKey="engineering" category={categories.engineering} />
@@ -276,9 +308,26 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                   {categories.home.name}
                 </Link>
 
+                {/* Prompt Gallery */}
+                <Link
+                  to={`/${categories.promptGallery.id}`}
+                  className={`flex items-center px-4 py-3 rounded-lg font-semibold transition ${
+                    currentPath.startsWith(`/${categories.promptGallery.id}`)
+                      ? darkMode
+                        ? 'bg-gray-900 text-white border-l-4 border-blue-500'
+                        : 'bg-gray-50 text-gray-900 border-l-4 border-blue-600'
+                      : darkMode
+                      ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="mr-3 text-xl">{categories.promptGallery.icon}</span>
+                  {categories.promptGallery.name}
+                </Link>
+
                 {/* All other items grouped by category */}
                 {Object.entries(categories).map(([key, category]) => {
-                  if (key === 'home' || !category.items) return null;
+                  if (key === 'home' || key === 'promptGallery' || !category.items) return null;
 
                   return (
                     <div key={key}>
