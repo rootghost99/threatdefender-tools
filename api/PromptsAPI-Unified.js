@@ -55,60 +55,75 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// UNIFIED HANDLER - Handles all /api/prompts/* routes
-app.http('PromptsAPI-Unified', {
+// Shared handler function
+async function handlePromptsRequest(request, context, path = '') {
+  context.log('[PromptsAPI-Unified] Request:', request.method, request.url);
+
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return { status: 200, headers: corsHeaders };
+  }
+
+  try {
+    const method = request.method;
+    const pathParts = path.split('/').filter(p => p);
+
+    context.log('Method:', method, 'Path:', path, 'Parts:', pathParts);
+
+    // Route to appropriate handler
+    if (pathParts.length === 0) {
+      // /api/prompts
+      if (method === 'GET') {
+        return await listPrompts(request, context);
+      } else if (method === 'POST') {
+        return await createPrompt(request, context);
+      }
+    } else if (pathParts.length === 1) {
+      // /api/prompts/{id}
+      const id = pathParts[0];
+      if (method === 'GET') {
+        return await getPrompt(request, context, id);
+      } else if (method === 'PUT') {
+        return await updatePrompt(request, context, id);
+      } else if (method === 'DELETE') {
+        return await deletePrompt(request, context, id);
+      }
+    }
+
+    // Method not allowed
+    return {
+      status: 405,
+      headers: corsHeaders,
+      jsonBody: { error: 'Method not allowed' }
+    };
+  } catch (error) {
+    context.error('[PromptsAPI-Unified] Error:', error);
+    return {
+      status: 500,
+      headers: corsHeaders,
+      jsonBody: { error: error.message, stack: error.stack }
+    };
+  }
+}
+
+// Register handler for /api/prompts (base route)
+app.http('PromptsAPI-Base', {
+  methods: ['GET', 'POST', 'OPTIONS'],
+  authLevel: 'anonymous',
+  route: 'prompts',
+  handler: async (request, context) => {
+    return await handlePromptsRequest(request, context, '');
+  }
+});
+
+// Register handler for /api/prompts/* (with path segments)
+app.http('PromptsAPI-WithPath', {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   authLevel: 'anonymous',
   route: 'prompts/{*path}',
   handler: async (request, context) => {
-    context.log('[PromptsAPI-Unified] Request:', request.method, request.url);
-
-    // Handle CORS preflight
-    if (request.method === 'OPTIONS') {
-      return { status: 200, headers: corsHeaders };
-    }
-
-    try {
-      const method = request.method;
-      const path = request.params.path || '';
-      const pathParts = path.split('/').filter(p => p);
-
-      context.log('Method:', method, 'Path:', path, 'Parts:', pathParts);
-
-      // Route to appropriate handler
-      if (pathParts.length === 0) {
-        // /api/prompts
-        if (method === 'GET') {
-          return await listPrompts(request, context);
-        } else if (method === 'POST') {
-          return await createPrompt(request, context);
-        }
-      } else if (pathParts.length === 1) {
-        // /api/prompts/{id}
-        const id = pathParts[0];
-        if (method === 'GET') {
-          return await getPrompt(request, context, id);
-        } else if (method === 'PUT') {
-          return await updatePrompt(request, context, id);
-        } else if (method === 'DELETE') {
-          return await deletePrompt(request, context, id);
-        }
-      }
-
-      // Method not allowed
-      return {
-        status: 405,
-        headers: corsHeaders,
-        jsonBody: { error: 'Method not allowed' }
-      };
-    } catch (error) {
-      context.error('[PromptsAPI-Unified] Error:', error);
-      return {
-        status: 500,
-        headers: corsHeaders,
-        jsonBody: { error: error.message, stack: error.stack }
-      };
-    }
+    const path = request.params.path || '';
+    return await handlePromptsRequest(request, context, path);
   }
 });
 

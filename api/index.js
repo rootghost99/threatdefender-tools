@@ -42,20 +42,6 @@ try {
 }
 
 try {
-  require('./PromptsHealthCheck');
-  console.log('✓ PromptsHealthCheck loaded');
-} catch (e) {
-  console.error('✗ PromptsHealthCheck failed:', e.message);
-}
-
-try {
-  require('./PromptsDiagnostics');
-  console.log('✓ PromptsDiagnostics loaded');
-} catch (e) {
-  console.error('✗ PromptsDiagnostics failed:', e.message);
-}
-
-try {
   require('./LoadingDiagnostic');
   console.log('✓ LoadingDiagnostic loaded');
 } catch (e) {
@@ -100,24 +86,10 @@ try {
 }
 
 try {
-  require('./PromptsMinimal');
-  console.log('✓ PromptsMinimal loaded');
-} catch (e) {
-  console.error('✗ PromptsMinimal failed:', e.message, e.stack);
-}
-
-try {
   require('./RouteDiagnostic');
   console.log('✓ RouteDiagnostic loaded');
 } catch (e) {
   console.error('✗ RouteDiagnostic failed:', e.message, e.stack);
-}
-
-try {
-  require('./PromptsStorageTest');
-  console.log('✓ PromptsStorageTest loaded');
-} catch (e) {
-  console.error('✗ PromptsStorageTest failed:', e.message, e.stack);
 }
 
 console.log('========================================');
