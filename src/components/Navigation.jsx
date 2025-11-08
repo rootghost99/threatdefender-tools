@@ -1,4 +1,4 @@
-// Main navigation component with dropdown menus for better organization
+// Modern navigation component with refined design
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -69,7 +69,6 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Escape to close dropdowns and mobile menu
       if (e.key === 'Escape') {
         setOpenDropdown(null);
         if (mobileMenuOpen) {
@@ -77,7 +76,6 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
         }
       }
 
-      // Cmd/Ctrl + H for home
       if ((e.metaKey || e.ctrlKey) && e.key === 'h') {
         e.preventDefault();
         window.location.href = `/${categories.home.id}`;
@@ -102,69 +100,73 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
 
     return (
       <div className="relative" ref={isOpen ? dropdownRef : null}>
-        <button
+        <motion.button
           onClick={() => toggleDropdown(categoryKey)}
-          className={`relative px-4 py-2 rounded-t-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-            isActive || isOpen
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className={`relative px-4 py-2 rounded-full font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+            isActive
               ? darkMode
-                ? 'bg-gray-900 text-white shadow-lg'
-                : 'bg-gray-50 text-gray-900 shadow-lg'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
+                : 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+              : isOpen
+              ? darkMode
+                ? 'bg-gray-700 text-white'
+                : 'bg-gray-100 text-gray-900'
               : darkMode
-              ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
           }`}
           aria-expanded={isOpen}
           aria-haspopup="true"
         >
           <span className="text-lg">{category.icon}</span>
-          {category.name}
-          <span className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}>▼</span>
-
-          {/* Active indicator */}
-          {isActive && (
-            <motion.div
-              layoutId="activeDropdown"
-              className={`absolute bottom-0 left-0 right-0 h-1 ${
-                darkMode ? 'bg-blue-500' : 'bg-blue-600'
-              } rounded-t-full`}
-              initial={false}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-            />
-          )}
-        </button>
+          <span>{category.name}</span>
+          <motion.span
+            animate={{ rotate: isOpen ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-xs"
+          >
+            ▼
+          </motion.span>
+        </motion.button>
 
         <AnimatePresence>
           {isOpen && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
-              className={`absolute top-full left-0 mt-1 min-w-[200px] rounded-lg shadow-lg overflow-hidden z-50 ${
-                darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+              initial={{ opacity: 0, y: -8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.95 }}
+              transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+              className={`absolute top-full left-0 mt-2 min-w-[220px] rounded-2xl shadow-xl overflow-hidden z-50 backdrop-blur-xl ${
+                darkMode
+                  ? 'bg-gray-800/95 border border-gray-700/50'
+                  : 'bg-white/95 border border-gray-200/50'
               }`}
             >
-              {category.items.map((item) => {
-                const isItemActive = currentPath.startsWith(`/${item.id}`);
-                return (
-                  <Link
-                    key={item.id}
-                    to={`/${item.id}`}
-                    className={`flex items-center gap-3 px-4 py-3 transition ${
-                      isItemActive
-                        ? darkMode
-                          ? 'bg-gray-900 text-white border-l-4 border-blue-500'
-                          : 'bg-gray-50 text-gray-900 border-l-4 border-blue-600'
-                        : darkMode
-                        ? 'text-gray-300 hover:bg-gray-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="text-lg">{item.icon}</span>
-                    <span className="font-medium">{item.name}</span>
-                  </Link>
-                );
-              })}
+              <div className="p-2">
+                {category.items.map((item) => {
+                  const isItemActive = currentPath.startsWith(`/${item.id}`);
+                  return (
+                    <Link
+                      key={item.id}
+                      to={`/${item.id}`}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                        isItemActive
+                          ? darkMode
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-blue-500 text-white shadow-md'
+                          : darkMode
+                          ? 'text-gray-300 hover:bg-gray-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className="text-lg">{item.icon}</span>
+                      <span className="font-medium">{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -174,106 +176,106 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
 
   return (
     <nav
-      className={`border-b ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} sticky top-0 z-50 shadow-sm`}
+      className={`border-b backdrop-blur-sm ${
+        darkMode
+          ? 'bg-gray-900/80 border-gray-800'
+          : 'bg-white/80 border-gray-200'
+      } sticky top-0 z-50 shadow-sm`}
       aria-label="Main navigation"
     >
       <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              🛡️ ThreatDefender Operations Suite
+              🛡️ ThreatDefender
             </h1>
-            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              eGroup Enabling Technologies | ThreatDefender MSSP/MXDR
+            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Operations Suite
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {/* Dark Mode Toggle */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={onDarkModeToggle}
-              className={`px-4 py-2 rounded-md font-semibold transition ${
+              className={`px-4 py-2 rounded-full font-medium transition-all ${
                 darkMode
-                  ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
               aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
             >
-              {darkMode ? '☀️ Light' : '🌙 Dark'}
-            </button>
+              {darkMode ? '☀️' : '🌙'}
+            </motion.button>
 
             {/* Mobile Menu Toggle */}
-            <button
+            <motion.button
+              whileTap={{ scale: 0.95 }}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className={`md:hidden px-3 py-2 rounded-md ${
-                darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+              className={`md:hidden p-2 rounded-full ${
+                darkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
               }`}
               aria-label="Toggle mobile menu"
               aria-expanded={mobileMenuOpen}
             >
-              {mobileMenuOpen ? '✕' : '☰'}
-            </button>
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {mobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </motion.button>
           </div>
         </div>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-2" role="navigation">
+        <div className="hidden md:flex items-center gap-3" role="navigation">
           {/* Home Button */}
-          <Link
-            to={`/${categories.home.id}`}
-            className={`relative px-4 py-2 rounded-t-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-              currentPath.startsWith(`/${categories.home.id}`)
-                ? darkMode
-                  ? 'bg-gray-900 text-white shadow-lg'
-                  : 'bg-gray-50 text-gray-900 shadow-lg'
-                : darkMode
-                ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-            aria-label="Home"
-            title="Home (⌘H)"
-          >
-            <span className="text-xl">{categories.home.icon}</span>
-
-            {currentPath.startsWith(`/${categories.home.id}`) && (
-              <motion.div
-                layoutId="activeTab"
-                className={`absolute bottom-0 left-0 right-0 h-1 ${
-                  darkMode ? 'bg-blue-500' : 'bg-blue-600'
-                } rounded-t-full`}
-                initial={false}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
-            )}
-          </Link>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Link
+              to={`/${categories.home.id}`}
+              className={`relative px-4 py-2 rounded-full font-medium transition-all flex items-center gap-2 ${
+                currentPath.startsWith(`/${categories.home.id}`)
+                  ? darkMode
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
+                    : 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                  : darkMode
+                  ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+              }`}
+              aria-label="Home"
+              title="Home (⌘H)"
+            >
+              <span className="text-xl">{categories.home.icon}</span>
+            </Link>
+          </motion.div>
 
           {/* Prompt Gallery Button */}
-          <Link
-            to={`/${categories.promptGallery.id}`}
-            className={`relative px-4 py-2 rounded-t-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-              currentPath.startsWith(`/${categories.promptGallery.id}`)
-                ? darkMode
-                  ? 'bg-gray-900 text-white shadow-lg'
-                  : 'bg-gray-50 text-gray-900 shadow-lg'
-                : darkMode
-                ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-          >
-            <span className="text-lg">{categories.promptGallery.icon}</span>
-            {categories.promptGallery.name}
-
-            {currentPath.startsWith(`/${categories.promptGallery.id}`) && (
-              <motion.div
-                layoutId="activeTab"
-                className={`absolute bottom-0 left-0 right-0 h-1 ${
-                  darkMode ? 'bg-blue-500' : 'bg-blue-600'
-                } rounded-t-full`}
-                initial={false}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
-            )}
-          </Link>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Link
+              to={`/${categories.promptGallery.id}`}
+              className={`px-5 py-2 rounded-full font-medium transition-all flex items-center gap-2 ${
+                currentPath.startsWith(`/${categories.promptGallery.id}`)
+                  ? darkMode
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
+                    : 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                  : darkMode
+                  ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+              }`}
+            >
+              <span className="text-lg">{categories.promptGallery.icon}</span>
+              <span>{categories.promptGallery.name}</span>
+            </Link>
+          </motion.div>
 
           {/* Category Dropdowns */}
           <DropdownMenu categoryKey="threatIntel" category={categories.threatIntel} />
@@ -290,18 +292,18 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden overflow-hidden"
             >
-              <div className="py-2 space-y-1" role="menu">
+              <div className="py-3 space-y-2" role="menu">
                 {/* Home */}
                 <Link
                   to={`/${categories.home.id}`}
-                  className={`flex items-center px-4 py-3 rounded-lg font-semibold transition ${
+                  className={`flex items-center px-4 py-3 rounded-xl font-medium transition ${
                     currentPath.startsWith(`/${categories.home.id}`)
                       ? darkMode
-                        ? 'bg-gray-900 text-white border-l-4 border-blue-500'
-                        : 'bg-gray-50 text-gray-900 border-l-4 border-blue-600'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-blue-500 text-white'
                       : darkMode
-                      ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      ? 'text-gray-300 hover:bg-gray-800'
+                      : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   <span className="mr-3 text-xl">{categories.home.icon}</span>
@@ -311,14 +313,14 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                 {/* Prompt Gallery */}
                 <Link
                   to={`/${categories.promptGallery.id}`}
-                  className={`flex items-center px-4 py-3 rounded-lg font-semibold transition ${
+                  className={`flex items-center px-4 py-3 rounded-xl font-medium transition ${
                     currentPath.startsWith(`/${categories.promptGallery.id}`)
                       ? darkMode
-                        ? 'bg-gray-900 text-white border-l-4 border-blue-500'
-                        : 'bg-gray-50 text-gray-900 border-l-4 border-blue-600'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-blue-500 text-white'
                       : darkMode
-                      ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      ? 'text-gray-300 hover:bg-gray-800'
+                      : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   <span className="mr-3 text-xl">{categories.promptGallery.icon}</span>
@@ -330,33 +332,35 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                   if (key === 'home' || key === 'promptGallery' || !category.items) return null;
 
                   return (
-                    <div key={key}>
+                    <div key={key} className="pt-2">
                       <div className={`px-4 py-2 text-xs font-bold uppercase tracking-wider ${
                         darkMode ? 'text-gray-500' : 'text-gray-400'
                       }`}>
                         {category.icon} {category.name}
                       </div>
-                      {category.items.map((item) => {
-                        const isActive = currentPath.startsWith(`/${item.id}`);
-                        return (
-                          <Link
-                            key={item.id}
-                            to={`/${item.id}`}
-                            className={`flex items-center px-6 py-3 rounded-lg font-semibold transition ${
-                              isActive
-                                ? darkMode
-                                  ? 'bg-gray-900 text-white border-l-4 border-blue-500'
-                                  : 'bg-gray-50 text-gray-900 border-l-4 border-blue-600'
-                                : darkMode
-                                ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                            }`}
-                          >
-                            <span className="mr-3 text-xl">{item.icon}</span>
-                            {item.name}
-                          </Link>
-                        );
-                      })}
+                      <div className="space-y-1">
+                        {category.items.map((item) => {
+                          const isActive = currentPath.startsWith(`/${item.id}`);
+                          return (
+                            <Link
+                              key={item.id}
+                              to={`/${item.id}`}
+                              className={`flex items-center px-6 py-3 rounded-xl font-medium transition ${
+                                isActive
+                                  ? darkMode
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-blue-500 text-white'
+                                  : darkMode
+                                  ? 'text-gray-300 hover:bg-gray-800'
+                                  : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <span className="mr-3 text-xl">{item.icon}</span>
+                              {item.name}
+                            </Link>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
