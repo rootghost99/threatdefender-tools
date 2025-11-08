@@ -1,12 +1,12 @@
 const { app } = require('@azure/functions');
-const { OpenAIClient, AzureKeyCredential } = require("@azure/openai");
+const axios = require('axios');
 
 app.http('KQLAnalyzer', {
     methods: ['POST', 'OPTIONS'],
     authLevel: 'anonymous',
     route: 'kqlanalyzer',
     handler: async (request, context) => {
-        context.log('KQL Analyzer function triggered');
+        context.log('KQL Analyzer REST function triggered');
 
         // Handle CORS preflight
         if (request.method === 'OPTIONS') {
@@ -19,9 +19,6 @@ app.http('KQLAnalyzer', {
                }
           };
         }
-
-        context.log('Request received from origin:', request.headers.get('origin'));
-        context.log('Request URL:', request.url);
 
         try {
             // Parse request body
@@ -79,11 +76,8 @@ app.http('KQLAnalyzer', {
                 };
             }
 
-            context.log('Creating OpenAI client...');
-            const client = new OpenAIClient(endpoint, new AzureKeyCredential(apiKey));
-
             const isFPAnalysis = originalQuery.includes('False Positive Risk');
-            
+
             let userPrompt = isFPAnalysis ? originalQuery : `Analyze the differences between these KQL queries:
 
 ORIGINAL QUERY:
@@ -104,34 +98,79 @@ Provide analysis with:
                 { role: "user", content: userPrompt }
             ];
 
-            context.log(`Calling Azure OpenAI deployment: ${deployment}`);
-            context.log(`Endpoint: ${endpoint}`);
+            // Use REST API directly instead of SDK to avoid crypto issues
+            const apiVersion = '2024-02-01';
+            const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
 
-            let result;
+            context.log(`Calling Azure OpenAI REST API: ${url}`);
+
             try {
-                // Add timeout wrapper to prevent hanging
-                const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('OpenAI request timeout after 25 seconds')), 25000);
+                const response = await axios({
+                    method: 'POST',
+                    url: url,
+                    headers: {
+                        'api-key': apiKey,
+                        'Content-Type': 'application/json'
+                    },
+                    data: {
+                        messages: messages,
+                        max_tokens: 2000,
+                        temperature: 0.7
+                    },
+                    timeout: 25000,
+                    validateStatus: () => true // Don't throw on any status
                 });
 
-                const apiPromise = client.getChatCompletions(deployment, messages, {
-                    maxTokens: 2000,
-                    temperature: 0.7
-                });
+                context.log('OpenAI REST API response status:', response.status);
 
-                result = await Promise.race([apiPromise, timeoutPromise]);
-                context.log('OpenAI call successful');
-            } catch (openAIError) {
-                context.log.error('OpenAI API call failed:', openAIError);
-                context.log.error('Error type:', openAIError.constructor?.name);
-                context.log.error('Error message:', openAIError.message);
-
-                if (openAIError.response) {
-                    context.log.error('OpenAI Response status:', openAIError.response.status);
-                    context.log.error('OpenAI Response data:', openAIError.response.data);
+                if (response.status !== 200) {
+                    context.log.error('OpenAI API error response:', response.data);
+                    return {
+                        status: 500,
+                        headers: {
+                            'Access-Control-Allow-Origin': '*',
+                            'Content-Type': 'application/json'
+                        },
+                        jsonBody: {
+                            error: 'Azure OpenAI API call failed',
+                            details: response.data?.error?.message || `API returned status ${response.status}`,
+                            statusCode: response.status
+                        }
+                    };
                 }
 
-                // Return a proper error response instead of throwing
+                const result = response.data;
+
+                if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+                    context.log.error('Invalid OpenAI response format:', result);
+                    return {
+                        status: 500,
+                        headers: {
+                            'Access-Control-Allow-Origin': '*',
+                            'Content-Type': 'application/json'
+                        },
+                        jsonBody: {
+                            error: 'Invalid response from Azure OpenAI',
+                            details: 'Response missing expected choices/message structure'
+                        }
+                    };
+                }
+
+                return {
+                    status: 200,
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                        'Content-Type': 'application/json'
+                    },
+                    jsonBody: {
+                        content: [{
+                            text: result.choices[0].message.content
+                        }]
+                    }
+                };
+
+            } catch (apiError) {
+                context.log.error('OpenAI REST API call failed:', apiError);
                 return {
                     status: 500,
                     headers: {
@@ -139,61 +178,15 @@ Provide analysis with:
                         'Content-Type': 'application/json'
                     },
                     jsonBody: {
-                        error: 'Azure OpenAI API call failed',
-                        details: openAIError.message,
-                        type: openAIError.constructor?.name || 'Error',
-                        code: openAIError.code || 'OPENAI_ERROR'
+                        error: 'Azure OpenAI API request failed',
+                        details: apiError.message,
+                        type: apiError.code || 'REQUEST_ERROR'
                     }
                 };
             }
-
-            if (!result.choices || !result.choices[0] || !result.choices[0].message) {
-                context.log.error('Invalid OpenAI response format:', result);
-                return {
-                    status: 500,
-                    headers: {
-                        'Access-Control-Allow-Origin': '*',
-                        'Content-Type': 'application/json'
-                    },
-                    jsonBody: {
-                        error: 'Invalid response from Azure OpenAI',
-                        details: 'Response missing expected choices/message structure',
-                        responsePreview: JSON.stringify(result).substring(0, 200)
-                    }
-                };
-            }
-
-            return {
-                status: 200,
-                headers: {
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json'
-                },
-                jsonBody: {
-                    content: [{
-                        text: result.choices[0].message.content
-                    }]
-                }
-            };
 
         } catch (error) {
-            context.log.error('Error in KQLAnalyzer:', error);
-            context.log.error('Error stack:', error.stack);
-            context.log.error('Error type:', error.constructor.name);
-
-            // Provide detailed error information
-            let errorMessage = error.message || 'Unknown error occurred';
-            let errorDetails = {
-                message: errorMessage,
-                type: error.constructor.name,
-                code: error.code || 'UNKNOWN'
-            };
-
-            // Add status code if available (from OpenAI errors)
-            if (error.statusCode) {
-                errorDetails.statusCode = error.statusCode;
-            }
-
+            context.log.error('Error in KQLAnalyzerREST:', error);
             return {
                 status: 500,
                 headers: {
@@ -202,10 +195,11 @@ Provide analysis with:
                 },
                 jsonBody: {
                     error: 'Failed to generate analysis',
-                    details: errorMessage,
-                    errorInfo: errorDetails
+                    details: error.message
                 }
             };
         }
     }
 });
+
+console.log('✓ KQLAnalyzer endpoint registered: /api/kqlanalyzer (using REST API)');
