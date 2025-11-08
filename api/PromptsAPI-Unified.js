@@ -55,78 +55,60 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Shared handler function
-async function handlePromptsRequest(request, context, path = '') {
-  context.log('[PromptsAPI-Unified] Request:', request.method, request.url);
+// UNIFIED HANDLER - Handles all /api/prompts/* routes
+app.http('PromptsAPI-Unified', {
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  authLevel: 'anonymous',
+  route: 'prompts/{*path}',
+  handler: async (request, context) => {
+    context.log('[PromptsAPI-Unified] Request:', request.method, request.url);
 
-  // Handle CORS preflight
-  if (request.method === 'OPTIONS') {
-    return { status: 200, headers: corsHeaders };
-  }
-
-  try {
-    const method = request.method;
-    const pathParts = path.split('/').filter(p => p);
-
-    context.log('Method:', method, 'Path:', path, 'Parts:', pathParts);
-
-    // Route to appropriate handler
-    if (pathParts.length === 0) {
-      // /api/prompts
-      if (method === 'GET') {
-        return await listPrompts(request, context);
-      } else if (method === 'POST') {
-        return await createPrompt(request, context);
-      }
-    } else if (pathParts.length === 1) {
-      // /api/prompts/{id}
-      const id = pathParts[0];
-      if (method === 'GET') {
-        return await getPrompt(request, context, id);
-      } else if (method === 'PUT') {
-        return await updatePrompt(request, context, id);
-      } else if (method === 'DELETE') {
-        return await deletePrompt(request, context, id);
-      }
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return { status: 200, headers: corsHeaders };
     }
 
-    // Method not allowed
-    return {
-      status: 405,
-      headers: corsHeaders,
-      jsonBody: { error: 'Method not allowed' }
-    };
-  } catch (error) {
-    context.error('[PromptsAPI-Unified] Error:', error);
-    return {
-      status: 500,
-      headers: corsHeaders,
-      jsonBody: { error: error.message, stack: error.stack }
-    };
-  }
-}
+    try {
+      const method = request.method;
+      const path = request.params.path || '';
+      const pathParts = path.split('/').filter(p => p);
 
-// Register handler for /api/prompts (base route)
-// Note: The base route and wildcard route must be separate in Azure Functions v4
-// The wildcard {*path} does NOT match the empty path (just /api/prompts)
-app.http('PromptsAPI-Base', {
-  methods: ['GET', 'POST', 'OPTIONS'],
-  authLevel: 'anonymous',
-  route: 'prompts',
-  handler: async (request, context) => {
-    return await handlePromptsRequest(request, context, '');
-  }
-});
+      context.log('Method:', method, 'Path:', path, 'Parts:', pathParts);
 
-// Register handler for /api/prompts/{id} (single ID segment)
-// Using {id} instead of {*path} to avoid catching nested routes like prompts/{id}/run
-app.http('PromptsAPI-WithId', {
-  methods: ['GET', 'PUT', 'DELETE', 'OPTIONS'],
-  authLevel: 'anonymous',
-  route: 'prompts/{id}',
-  handler: async (request, context) => {
-    const id = request.params.id;
-    return await handlePromptsRequest(request, context, id);
+      // Route to appropriate handler
+      if (pathParts.length === 0) {
+        // /api/prompts
+        if (method === 'GET') {
+          return await listPrompts(request, context);
+        } else if (method === 'POST') {
+          return await createPrompt(request, context);
+        }
+      } else if (pathParts.length === 1) {
+        // /api/prompts/{id}
+        const id = pathParts[0];
+        if (method === 'GET') {
+          return await getPrompt(request, context, id);
+        } else if (method === 'PUT') {
+          return await updatePrompt(request, context, id);
+        } else if (method === 'DELETE') {
+          return await deletePrompt(request, context, id);
+        }
+      }
+
+      // Method not allowed
+      return {
+        status: 405,
+        headers: corsHeaders,
+        jsonBody: { error: 'Method not allowed' }
+      };
+    } catch (error) {
+      context.error('[PromptsAPI-Unified] Error:', error);
+      return {
+        status: 500,
+        headers: corsHeaders,
+        jsonBody: { error: error.message, stack: error.stack }
+      };
+    }
   }
 });
 
@@ -487,4 +469,4 @@ async function deletePrompt(request, context, id) {
 }
 
 console.log('[PromptsAPI-Unified] Module loaded successfully');
-console.log('[PromptsAPI-Unified] Routes registered: /api/prompts and /api/prompts/{id}');
+console.log('[PromptsAPI-Unified] Single unified handler for all /api/prompts routes');
