@@ -149,7 +149,18 @@ Provide analysis with:
 
             if (!result.choices || !result.choices[0] || !result.choices[0].message) {
                 context.log.error('Invalid OpenAI response format:', result);
-                throw new Error('Invalid response from Azure OpenAI');
+                return {
+                    status: 500,
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                        'Content-Type': 'application/json'
+                    },
+                    jsonBody: {
+                        error: 'Invalid response from Azure OpenAI',
+                        details: 'Response missing expected choices/message structure',
+                        responsePreview: JSON.stringify(result).substring(0, 200)
+                    }
+                };
             }
 
             return {
