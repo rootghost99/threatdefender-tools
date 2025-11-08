@@ -1,18 +1,19 @@
 // /src/components/PromptGallery.jsx
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import PromptDetail from './PromptDetail';
 import PromptEditor from './PromptEditor';
 import PromptAdmin from './PromptAdmin';
+import Breadcrumb from './Breadcrumb';
 
-export default function PromptGallery({ darkMode }) {
+// Main gallery list view
+function PromptGalleryList({ darkMode }) {
+  const navigate = useNavigate();
   const [prompts, setPrompts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [view, setView] = useState('gallery'); // 'gallery', 'detail', 'editor', 'admin'
-  const [selectedPromptId, setSelectedPromptId] = useState(null);
-  const [editPromptId, setEditPromptId] = useState(null);
 
   // Fetch prompts
   useEffect(() => {
@@ -62,50 +63,7 @@ export default function PromptGallery({ darkMode }) {
   // Get unique categories
   const categories = ['', ...new Set(prompts.map(p => p.category).filter(Boolean))];
 
-  // Navigate to detail view
-  const viewPrompt = (id) => {
-    setSelectedPromptId(id);
-    setView('detail');
-  };
-
-  // Navigate to editor
-  const createPrompt = () => {
-    setEditPromptId(null);
-    setView('editor');
-  };
-
-  const editPrompt = (id) => {
-    setEditPromptId(id);
-    setView('editor');
-  };
-
-  // Navigate to admin
-  const viewAdmin = () => {
-    setView('admin');
-  };
-
-  // Back to gallery
-  const backToGallery = () => {
-    setView('gallery');
-    setSelectedPromptId(null);
-    setEditPromptId(null);
-    fetchPrompts(); // Refresh
-  };
-
-  // Conditional rendering based on view
-  if (view === 'detail') {
-    return <PromptDetail darkMode={darkMode} promptId={selectedPromptId} onBack={backToGallery} onEdit={editPrompt} />;
-  }
-
-  if (view === 'editor') {
-    return <PromptEditor darkMode={darkMode} promptId={editPromptId} onBack={backToGallery} />;
-  }
-
-  if (view === 'admin') {
-    return <PromptAdmin darkMode={darkMode} onBack={backToGallery} />;
-  }
-
-  // Gallery View
+  // Styles
   const cardBg = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
   const textPrimary = darkMode ? 'text-white' : 'text-gray-900';
   const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-700';
@@ -116,8 +74,8 @@ export default function PromptGallery({ darkMode }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className={`p-6 rounded-lg border ${cardBg}`}>
+      {/* Sticky Header */}
+      <div className={`p-6 rounded-lg border ${cardBg} sticky top-20 z-40`}>
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className={`text-2xl font-bold ${textPrimary}`}>
@@ -129,13 +87,13 @@ export default function PromptGallery({ darkMode }) {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={viewAdmin}
+              onClick={() => navigate('/prompt-gallery/admin')}
               className={`px-4 py-2 rounded font-semibold ${buttonSecondary} ${textPrimary}`}
             >
               📊 Audit
             </button>
             <button
-              onClick={createPrompt}
+              onClick={() => navigate('/prompt-gallery/editor/new')}
               className={`px-4 py-2 rounded font-semibold text-white ${buttonPrimary}`}
             >
               ➕ New Prompt
@@ -203,7 +161,7 @@ export default function PromptGallery({ darkMode }) {
           </p>
           {!searchTerm && !categoryFilter && (
             <button
-              onClick={createPrompt}
+              onClick={() => navigate('/prompt-gallery/editor/new')}
               className={`mt-4 px-6 py-2 rounded font-semibold text-white ${buttonPrimary}`}
             >
               Create First Prompt
@@ -223,7 +181,7 @@ export default function PromptGallery({ darkMode }) {
               <div
                 key={prompt.id}
                 className={`p-5 rounded-lg border ${cardBg} hover:shadow-lg transition-shadow cursor-pointer`}
-                onClick={() => viewPrompt(prompt.id)}
+                onClick={() => navigate(`/prompt-gallery/detail/${prompt.id}`)}
               >
                 {/* Category Badge */}
                 <div className="flex items-start justify-between mb-3">
@@ -283,5 +241,81 @@ export default function PromptGallery({ darkMode }) {
         </div>
       )}
     </div>
+  );
+}
+
+// Wrapper components for routes with breadcrumbs
+function PromptDetailWrapper({ darkMode }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const breadcrumbs = [
+    { label: 'Prompt Gallery', href: '/prompt-gallery' },
+    { label: 'Prompt Details', href: `/prompt-gallery/detail/${id}` }
+  ];
+
+  return (
+    <div>
+      <Breadcrumb items={breadcrumbs} darkMode={darkMode} />
+      <PromptDetail
+        darkMode={darkMode}
+        promptId={id}
+        onBack={() => navigate('/prompt-gallery')}
+        onEdit={(promptId) => navigate(`/prompt-gallery/editor/${promptId}`)}
+      />
+    </div>
+  );
+}
+
+function PromptEditorWrapper({ darkMode }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const isNew = id === 'new';
+  const breadcrumbs = [
+    { label: 'Prompt Gallery', href: '/prompt-gallery' },
+    { label: isNew ? 'Create Prompt' : 'Edit Prompt', href: `/prompt-gallery/editor/${id}` }
+  ];
+
+  return (
+    <div>
+      <Breadcrumb items={breadcrumbs} darkMode={darkMode} />
+      <PromptEditor
+        darkMode={darkMode}
+        promptId={isNew ? null : id}
+        onBack={() => navigate('/prompt-gallery')}
+      />
+    </div>
+  );
+}
+
+function PromptAdminWrapper({ darkMode }) {
+  const navigate = useNavigate();
+
+  const breadcrumbs = [
+    { label: 'Prompt Gallery', href: '/prompt-gallery' },
+    { label: 'Audit Log', href: '/prompt-gallery/admin' }
+  ];
+
+  return (
+    <div>
+      <Breadcrumb items={breadcrumbs} darkMode={darkMode} />
+      <PromptAdmin
+        darkMode={darkMode}
+        onBack={() => navigate('/prompt-gallery')}
+      />
+    </div>
+  );
+}
+
+// Main component with routing
+export default function PromptGallery({ darkMode }) {
+  return (
+    <Routes>
+      <Route path="/" element={<PromptGalleryList darkMode={darkMode} />} />
+      <Route path="/detail/:id" element={<PromptDetailWrapper darkMode={darkMode} />} />
+      <Route path="/editor/:id" element={<PromptEditorWrapper darkMode={darkMode} />} />
+      <Route path="/admin" element={<PromptAdminWrapper darkMode={darkMode} />} />
+    </Routes>
   );
 }

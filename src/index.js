@@ -1,12 +1,18 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
+import { NavigationProvider } from './contexts/NavigationContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <NavigationProvider>
+        <App />
+      </NavigationProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );
 
