@@ -4,6 +4,7 @@ const { OpenAIClient, AzureKeyCredential } = require("@azure/openai");
 app.http('KQLAnalyzer', {
     methods: ['POST', 'OPTIONS'],
     authLevel: 'anonymous',
+    route: 'kqlanalyzer',
     handler: async (request, context) => {
         context.log('KQL Analyzer function triggered');
 
@@ -19,24 +20,66 @@ app.http('KQLAnalyzer', {
           };
         }
 
-context.log('Request received from origin:', request.headers.get('origin'));
-context.log('Request URL:', request.url);
+        context.log('Request received from origin:', request.headers.get('origin'));
+        context.log('Request URL:', request.url);
 
-try {
-    const body = await request.json();
+        try {
+            // Parse request body
+            let body;
+            try {
+                body = await request.json();
+            } catch (parseError) {
+                context.log.error('Failed to parse request body:', parseError);
+                return {
+                    status: 400,
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                        'Content-Type': 'application/json'
+                    },
+                    jsonBody: {
+                        error: 'Invalid JSON in request body',
+                        details: parseError.message
+                    }
+                };
+            }
+
             const { originalQuery, updatedQuery } = body;
 
             if (!originalQuery || !updatedQuery) {
                 return {
                     status: 400,
-                    jsonBody: { error: 'Missing required fields' }
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                        'Content-Type': 'application/json'
+                    },
+                    jsonBody: {
+                        error: 'Missing required fields',
+                        details: 'Both originalQuery and updatedQuery are required'
+                    }
                 };
             }
 
+            // Check environment variables
             const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
             const apiKey = process.env.AZURE_OPENAI_API_KEY;
             const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4';
 
+            if (!endpoint || !apiKey) {
+                context.log.error('Missing Azure OpenAI configuration');
+                return {
+                    status: 500,
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                        'Content-Type': 'application/json'
+                    },
+                    jsonBody: {
+                        error: 'Azure OpenAI not configured',
+                        details: `Missing ${!endpoint ? 'AZURE_OPENAI_ENDPOINT' : ''} ${!apiKey ? 'AZURE_OPENAI_API_KEY' : ''}`.trim()
+                    }
+                };
+            }
+
+            context.log('Creating OpenAI client...');
             const client = new OpenAIClient(endpoint, new AzureKeyCredential(apiKey));
 
             const isFPAnalysis = originalQuery.includes('False Positive Risk');
@@ -61,10 +104,30 @@ Provide analysis with:
                 { role: "user", content: userPrompt }
             ];
 
-            const result = await client.getChatCompletions(deployment, messages, {
-                maxTokens: 2000,
-                temperature: 0.7
-            });
+            context.log(`Calling Azure OpenAI deployment: ${deployment}`);
+            context.log(`Endpoint: ${endpoint}`);
+
+            let result;
+            try {
+                result = await client.getChatCompletions(deployment, messages, {
+                    maxTokens: 2000,
+                    temperature: 0.7
+                });
+                context.log('OpenAI call successful');
+            } catch (openAIError) {
+                context.log.error('OpenAI API call failed:', openAIError);
+                context.log.error('OpenAI Error details:', {
+                    message: openAIError.message,
+                    code: openAIError.code,
+                    statusCode: openAIError.statusCode
+                });
+                throw new Error(`Azure OpenAI API error: ${openAIError.message}`);
+            }
+
+            if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+                context.log.error('Invalid OpenAI response format:', result);
+                throw new Error('Invalid response from Azure OpenAI');
+            }
 
             return {
                 status: 200,
@@ -80,21 +143,21 @@ Provide analysis with:
             };
 
         } catch (error) {
-            context.log.error('Error:', error);
+            context.log.error('Error in KQLAnalyzer:', error);
             context.log.error('Error stack:', error.stack);
+            context.log.error('Error type:', error.constructor.name);
 
-            // Provide more detailed error information
+            // Provide detailed error information
+            let errorMessage = error.message || 'Unknown error occurred';
             let errorDetails = {
-                message: error.message,
-                type: error.constructor.name
+                message: errorMessage,
+                type: error.constructor.name,
+                code: error.code || 'UNKNOWN'
             };
 
-            // Check for common configuration issues
-            if (!process.env.AZURE_OPENAI_ENDPOINT) {
-                errorDetails.configIssue = 'AZURE_OPENAI_ENDPOINT environment variable not set';
-            }
-            if (!process.env.AZURE_OPENAI_API_KEY) {
-                errorDetails.configIssue = 'AZURE_OPENAI_API_KEY environment variable not set';
+            // Add status code if available (from OpenAI errors)
+            if (error.statusCode) {
+                errorDetails.statusCode = error.statusCode;
             }
 
             return {
@@ -105,7 +168,7 @@ Provide analysis with:
                 },
                 jsonBody: {
                     error: 'Failed to generate analysis',
-                    details: error.message,
+                    details: errorMessage,
                     errorInfo: errorDetails
                 }
             };
