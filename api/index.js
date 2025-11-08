@@ -56,21 +56,23 @@ try {
 //   console.error('✗ PromptsAPI failed:', e.message, e.stack);
 // }
 
-// IMPORTANT: Load PromptRunAPI BEFORE PromptsAPI-Unified
-// This ensures specific routes (prompts/{id}/run) are registered before wildcard routes
-try {
-  require('./PromptRunAPI');
-  console.log('✓ PromptRunAPI loaded');
-} catch (e) {
-  console.error('✗ PromptRunAPI failed:', e.message);
-}
-
 // NEW: Unified single-handler version that works with Azure Functions v4
+// This uses a single wildcard route handler for all /api/prompts/* endpoints
 try {
   require('./PromptsAPI-Unified');
   console.log('✓ PromptsAPI-Unified loaded');
 } catch (e) {
   console.error('✗ PromptsAPI-Unified failed:', e.message, e.stack);
+}
+
+// Load PromptRunAPI after PromptsAPI-Unified
+// PromptRunAPI handles /api/prompts/{id}/run which is caught by the wildcard
+// but that's OK because PromptRunAPI explicitly checks the path
+try {
+  require('./PromptRunAPI');
+  console.log('✓ PromptRunAPI loaded');
+} catch (e) {
+  console.error('✗ PromptRunAPI failed:', e.message);
 }
 
 try {
