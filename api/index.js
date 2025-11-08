@@ -21,6 +21,13 @@ try {
 }
 
 try {
+  require('./KQLAnalyzerTest');
+  console.log('✓ KQLAnalyzerTest loaded');
+} catch (e) {
+  console.error('✗ KQLAnalyzerTest failed:', e.message);
+}
+
+try {
   require('./ThreatIntelLookup');
   console.log('✓ ThreatIntelLookup loaded');
 } catch (e) {
