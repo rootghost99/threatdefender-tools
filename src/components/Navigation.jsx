@@ -198,7 +198,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              🛡️ ThreatDefender Operations Suite
+              🛡️ ThreatDefender Command Base
             </h1>
             <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               All your threats are belong to us
