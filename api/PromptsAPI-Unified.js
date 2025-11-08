@@ -2,11 +2,14 @@
 // This fixes the Azure Functions v4 issue where multiple handlers on the same route fail
 const { app } = require('@azure/functions');
 const { TableClient, AzureNamedKeyCredential } = require('@azure/data-tables');
+const { OpenAIClient, AzureKeyCredential } = require('@azure/openai');
 
 console.log('[PromptsAPI-Unified] Module loading...');
 
 // Lazy-load Table Client
 let tableClient = null;
+let runsTableClient = null;
+let openAIClient = null;
 
 function getTableClient() {
   if (!tableClient) {
@@ -28,6 +31,40 @@ function getTableClient() {
   return tableClient;
 }
 
+function getRunsTableClient() {
+  if (!runsTableClient) {
+    const account = process.env.AZURE_STORAGE_ACCOUNT_NAME;
+    const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
+    const tableName = process.env.PROMPT_RUNS_TABLE_NAME || 'PromptRuns';
+
+    if (!account || !accountKey) {
+      throw new Error('Azure Storage credentials not configured');
+    }
+
+    const credential = new AzureNamedKeyCredential(account, accountKey);
+    runsTableClient = new TableClient(
+      `https://${account}.table.core.windows.net`,
+      tableName,
+      credential
+    );
+  }
+  return runsTableClient;
+}
+
+function getOpenAIClient() {
+  if (!openAIClient) {
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+    const apiKey = process.env.AZURE_OPENAI_API_KEY;
+
+    if (!endpoint || !apiKey) {
+      throw new Error('Azure OpenAI credentials not configured.');
+    }
+
+    openAIClient = new OpenAIClient(endpoint, new AzureKeyCredential(apiKey));
+  }
+  return openAIClient;
+}
+
 // Helper functions
 function generateId() {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -45,6 +82,38 @@ function getUserFromRequest(request) {
     }
   }
   return 'system';
+}
+
+// Variable substitution
+function substituteVariables(text, variables) {
+  if (!text || !variables) return text;
+
+  let result = text;
+  for (const [key, value] of Object.entries(variables)) {
+    // Support multiple placeholder formats: {{key}}, {key}, [key]
+    const patterns = [
+      new RegExp(`\\{\\{${key}\\}\\}`, 'gi'),
+      new RegExp(`\\{${key}\\}`, 'gi'),
+      new RegExp(`\\[${key}\\]`, 'gi')
+    ];
+    patterns.forEach(pattern => {
+      result = result.replace(pattern, String(value || ''));
+    });
+  }
+  return result;
+}
+
+// Validate required variables
+function validateVariables(promptVariables, providedVariables) {
+  const missing = [];
+  if (promptVariables && Array.isArray(promptVariables)) {
+    for (const varDef of promptVariables) {
+      if (varDef.required && !providedVariables[varDef.name]) {
+        missing.push(varDef.name);
+      }
+    }
+  }
+  return missing;
 }
 
 // CORS headers
@@ -92,6 +161,12 @@ app.http('PromptsAPI-Unified', {
           return await updatePrompt(request, context, id);
         } else if (method === 'DELETE') {
           return await deletePrompt(request, context, id);
+        }
+      } else if (pathParts.length === 2 && pathParts[1] === 'run') {
+        // /api/prompts/{id}/run
+        const id = pathParts[0];
+        if (method === 'POST') {
+          return await runPrompt(request, context, id);
         }
       }
 
@@ -460,6 +535,143 @@ async function deletePrompt(request, context, id) {
         jsonBody: { error: 'Prompt not found' }
       };
     }
+    return {
+      status: 500,
+      headers: corsHeaders,
+      jsonBody: { error: error.message }
+    };
+  }
+}
+
+// RUN prompt (POST /api/prompts/{id}/run)
+async function runPrompt(request, context, id) {
+  context.log('[PromptsAPI-Unified] RUN prompt:', id);
+
+  try {
+    const body = await request.json();
+    const user = getUserFromRequest(request);
+    const now = new Date().toISOString();
+
+    context.log(`Running prompt: ${id} by ${user}`);
+
+    // Get prompt from storage
+    const client = getTableClient();
+    const promptEntity = await client.getEntity('PROMPT', id);
+
+    if (promptEntity.isDeleted) {
+      return {
+        status: 404,
+        headers: corsHeaders,
+        jsonBody: { error: 'Prompt not found' }
+      };
+    }
+
+    const prompt = {
+      id: promptEntity.rowKey,
+      title: promptEntity.title,
+      variables: promptEntity.variables ? JSON.parse(promptEntity.variables) : [],
+      systemGuidance: promptEntity.systemGuidance || '',
+      userInstructions: promptEntity.userInstructions,
+      modelSettings: promptEntity.modelSettings ? JSON.parse(promptEntity.modelSettings) : {}
+    };
+
+    // Validate required variables
+    const missingVars = validateVariables(prompt.variables, body.variables || {});
+    if (missingVars.length > 0) {
+      return {
+        status: 400,
+        headers: corsHeaders,
+        jsonBody: { error: `Missing required variables: ${missingVars.join(', ')}` }
+      };
+    }
+
+    // Substitute variables in system guidance and user instructions
+    const systemMessage = substituteVariables(prompt.systemGuidance, body.variables || {});
+    const userMessage = substituteVariables(prompt.userInstructions, body.variables || {});
+
+    // Add pasted context if provided
+    let finalUserMessage = userMessage;
+    if (body.context) {
+      finalUserMessage = `# Context\n\n${body.context}\n\n---\n\n${userMessage}`;
+    }
+
+    context.log('Calling Azure OpenAI...');
+
+    // Call Azure OpenAI
+    const openAI = getOpenAIClient();
+    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4';
+    const temperature = prompt.modelSettings.temperature || 0.7;
+    const maxTokens = prompt.modelSettings.maxTokens || 2000;
+
+    const messages = [];
+    if (systemMessage) {
+      messages.push({ role: 'system', content: systemMessage });
+    }
+    messages.push({ role: 'user', content: finalUserMessage });
+
+    const result = await openAI.getChatCompletions(deployment, messages, {
+      temperature,
+      maxTokens
+    });
+
+    const output = result.choices[0]?.message?.content || '';
+    const usage = result.usage || {};
+
+    context.log(`OpenAI response received. Tokens: ${usage.totalTokens || 0}`);
+
+    // Store the run
+    const runId = generateId();
+    const runEntity = {
+      partitionKey: 'PROMPT_RUN',
+      rowKey: runId,
+      promptId: id,
+      promptTitle: prompt.title,
+      submittedBy: user,
+      submittedAt: now,
+      contextSummary: body.context ? body.context.substring(0, 500) : '', // Store first 500 chars
+      variables: JSON.stringify(body.variables || {}),
+      provider: 'Azure OpenAI',
+      deployment,
+      output: output.substring(0, 10000), // Store first 10k chars in table
+      outputLength: output.length,
+      promptTokens: usage.promptTokens || 0,
+      completionTokens: usage.completionTokens || 0,
+      totalTokens: usage.totalTokens || 0,
+      status: 'completed',
+      temperature,
+      maxTokens
+    };
+
+    const runsClient = getRunsTableClient();
+    await runsClient.createEntity(runEntity);
+
+    context.log(`Prompt run stored: ${runId}`);
+
+    return {
+      status: 200,
+      headers: corsHeaders,
+      jsonBody: {
+        runId,
+        output,
+        usage: {
+          promptTokens: usage.promptTokens || 0,
+          completionTokens: usage.completionTokens || 0,
+          totalTokens: usage.totalTokens || 0
+        },
+        submittedAt: now
+      }
+    };
+  } catch (error) {
+    context.error('Error running prompt:', error);
+
+    if (error.statusCode === 404) {
+      return {
+        status: 404,
+        headers: corsHeaders,
+        jsonBody: { error: 'Prompt not found' }
+      };
+    }
+
     return {
       status: 500,
       headers: corsHeaders,
