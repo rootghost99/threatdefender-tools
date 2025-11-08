@@ -35,6 +35,13 @@ try {
 }
 
 try {
+  require('./OpenAIDirectTest');
+  console.log('✓ OpenAIDirectTest loaded');
+} catch (e) {
+  console.error('✗ OpenAIDirectTest failed:', e.message);
+}
+
+try {
   require('./ThreatIntelLookup');
   console.log('✓ ThreatIntelLookup loaded');
 } catch (e) {
