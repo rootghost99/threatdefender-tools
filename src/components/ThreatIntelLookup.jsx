@@ -12,7 +12,7 @@ export default function ThreatIntelLookup({ darkMode }) {
     useEffect(() => {
         const timer = setTimeout(() => {
             setShowSplash(false);
-        }, 1500); // Show splash for 1.5 seconds
+        }, 3500); // Show splash for 3.5 seconds
 
         return () => clearTimeout(timer);
     }, []);
