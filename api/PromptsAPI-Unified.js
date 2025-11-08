@@ -106,16 +106,27 @@ async function handlePromptsRequest(request, context, path = '') {
   }
 }
 
-// Register SINGLE handler for /api/prompts and /api/prompts/*
-// Using only the wildcard route to avoid conflicts in Azure Functions v4
-// The wildcard {*path} will match both /api/prompts (empty path) and /api/prompts/xxx
-app.http('PromptsAPI', {
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+// Register handler for /api/prompts (base route)
+// Note: The base route and wildcard route must be separate in Azure Functions v4
+// The wildcard {*path} does NOT match the empty path (just /api/prompts)
+app.http('PromptsAPI-Base', {
+  methods: ['GET', 'POST', 'OPTIONS'],
   authLevel: 'anonymous',
-  route: 'prompts/{*path}',
+  route: 'prompts',
   handler: async (request, context) => {
-    const path = request.params.path || '';
-    return await handlePromptsRequest(request, context, path);
+    return await handlePromptsRequest(request, context, '');
+  }
+});
+
+// Register handler for /api/prompts/{id} (single ID segment)
+// Using {id} instead of {*path} to avoid catching nested routes like prompts/{id}/run
+app.http('PromptsAPI-WithId', {
+  methods: ['GET', 'PUT', 'DELETE', 'OPTIONS'],
+  authLevel: 'anonymous',
+  route: 'prompts/{id}',
+  handler: async (request, context) => {
+    const id = request.params.id;
+    return await handlePromptsRequest(request, context, id);
   }
 });
 
@@ -476,4 +487,4 @@ async function deletePrompt(request, context, id) {
 }
 
 console.log('[PromptsAPI-Unified] Module loaded successfully');
-console.log('[PromptsAPI-Unified] Single handler registered: /api/prompts/{*path}');
+console.log('[PromptsAPI-Unified] Routes registered: /api/prompts and /api/prompts/{id}');
