@@ -109,19 +109,42 @@ Provide analysis with:
 
             let result;
             try {
-                result = await client.getChatCompletions(deployment, messages, {
+                // Add timeout wrapper to prevent hanging
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('OpenAI request timeout after 25 seconds')), 25000);
+                });
+
+                const apiPromise = client.getChatCompletions(deployment, messages, {
                     maxTokens: 2000,
                     temperature: 0.7
                 });
+
+                result = await Promise.race([apiPromise, timeoutPromise]);
                 context.log('OpenAI call successful');
             } catch (openAIError) {
                 context.log.error('OpenAI API call failed:', openAIError);
-                context.log.error('OpenAI Error details:', {
-                    message: openAIError.message,
-                    code: openAIError.code,
-                    statusCode: openAIError.statusCode
-                });
-                throw new Error(`Azure OpenAI API error: ${openAIError.message}`);
+                context.log.error('Error type:', openAIError.constructor?.name);
+                context.log.error('Error message:', openAIError.message);
+
+                if (openAIError.response) {
+                    context.log.error('OpenAI Response status:', openAIError.response.status);
+                    context.log.error('OpenAI Response data:', openAIError.response.data);
+                }
+
+                // Return a proper error response instead of throwing
+                return {
+                    status: 500,
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                        'Content-Type': 'application/json'
+                    },
+                    jsonBody: {
+                        error: 'Azure OpenAI API call failed',
+                        details: openAIError.message,
+                        type: openAIError.constructor?.name || 'Error',
+                        code: openAIError.code || 'OPENAI_ERROR'
+                    }
+                };
             }
 
             if (!result.choices || !result.choices[0] || !result.choices[0].message) {
