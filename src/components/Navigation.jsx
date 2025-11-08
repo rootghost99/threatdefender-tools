@@ -19,7 +19,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
       icon: '🏠'
     },
     threatIntel: {
-      name: 'Threat Intel',
+      name: 'Threat Intelligence',
       icon: '🛡️',
       items: [
         tabs.find(t => t.id === 'threat-intel')
@@ -244,6 +244,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
           </Link>
 
           {/* Category Dropdowns */}
+          <DropdownMenu categoryKey="threatIntel" category={categories.threatIntel} />
           <DropdownMenu categoryKey="engineering" category={categories.engineering} />
           <DropdownMenu categoryKey="jobTools" category={categories.jobTools} />
         </div>
