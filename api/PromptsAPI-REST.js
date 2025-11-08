@@ -1,6 +1,7 @@
-// PromptsAPI using Azure Table Storage SDK (properly handles authentication)
+// PromptsAPI using direct Azure Table Storage REST API (bypasses SDK crypto issues)
 const { app } = require('@azure/functions');
-const { TableClient, AzureNamedKeyCredential } = require('@azure/data-tables');
+const axios = require('axios');
+const crypto = require('crypto');
 const { OpenAIClient, AzureKeyCredential } = require('@azure/openai');
 
 console.log('[PromptsAPI-REST] Module loading...');
@@ -13,42 +14,8 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Table Storage clients (lazy initialization)
-let promptsTableClient = null;
-let runsTableClient = null;
+// OpenAI client (lazy initialization)
 let openAIClient = null;
-
-function getTableClient(tableName) {
-  const account = process.env.AZURE_STORAGE_ACCOUNT_NAME;
-  const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
-
-  if (!account || !accountKey) {
-    throw new Error('Azure Storage credentials not configured');
-  }
-
-  const credential = new AzureNamedKeyCredential(account, accountKey);
-  return new TableClient(
-    `https://${account}.table.core.windows.net`,
-    tableName,
-    credential
-  );
-}
-
-function getPromptsTableClient() {
-  if (!promptsTableClient) {
-    const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
-    promptsTableClient = getTableClient(tableName);
-  }
-  return promptsTableClient;
-}
-
-function getRunsTableClient() {
-  if (!runsTableClient) {
-    const tableName = process.env.PROMPT_RUNS_TABLE_NAME || 'PromptRuns';
-    runsTableClient = getTableClient(tableName);
-  }
-  return runsTableClient;
-}
 
 function getOpenAIClient() {
   if (!openAIClient) {
@@ -115,6 +82,135 @@ function validateVariables(promptVariables, providedVariables) {
   return missing;
 }
 
+// Generate Account SAS token for Azure Storage
+// Account SAS works across all services (Blob, Queue, Table, File)
+function generateTableSAS(accountName, accountKey, tableName) {
+  const version = '2019-02-02';
+  const now = new Date();
+
+  // Format: yyyy-MM-ddTHH:mm:ssZ
+  const start = new Date(now.getTime() - 5 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const expiry = new Date(now.getTime() + 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  // Account SAS string-to-sign format:
+  // accountname + "\n" +
+  // signedpermissions + "\n" +
+  // signedservice + "\n" +
+  // signedresourcetype + "\n" +
+  // signedstart + "\n" +
+  // signedexpiry + "\n" +
+  // signedIP + "\n" +
+  // signedProtocol + "\n" +
+  // signedversion + "\n" +
+  // (no signature field in string-to-sign)
+  const stringToSign = [
+    accountName,
+    'raud',     // signedpermissions: read, add, update, delete
+    't',        // signedservice: 't' for table service
+    'sco',      // signedresourcetype: service, container, object
+    start,      // signedstart
+    expiry,     // signedexpiry
+    '',         // signedIP
+    '',         // signedProtocol
+    version,    // signedversion
+    ''          // extra newline at the end
+  ].join('\n');
+
+  const signature = crypto
+    .createHmac('sha256', Buffer.from(accountKey, 'base64'))
+    .update(stringToSign, 'utf-8')
+    .digest('base64');
+
+  const sasParams = new URLSearchParams({
+    sv: version,        // signed version
+    ss: 't',            // signed services (table)
+    srt: 'sco',         // signed resource types (service, container, object)
+    sp: 'raud',         // signed permissions
+    st: start,          // signed start time
+    se: expiry,         // signed expiry time
+    sig: signature      // signature
+  });
+
+  return sasParams.toString();
+}
+
+// Make REST API call using SAS token authentication
+async function callTableAPI(method, path, body = null, context) {
+  const account = process.env.AZURE_STORAGE_ACCOUNT_NAME;
+  const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
+  const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
+
+  if (!account || !accountKey) {
+    throw new Error('Azure Storage credentials not configured');
+  }
+
+  // Generate SAS token
+  const sasToken = generateTableSAS(account, accountKey, tableName);
+
+  // Add SAS token to URL
+  const separator = path.includes('?') ? '&' : '?';
+  const url = `https://${account}.table.core.windows.net${path}${separator}${sasToken}`;
+
+  // When using SAS tokens, don't include x-ms-date or x-ms-version headers
+  // These are only for SharedKey authentication
+  const headers = {
+    'Accept': 'application/json;odata=nometadata',
+    'DataServiceVersion': '3.0'
+  };
+
+  if (body) {
+    const bodyStr = JSON.stringify(body);
+    headers['Content-Type'] = 'application/json';
+    headers['Content-Length'] = Buffer.byteLength(bodyStr).toString();
+  }
+
+  context.log(`[REST-SAS] ${method} ${path}`);
+  context.log(`[REST-SAS] Full URL: ${url.substring(0, 100)}...`);
+  context.log(`[REST-SAS] Headers:`, JSON.stringify(headers));
+
+  try {
+    const response = await axios({
+      method,
+      url,
+      headers,
+      data: body,
+      validateStatus: () => true
+    });
+
+    context.log(`[REST-SAS] Response status: ${response.status}`);
+    if (response.status !== 200 && response.status !== 201 && response.status !== 204) {
+      context.log(`[REST-SAS] Error response:`, JSON.stringify(response.data));
+    }
+
+    return response;
+  } catch (error) {
+    context.error(`[REST-SAS] ${method} ${path} failed:`, error.message);
+    throw error;
+  }
+}
+
+// Generate unique ID
+function generateId() {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substr(2, 9);
+  return `${timestamp}-${random}`;
+}
+
+// Get user from request
+function getUserFromRequest(request) {
+  const clientPrincipal = request.headers.get('x-ms-client-principal');
+  if (clientPrincipal) {
+    try {
+      const decoded = Buffer.from(clientPrincipal, 'base64').toString('utf8');
+      const user = JSON.parse(decoded);
+      return user.userDetails || 'authenticated-user';
+    } catch (e) {
+      return 'authenticated-user';
+    }
+  }
+  return 'system';
+}
+
 // UNIFIED HANDLER
 app.http('PromptsAPI-Unified', {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -176,71 +272,18 @@ app.http('PromptsAPI-Unified', {
 
 // LIST prompts
 async function listPrompts(request, context) {
-  const tableClient = getPromptsTableClient();
+  const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
+  const response = await callTableAPI('GET', `/${tableName}()`, null, context);
+
+  if (response.status !== 200) {
+    throw new Error(`Query failed: ${response.status}`);
+  }
+
+  const entities = response.data.value || [];
   const prompts = [];
 
-  try {
-    const entities = tableClient.listEntities({
-      queryOptions: { filter: "PartitionKey eq 'PROMPT'" }
-    });
-
-    for await (const entity of entities) {
-      if (entity.isDeleted === true) continue;
-
-      let tags = [];
-      let variables = [];
-      let modelSettings = {};
-
-      try { tags = entity.tags ? JSON.parse(entity.tags) : []; } catch (e) {}
-      try { variables = entity.variables ? JSON.parse(entity.variables) : []; } catch (e) {}
-      try { modelSettings = entity.modelSettings ? JSON.parse(entity.modelSettings) : {}; } catch (e) {}
-
-      prompts.push({
-        id: entity.rowKey,
-        title: entity.title || '',
-        description: entity.description || '',
-        category: entity.category || 'General',
-        tags,
-        collection: entity.collection || '',
-        variables,
-        systemGuidance: entity.systemGuidance || '',
-        userInstructions: entity.userInstructions || '',
-        modelSettings,
-        status: entity.status || 'active',
-        createdBy: entity.createdBy || 'system',
-        createdAt: entity.createdAt || new Date().toISOString(),
-        updatedBy: entity.updatedBy || '',
-        updatedAt: entity.updatedAt || ''
-      });
-    }
-
-    prompts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    return {
-      status: 200,
-      headers: corsHeaders,
-      jsonBody: { prompts, count: prompts.length }
-    };
-  } catch (error) {
-    context.error('[listPrompts] Error:', error);
-    throw error;
-  }
-}
-
-// GET single prompt
-async function getPrompt(request, context, id) {
-  const tableClient = getPromptsTableClient();
-
-  try {
-    const entity = await tableClient.getEntity('PROMPT', id);
-
-    if (entity.isDeleted) {
-      return {
-        status: 404,
-        headers: corsHeaders,
-        jsonBody: { error: 'Prompt not found' }
-      };
-    }
+  for (const entity of entities) {
+    if (entity.isDeleted === true) continue;
 
     let tags = [];
     let variables = [];
@@ -250,8 +293,8 @@ async function getPrompt(request, context, id) {
     try { variables = entity.variables ? JSON.parse(entity.variables) : []; } catch (e) {}
     try { modelSettings = entity.modelSettings ? JSON.parse(entity.modelSettings) : {}; } catch (e) {}
 
-    const prompt = {
-      id: entity.rowKey,
+    prompts.push({
+      id: entity.RowKey,
       title: entity.title || '',
       description: entity.description || '',
       category: entity.category || 'General',
@@ -266,29 +309,80 @@ async function getPrompt(request, context, id) {
       createdAt: entity.createdAt || new Date().toISOString(),
       updatedBy: entity.updatedBy || '',
       updatedAt: entity.updatedAt || ''
-    };
-
-    return {
-      status: 200,
-      headers: corsHeaders,
-      jsonBody: prompt
-    };
-  } catch (error) {
-    if (error.statusCode === 404) {
-      return {
-        status: 404,
-        headers: corsHeaders,
-        jsonBody: { error: 'Prompt not found' }
-      };
-    }
-    context.error('[getPrompt] Error:', error);
-    throw error;
+    });
   }
+
+  prompts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  return {
+    status: 200,
+    headers: corsHeaders,
+    jsonBody: { prompts, count: prompts.length }
+  };
+}
+
+// GET single prompt
+async function getPrompt(request, context, id) {
+  const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
+  const response = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, null, context);
+
+  if (response.status === 404) {
+    return {
+      status: 404,
+      headers: corsHeaders,
+      jsonBody: { error: 'Prompt not found' }
+    };
+  }
+
+  if (response.status !== 200) {
+    throw new Error(`Get failed: ${response.status}`);
+  }
+
+  const entity = response.data;
+
+  if (entity.isDeleted) {
+    return {
+      status: 404,
+      headers: corsHeaders,
+      jsonBody: { error: 'Prompt not found' }
+    };
+  }
+
+  let tags = [];
+  let variables = [];
+  let modelSettings = {};
+
+  try { tags = entity.tags ? JSON.parse(entity.tags) : []; } catch (e) {}
+  try { variables = entity.variables ? JSON.parse(entity.variables) : []; } catch (e) {}
+  try { modelSettings = entity.modelSettings ? JSON.parse(entity.modelSettings) : {}; } catch (e) {}
+
+  const prompt = {
+    id: entity.RowKey,
+    title: entity.title || '',
+    description: entity.description || '',
+    category: entity.category || 'General',
+    tags,
+    collection: entity.collection || '',
+    variables,
+    systemGuidance: entity.systemGuidance || '',
+    userInstructions: entity.userInstructions || '',
+    modelSettings,
+    status: entity.status || 'active',
+    createdBy: entity.createdBy || 'system',
+    createdAt: entity.createdAt || new Date().toISOString(),
+    updatedBy: entity.updatedBy || '',
+    updatedAt: entity.updatedAt || ''
+  };
+
+  return {
+    status: 200,
+    headers: corsHeaders,
+    jsonBody: prompt
+  };
 }
 
 // CREATE prompt
 async function createPrompt(request, context) {
-  const tableClient = getPromptsTableClient();
   const body = await request.json();
   const user = getUserFromRequest(request);
   const now = new Date().toISOString();
@@ -303,8 +397,8 @@ async function createPrompt(request, context) {
   }
 
   const entity = {
-    partitionKey: 'PROMPT',
-    rowKey: id,
+    PartitionKey: 'PROMPT',
+    RowKey: id,
     title: body.title,
     description: body.description || '',
     category: body.category || 'General',
@@ -322,154 +416,158 @@ async function createPrompt(request, context) {
     isDeleted: false
   };
 
-  try {
-    await tableClient.createEntity(entity);
+  const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
+  const response = await callTableAPI('POST', `/${tableName}`, entity, context);
 
-    const prompt = {
-      id,
-      title: entity.title,
-      description: entity.description,
-      category: entity.category,
-      tags: JSON.parse(entity.tags),
-      collection: entity.collection,
-      variables: JSON.parse(entity.variables),
-      systemGuidance: entity.systemGuidance,
-      userInstructions: entity.userInstructions,
-      modelSettings: JSON.parse(entity.modelSettings),
-      status: entity.status,
-      createdBy: entity.createdBy,
-      createdAt: entity.createdAt,
-      updatedBy: entity.updatedBy,
-      updatedAt: entity.updatedAt
-    };
-
-    return {
-      status: 201,
-      headers: corsHeaders,
-      jsonBody: { message: 'Prompt created', prompt }
-    };
-  } catch (error) {
-    context.error('[createPrompt] Error:', error);
-    throw error;
+  if (response.status !== 201 && response.status !== 204) {
+    throw new Error(`Create failed: ${response.status}`);
   }
+
+  const prompt = {
+    id,
+    title: entity.title,
+    description: entity.description,
+    category: entity.category,
+    tags: JSON.parse(entity.tags),
+    collection: entity.collection,
+    variables: JSON.parse(entity.variables),
+    systemGuidance: entity.systemGuidance,
+    userInstructions: entity.userInstructions,
+    modelSettings: JSON.parse(entity.modelSettings),
+    status: entity.status,
+    createdBy: entity.createdBy,
+    createdAt: entity.createdAt,
+    updatedBy: entity.updatedBy,
+    updatedAt: entity.updatedAt
+  };
+
+  return {
+    status: 201,
+    headers: corsHeaders,
+    jsonBody: { message: 'Prompt created', prompt }
+  };
 }
 
 // UPDATE prompt
 async function updatePrompt(request, context, id) {
-  const tableClient = getPromptsTableClient();
   const body = await request.json();
   const user = getUserFromRequest(request);
   const now = new Date().toISOString();
 
-  try {
-    // First get existing
-    const existing = await tableClient.getEntity('PROMPT', id);
+  // First get existing
+  const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
+  const getResp = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, null, context);
 
-    if (existing.isDeleted) {
-      return {
-        status: 404,
-        headers: corsHeaders,
-        jsonBody: { error: 'Prompt not found' }
-      };
-    }
-
-    const updated = {
-      ...existing,
-      title: body.title !== undefined ? body.title : existing.title,
-      description: body.description !== undefined ? body.description : existing.description,
-      category: body.category !== undefined ? body.category : existing.category,
-      tags: body.tags !== undefined ? JSON.stringify(body.tags) : existing.tags,
-      collection: body.collection !== undefined ? body.collection : existing.collection,
-      variables: body.variables !== undefined ? JSON.stringify(body.variables) : existing.variables,
-      systemGuidance: body.systemGuidance !== undefined ? body.systemGuidance : existing.systemGuidance,
-      userInstructions: body.userInstructions !== undefined ? body.userInstructions : existing.userInstructions,
-      modelSettings: body.modelSettings !== undefined ? JSON.stringify(body.modelSettings) : existing.modelSettings,
-      status: body.status !== undefined ? body.status : existing.status,
-      updatedBy: user,
-      updatedAt: now
-    };
-
-    await tableClient.updateEntity(updated, 'Merge');
-
-    const prompt = {
-      id,
-      title: updated.title,
-      description: updated.description,
-      category: updated.category,
-      tags: JSON.parse(updated.tags),
-      collection: updated.collection,
-      variables: JSON.parse(updated.variables),
-      systemGuidance: updated.systemGuidance,
-      userInstructions: updated.userInstructions,
-      modelSettings: JSON.parse(updated.modelSettings),
-      status: updated.status,
-      createdBy: updated.createdBy,
-      createdAt: updated.createdAt,
-      updatedBy: updated.updatedBy,
-      updatedAt: updated.updatedAt
-    };
-
+  if (getResp.status === 404) {
     return {
-      status: 200,
+      status: 404,
       headers: corsHeaders,
-      jsonBody: { message: 'Prompt updated', prompt }
+      jsonBody: { error: 'Prompt not found' }
     };
-  } catch (error) {
-    if (error.statusCode === 404) {
-      return {
-        status: 404,
-        headers: corsHeaders,
-        jsonBody: { error: 'Prompt not found' }
-      };
-    }
-    context.error('[updatePrompt] Error:', error);
-    throw error;
   }
+
+  const existing = getResp.data;
+
+  if (existing.isDeleted) {
+    return {
+      status: 404,
+      headers: corsHeaders,
+      jsonBody: { error: 'Prompt not found' }
+    };
+  }
+
+  const updated = {
+    ...existing,
+    title: body.title !== undefined ? body.title : existing.title,
+    description: body.description !== undefined ? body.description : existing.description,
+    category: body.category !== undefined ? body.category : existing.category,
+    tags: body.tags !== undefined ? JSON.stringify(body.tags) : existing.tags,
+    collection: body.collection !== undefined ? body.collection : existing.collection,
+    variables: body.variables !== undefined ? JSON.stringify(body.variables) : existing.variables,
+    systemGuidance: body.systemGuidance !== undefined ? body.systemGuidance : existing.systemGuidance,
+    userInstructions: body.userInstructions !== undefined ? body.userInstructions : existing.userInstructions,
+    modelSettings: body.modelSettings !== undefined ? JSON.stringify(body.modelSettings) : existing.modelSettings,
+    status: body.status !== undefined ? body.status : existing.status,
+    updatedBy: user,
+    updatedAt: now
+  };
+
+  const putResp = await callTableAPI('PUT', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, updated, context);
+
+  if (putResp.status !== 204) {
+    throw new Error(`Update failed: ${putResp.status}`);
+  }
+
+  const prompt = {
+    id,
+    title: updated.title,
+    description: updated.description,
+    category: updated.category,
+    tags: JSON.parse(updated.tags),
+    collection: updated.collection,
+    variables: JSON.parse(updated.variables),
+    systemGuidance: updated.systemGuidance,
+    userInstructions: updated.userInstructions,
+    modelSettings: JSON.parse(updated.modelSettings),
+    status: updated.status,
+    createdBy: updated.createdBy,
+    createdAt: updated.createdAt,
+    updatedBy: updated.updatedBy,
+    updatedAt: updated.updatedAt
+  };
+
+  return {
+    status: 200,
+    headers: corsHeaders,
+    jsonBody: { message: 'Prompt updated', prompt }
+  };
 }
 
 // DELETE prompt (soft delete)
 async function deletePrompt(request, context, id) {
-  const tableClient = getPromptsTableClient();
   const user = getUserFromRequest(request);
   const now = new Date().toISOString();
 
-  try {
-    const existing = await tableClient.getEntity('PROMPT', id);
+  const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
+  const getResp = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, null, context);
 
-    if (existing.isDeleted) {
-      return {
-        status: 404,
-        headers: corsHeaders,
-        jsonBody: { error: 'Prompt not found' }
-      };
-    }
-
-    const updated = {
-      ...existing,
-      isDeleted: true,
-      status: 'deleted',
-      updatedBy: user,
-      updatedAt: now
-    };
-
-    await tableClient.updateEntity(updated, 'Merge');
-
+  if (getResp.status === 404) {
     return {
-      status: 200,
+      status: 404,
       headers: corsHeaders,
-      jsonBody: { message: 'Prompt deleted successfully' }
+      jsonBody: { error: 'Prompt not found' }
     };
-  } catch (error) {
-    if (error.statusCode === 404) {
-      return {
-        status: 404,
-        headers: corsHeaders,
-        jsonBody: { error: 'Prompt not found' }
-      };
-    }
-    context.error('[deletePrompt] Error:', error);
-    throw error;
   }
+
+  const existing = getResp.data;
+
+  if (existing.isDeleted) {
+    return {
+      status: 404,
+      headers: corsHeaders,
+      jsonBody: { error: 'Prompt not found' }
+    };
+  }
+
+  const updated = {
+    ...existing,
+    isDeleted: true,
+    status: 'deleted',
+    updatedBy: user,
+    updatedAt: now
+  };
+
+  const putResp = await callTableAPI('PUT', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, updated, context);
+
+  if (putResp.status !== 204) {
+    throw new Error(`Delete failed: ${putResp.status}`);
+  }
+
+  return {
+    status: 200,
+    headers: corsHeaders,
+    jsonBody: { message: 'Prompt deleted successfully' }
+  };
 }
 
 // RUN prompt (POST /api/prompts/{id}/run)
@@ -477,8 +575,6 @@ async function runPrompt(request, context, id) {
   context.log('[PromptsAPI-REST] RUN prompt:', id);
 
   try {
-    const tableClient = getPromptsTableClient();
-    const runsTableClient = getRunsTableClient();
     const body = await request.json();
     const user = getUserFromRequest(request);
     const now = new Date().toISOString();
@@ -486,7 +582,22 @@ async function runPrompt(request, context, id) {
     context.log(`Running prompt: ${id} by ${user}`);
 
     // Get prompt from storage
-    const promptEntity = await tableClient.getEntity('PROMPT', id);
+    const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
+    const getResp = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, null, context);
+
+    if (getResp.status === 404) {
+      return {
+        status: 404,
+        headers: corsHeaders,
+        jsonBody: { error: 'Prompt not found' }
+      };
+    }
+
+    if (getResp.status !== 200) {
+      throw new Error(`Failed to fetch prompt: ${getResp.status}`);
+    }
+
+    const promptEntity = getResp.data;
 
     if (promptEntity.isDeleted) {
       return {
@@ -497,7 +608,7 @@ async function runPrompt(request, context, id) {
     }
 
     const prompt = {
-      id: promptEntity.rowKey,
+      id: promptEntity.RowKey,
       title: promptEntity.title,
       variables: promptEntity.variables ? JSON.parse(promptEntity.variables) : [],
       systemGuidance: promptEntity.systemGuidance || '',
@@ -551,10 +662,11 @@ async function runPrompt(request, context, id) {
 
     // Store the run in PromptRuns table
     const runId = generateId();
+    const runsTableName = process.env.PROMPT_RUNS_TABLE_NAME || 'PromptRuns';
 
     const runEntity = {
-      partitionKey: 'PROMPT_RUN',
-      rowKey: runId,
+      PartitionKey: 'PROMPT_RUN',
+      RowKey: runId,
       promptId: id,
       promptTitle: prompt.title,
       submittedBy: user,
@@ -574,12 +686,13 @@ async function runPrompt(request, context, id) {
     };
 
     // Store run (using different table)
-    try {
-      await runsTableClient.createEntity(runEntity);
-      context.log(`Prompt run stored: ${runId}`);
-    } catch (storeError) {
-      context.warn(`Failed to store run history:`, storeError);
+    const storeResp = await callTableAPI('POST', `/${runsTableName}`, runEntity, context);
+
+    if (storeResp.status !== 201 && storeResp.status !== 204) {
+      context.warn(`Failed to store run history: ${storeResp.status}`);
       // Don't fail the request if history storage fails
+    } else {
+      context.log(`Prompt run stored: ${runId}`);
     }
 
     return {
@@ -599,7 +712,7 @@ async function runPrompt(request, context, id) {
   } catch (error) {
     context.error('Error running prompt:', error);
 
-    if (error.statusCode === 404) {
+    if (error.response?.status === 404) {
       return {
         status: 404,
         headers: corsHeaders,
@@ -615,4 +728,4 @@ async function runPrompt(request, context, id) {
   }
 }
 
-console.log('[PromptsAPI-REST] Module loaded successfully (using @azure/data-tables SDK)');
+console.log('[PromptsAPI-REST] Module loaded successfully (using SAS token authentication)');
