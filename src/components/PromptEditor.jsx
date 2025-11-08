@@ -1,9 +1,31 @@
 // /src/components/PromptEditor.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { useNavigation } from '../contexts/NavigationContext';
 
 export default function PromptEditor({ darkMode, promptId, onBack }) {
   const isEdit = !!promptId;
+  const { setHasUnsavedChanges } = useNavigation();
+  const initialDataRef = useRef(null);
+
+  // Handle cancel with unsaved changes check
+  const handleCancel = () => {
+    if (!initialDataRef.current) {
+      onBack();
+      return;
+    }
+
+    const currentData = getCurrentFormData();
+    const hasChanges = JSON.stringify(currentData) !== JSON.stringify(initialDataRef.current);
+
+    if (hasChanges) {
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to leave?');
+      if (!confirmed) return;
+    }
+
+    setHasUnsavedChanges(false);
+    onBack();
+  };
 
   // Form state
   const [title, setTitle] = useState('');
@@ -22,6 +44,20 @@ export default function PromptEditor({ darkMode, promptId, onBack }) {
   const [error, setError] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Get current form data
+  const getCurrentFormData = () => ({
+    title,
+    description,
+    category,
+    tags,
+    collection,
+    systemGuidance,
+    userInstructions,
+    variables: JSON.stringify(variables),
+    temperature,
+    maxTokens
+  });
+
   // Fetch existing prompt if editing
   useEffect(() => {
     if (isEdit) {
@@ -29,8 +65,55 @@ export default function PromptEditor({ darkMode, promptId, onBack }) {
     } else {
       // Set example template for new prompts
       setUserInstructions('# Security Analysis Prompt\n\nAnalyze the following incident:\n\n{{context}}\n\n## Instructions\n\n1. Summarize the key findings\n2. Assess the severity level\n3. Recommend next steps');
+
+      // Set initial data after render for new prompts
+      setTimeout(() => {
+        initialDataRef.current = getCurrentFormData();
+      }, 100);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptId]);
+
+  // Track unsaved changes
+  useEffect(() => {
+    const checkForChanges = () => {
+      if (!initialDataRef.current) return false;
+
+      const currentData = getCurrentFormData();
+      const hasChanges = JSON.stringify(currentData) !== JSON.stringify(initialDataRef.current);
+      setHasUnsavedChanges(hasChanges);
+      return hasChanges;
+    };
+
+    checkForChanges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description, category, tags, collection, systemGuidance, userInstructions, variables, temperature, maxTokens, setHasUnsavedChanges]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      setHasUnsavedChanges(false);
+    };
+  }, [setHasUnsavedChanges]);
+
+  // Browser beforeunload protection
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (!initialDataRef.current) return;
+
+      const currentData = getCurrentFormData();
+      const hasChanges = JSON.stringify(currentData) !== JSON.stringify(initialDataRef.current);
+
+      if (hasChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description, category, tags, collection, systemGuidance, userInstructions, variables, temperature, maxTokens]);
 
   const fetchPrompt = async () => {
     setLoading(true);
@@ -50,6 +133,22 @@ export default function PromptEditor({ darkMode, promptId, onBack }) {
       setVariables(data.variables || []);
       setTemperature(data.modelSettings?.temperature || 0.7);
       setMaxTokens(data.modelSettings?.maxTokens || 2000);
+
+      // Set initial data after loading
+      setTimeout(() => {
+        initialDataRef.current = {
+          title: data.title || '',
+          description: data.description || '',
+          category: data.category || 'General',
+          tags: data.tags ? data.tags.join(', ') : '',
+          collection: data.collection || '',
+          systemGuidance: data.systemGuidance || '',
+          userInstructions: data.userInstructions || '',
+          variables: JSON.stringify(data.variables || []),
+          temperature: data.modelSettings?.temperature || 0.7,
+          maxTokens: data.modelSettings?.maxTokens || 2000
+        };
+      }, 100);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -98,6 +197,8 @@ export default function PromptEditor({ darkMode, promptId, onBack }) {
         throw new Error(errorData.error || 'Failed to save prompt');
       }
 
+      // Clear unsaved changes flag
+      setHasUnsavedChanges(false);
       alert(isEdit ? 'Prompt updated successfully!' : 'Prompt created successfully!');
       onBack();
     } catch (err) {
@@ -147,7 +248,7 @@ export default function PromptEditor({ darkMode, promptId, onBack }) {
       {/* Header */}
       <div className={`p-6 rounded-lg border ${cardBg}`}>
         <div className="flex items-center justify-between mb-4">
-          <button onClick={onBack} className={`px-4 py-2 rounded font-semibold ${buttonSecondary} ${textPrimary}`}>
+          <button onClick={handleCancel} className={`px-4 py-2 rounded font-semibold ${buttonSecondary} ${textPrimary}`}>
             ← Cancel
           </button>
           <div className="flex gap-2">
@@ -460,7 +561,7 @@ export default function PromptEditor({ darkMode, promptId, onBack }) {
 
       {/* Save Button (bottom) */}
       <div className="flex justify-end gap-2">
-        <button onClick={onBack} className={`px-6 py-3 rounded font-bold ${buttonSecondary} ${textPrimary}`}>
+        <button onClick={handleCancel} className={`px-6 py-3 rounded font-bold ${buttonSecondary} ${textPrimary}`}>
           Cancel
         </button>
         <button
