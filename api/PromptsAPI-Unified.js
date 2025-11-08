@@ -106,18 +106,10 @@ async function handlePromptsRequest(request, context, path = '') {
   }
 }
 
-// Register handler for /api/prompts (base route)
-app.http('PromptsAPI-Base', {
-  methods: ['GET', 'POST', 'OPTIONS'],
-  authLevel: 'anonymous',
-  route: 'prompts',
-  handler: async (request, context) => {
-    return await handlePromptsRequest(request, context, '');
-  }
-});
-
-// Register handler for /api/prompts/* (with path segments)
-app.http('PromptsAPI-WithPath', {
+// Register SINGLE handler for /api/prompts and /api/prompts/*
+// Using only the wildcard route to avoid conflicts in Azure Functions v4
+// The wildcard {*path} will match both /api/prompts (empty path) and /api/prompts/xxx
+app.http('PromptsAPI', {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   authLevel: 'anonymous',
   route: 'prompts/{*path}',
@@ -484,4 +476,4 @@ async function deletePrompt(request, context, id) {
 }
 
 console.log('[PromptsAPI-Unified] Module loaded successfully');
-console.log('[PromptsAPI-Unified] Single unified handler for all /api/prompts routes');
+console.log('[PromptsAPI-Unified] Single handler registered: /api/prompts/{*path}');
