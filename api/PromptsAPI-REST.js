@@ -13,8 +13,8 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Generate SAS token for Azure Table Storage
-// Uses Table Service SAS (not Account SAS)
+// Generate Account SAS token for Azure Storage
+// Account SAS works across all services (Blob, Queue, Table, File)
 function generateTableSAS(accountName, accountKey, tableName) {
   const version = '2019-02-02';
   const now = new Date();
@@ -23,36 +23,28 @@ function generateTableSAS(accountName, accountKey, tableName) {
   const start = new Date(now.getTime() - 5 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
   const expiry = new Date(now.getTime() + 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
 
-  const permissions = 'raud'; // read, add, update, delete
-
-  // String to sign for Table SAS:
+  // Account SAS string-to-sign format:
+  // accountname + "\n" +
   // signedpermissions + "\n" +
+  // signedservice + "\n" +
+  // signedresourcetype + "\n" +
   // signedstart + "\n" +
   // signedexpiry + "\n" +
-  // canonicalizedresource + "\n" +
-  // signedidentifier + "\n" +
   // signedIP + "\n" +
   // signedProtocol + "\n" +
   // signedversion + "\n" +
-  // startpk + "\n" +
-  // startrk + "\n" +
-  // endpk + "\n" +
-  // endrk
-  const canonicalizedResource = `/table/${accountName}/${tableName}`;
-
+  // (no signature field in string-to-sign)
   const stringToSign = [
-    permissions,
-    start,
-    expiry,
-    canonicalizedResource,
-    '', // signedidentifier
-    '', // signedIP
-    '', // signedProtocol
-    version,
-    '', // startpk
-    '', // startrk
-    '', // endpk
-    ''  // endrk
+    accountName,
+    'raud',     // signedpermissions: read, add, update, delete
+    't',        // signedservice: 't' for table service
+    'sco',      // signedresourcetype: service, container, object
+    start,      // signedstart
+    expiry,     // signedexpiry
+    '',         // signedIP
+    '',         // signedProtocol
+    version,    // signedversion
+    ''          // extra newline at the end
   ].join('\n');
 
   const signature = crypto
@@ -61,12 +53,13 @@ function generateTableSAS(accountName, accountKey, tableName) {
     .digest('base64');
 
   const sasParams = new URLSearchParams({
-    sv: version,
-    tn: tableName,
-    sp: permissions,
-    st: start,
-    se: expiry,
-    sig: signature
+    sv: version,        // signed version
+    ss: 't',            // signed services (table)
+    srt: 'sco',         // signed resource types (service, container, object)
+    sp: 'raud',         // signed permissions
+    st: start,          // signed start time
+    se: expiry,         // signed expiry time
+    sig: signature      // signature
   });
 
   return sasParams.toString();

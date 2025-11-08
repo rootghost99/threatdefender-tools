@@ -12,7 +12,7 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Same SAS generation as PromptsAPI-REST
+// Account SAS generation (same as PromptsAPI-REST)
 function generateTableSAS(accountName, accountKey, tableName) {
   const version = '2019-02-02';
   const now = new Date();
@@ -20,21 +20,16 @@ function generateTableSAS(accountName, accountKey, tableName) {
   const start = new Date(now.getTime() - 5 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
   const expiry = new Date(now.getTime() + 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
 
-  const permissions = 'raud';
-  const canonicalizedResource = `/table/${accountName}/${tableName}`;
-
   const stringToSign = [
-    permissions,
+    accountName,
+    'raud',     // signedpermissions
+    't',        // signedservice (table)
+    'sco',      // signedresourcetype
     start,
     expiry,
-    canonicalizedResource,
-    '',
-    '',
-    '',
+    '',         // signedIP
+    '',         // signedProtocol
     version,
-    '',
-    '',
-    '',
     ''
   ].join('\n');
 
@@ -46,19 +41,22 @@ function generateTableSAS(accountName, accountKey, tableName) {
   return {
     sasParams: new URLSearchParams({
       sv: version,
-      tn: tableName,
-      sp: permissions,
+      ss: 't',
+      srt: 'sco',
+      sp: 'raud',
       st: start,
       se: expiry,
       sig: signature
     }).toString(),
     debugInfo: {
+      sasType: 'Account SAS',
       version,
-      tableName,
-      permissions,
+      accountName,
+      signedService: 't (table)',
+      signedResourceType: 'sco (service, container, object)',
+      permissions: 'raud',
       start,
       expiry,
-      canonicalizedResource,
       stringToSign: stringToSign.split('\n').map((line, i) => `Line ${i}: "${line}"`),
       signatureGenerated: signature
     }
