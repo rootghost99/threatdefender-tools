@@ -97,9 +97,31 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
   const DropdownMenu = ({ categoryKey, category }) => {
     const isOpen = openDropdown === categoryKey;
     const isActive = isPathInCategory(category);
+    const closeTimeoutRef = useRef(null);
+
+    const handleMouseEnter = () => {
+      // Clear any pending close timeout
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
+      }
+      setOpenDropdown(categoryKey);
+    };
+
+    const handleMouseLeave = () => {
+      // Add a small delay before closing to prevent accidental closes
+      closeTimeoutRef.current = setTimeout(() => {
+        setOpenDropdown(null);
+      }, 150);
+    };
 
     return (
-      <div className="relative" ref={isOpen ? dropdownRef : null}>
+      <div
+        className="relative"
+        ref={isOpen ? dropdownRef : null}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <motion.button
           onClick={() => toggleDropdown(categoryKey)}
           whileHover={{ y: -1 }}
