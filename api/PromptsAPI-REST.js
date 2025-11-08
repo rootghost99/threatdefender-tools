@@ -13,32 +13,30 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Helper to generate SharedKey authentication for Azure Storage
+// Helper to generate SharedKey authentication for Azure Table Storage
+// Azure Table Storage uses SharedKeyLite authentication format
 function getStorageAuth(method, url, headers, accountName, accountKey) {
   const urlObj = new URL(url);
-  const canonicalResource = `/${accountName}${urlObj.pathname}${urlObj.search}`;
 
-  const xmsHeaders = Object.keys(headers)
-    .filter(k => k.startsWith('x-ms-'))
-    .sort()
-    .map(k => `${k.toLowerCase()}:${headers[k]}`)
-    .join('\n');
+  // Canonicalized resource is just: /{account}{path}
+  const canonicalResource = `/${accountName}${urlObj.pathname}`;
 
+  // String to sign for SharedKeyLite (used by Table Storage):
+  // VERB + "\n" + Content-MD5 + "\n" + Content-Type + "\n" + Date + "\n" + CanonicalizedResource
   const stringToSign = [
     method,
     headers['Content-MD5'] || '',
     headers['Content-Type'] || '',
     headers['x-ms-date'] || '',
-    xmsHeaders ? xmsHeaders : '',
     canonicalResource
-  ].filter(x => x !== '').join('\n');
+  ].join('\n');
 
   const signature = crypto
     .createHmac('sha256', Buffer.from(accountKey, 'base64'))
     .update(stringToSign, 'utf-8')
     .digest('base64');
 
-  return `SharedKey ${accountName}:${signature}`;
+  return `SharedKeyLite ${accountName}:${signature}`;
 }
 
 // Make REST API call to Azure Table Storage
