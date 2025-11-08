@@ -12,40 +12,19 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
   const currentPath = location.pathname;
 
   // Organize tabs into categories
-  const categories = {
-    home: {
-      id: 'threat-intel',
-      name: 'Home',
-      icon: '🏠'
-    },
-    promptGallery: {
-      id: 'prompt-gallery',
-      name: 'Prompt Gallery',
-      icon: '📚'
-    },
-    threatIntel: {
-      name: 'Threat Intelligence',
-      icon: '🛡️',
-      items: [
-        tabs.find(t => t.id === 'threat-intel')
-      ].filter(Boolean)
-    },
-    engineering: {
-      name: 'Engineering',
-      icon: '⚙️',
-      items: [
-        tabs.find(t => t.id === 'kql-diff')
-      ].filter(Boolean)
-    },
-    jobTools: {
-      name: 'Job Tools',
-      icon: '🛠️',
-      items: [
-        tabs.find(t => t.id === 'ir-playbook'),
-        tabs.find(t => t.id === 'soc-handoff'),
-        tabs.find(t => t.id === 'email-posture')
-      ].filter(Boolean)
-    }
+  const topLevelLinks = [
+    { id: 'threat-intel', name: 'Threat Lookup' },
+    { id: 'prompt-gallery', name: 'Prompts' },
+    { id: 'ir-playbook', name: 'IR Playbook' },
+    { id: 'soc-handoff', name: 'Shift Handoff' }
+  ];
+
+  const engineering = {
+    name: 'Engineering',
+    items: [
+      { id: 'kql-diff', name: 'KQL Diff Viewer' },
+      { id: 'email-posture', name: 'Email Posture Check' }
+    ]
   };
 
   // Close dropdown when clicking outside
@@ -78,25 +57,25 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
 
       if ((e.metaKey || e.ctrlKey) && e.key === 'h') {
         e.preventDefault();
-        window.location.href = `/${categories.home.id}`;
+        window.location.href = `/${topLevelLinks[0].id}`;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mobileMenuOpen, categories.home.id]);
+  }, [mobileMenuOpen, topLevelLinks]);
 
-  const toggleDropdown = (categoryKey) => {
-    setOpenDropdown(openDropdown === categoryKey ? null : categoryKey);
+  const toggleDropdown = (dropdownKey) => {
+    setOpenDropdown(openDropdown === dropdownKey ? null : dropdownKey);
   };
 
-  const isPathInCategory = (category) => {
-    return category.items?.some(item => currentPath.startsWith(`/${item.id}`));
+  const isPathInDropdown = (dropdown) => {
+    return dropdown.items?.some(item => currentPath.startsWith(`/${item.id}`));
   };
 
-  const DropdownMenu = ({ categoryKey, category }) => {
-    const isOpen = openDropdown === categoryKey;
-    const isActive = isPathInCategory(category);
+  const DropdownMenu = ({ dropdownKey, dropdown }) => {
+    const isOpen = openDropdown === dropdownKey;
+    const isActive = isPathInDropdown(dropdown);
     const closeTimeoutRef = useRef(null);
 
     const handleMouseEnter = () => {
@@ -105,7 +84,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
         clearTimeout(closeTimeoutRef.current);
         closeTimeoutRef.current = null;
       }
-      setOpenDropdown(categoryKey);
+      setOpenDropdown(dropdownKey);
     };
 
     const handleMouseLeave = () => {
@@ -123,10 +102,10 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
         onMouseLeave={handleMouseLeave}
       >
         <motion.button
-          onClick={() => toggleDropdown(categoryKey)}
+          onClick={() => toggleDropdown(dropdownKey)}
           whileHover={{ y: -1 }}
           whileTap={{ y: 0 }}
-          className={`relative px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+          className={`relative px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
             isActive
               ? darkMode
                 ? 'text-blue-400'
@@ -142,8 +121,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
           aria-expanded={isOpen}
           aria-haspopup="true"
         >
-          <span className="text-base">{category.icon}</span>
-          <span>{category.name}</span>
+          <span>{dropdown.name}</span>
           <motion.span
             animate={{ rotate: isOpen ? 180 : 0 }}
             transition={{ duration: 0.2 }}
@@ -179,13 +157,13 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
               }`}
             >
               <div className="py-1">
-                {category.items.map((item) => {
+                {dropdown.items.map((item) => {
                   const isItemActive = currentPath.startsWith(`/${item.id}`);
                   return (
                     <Link
                       key={item.id}
                       to={`/${item.id}`}
-                      className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                      className={`block px-4 py-2 text-sm transition-colors ${
                         isItemActive
                           ? darkMode
                             ? 'bg-gray-700 text-blue-400'
@@ -195,7 +173,6 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      <span className="text-base">{item.icon}</span>
                       <span className="font-medium">{item.name}</span>
                     </Link>
                   );
@@ -272,73 +249,43 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6" role="navigation">
-          {/* Home Button */}
-          <motion.div whileHover={{ y: -1 }} whileTap={{ y: 0 }}>
-            <Link
-              to={`/${categories.home.id}`}
-              className={`relative px-2 py-1.5 text-sm font-medium transition-colors flex items-center gap-2 ${
-                currentPath.startsWith(`/${categories.home.id}`)
-                  ? darkMode
-                    ? 'text-blue-400'
-                    : 'text-blue-600'
-                  : darkMode
-                  ? 'text-gray-400 hover:text-gray-200'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-              aria-label="Home"
-              title="Home (⌘H)"
-            >
-              <span className="text-lg">{categories.home.icon}</span>
-
-              {/* Active underline */}
-              {currentPath.startsWith(`/${categories.home.id}`) && (
-                <motion.div
-                  layoutId="activeTab"
-                  className={`absolute bottom-0 left-0 right-0 h-0.5 ${
-                    darkMode ? 'bg-blue-400' : 'bg-blue-600'
+          {/* Top Level Links */}
+          {topLevelLinks.map((link) => {
+            const isActive = currentPath.startsWith(`/${link.id}`);
+            return (
+              <motion.div key={link.id} whileHover={{ y: -1 }} whileTap={{ y: 0 }}>
+                <Link
+                  to={`/${link.id}`}
+                  className={`relative px-3 py-1.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? darkMode
+                        ? 'text-blue-400'
+                        : 'text-blue-600'
+                      : darkMode
+                      ? 'text-gray-400 hover:text-gray-200'
+                      : 'text-gray-600 hover:text-gray-900'
                   }`}
-                  initial={false}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              )}
-            </Link>
-          </motion.div>
+                >
+                  {link.name}
 
-          {/* Prompt Gallery Button */}
-          <motion.div whileHover={{ y: -1 }} whileTap={{ y: 0 }}>
-            <Link
-              to={`/${categories.promptGallery.id}`}
-              className={`relative px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-2 ${
-                currentPath.startsWith(`/${categories.promptGallery.id}`)
-                  ? darkMode
-                    ? 'text-blue-400'
-                    : 'text-blue-600'
-                  : darkMode
-                  ? 'text-gray-400 hover:text-gray-200'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <span className="text-base">{categories.promptGallery.icon}</span>
-              <span>{categories.promptGallery.name}</span>
+                  {/* Active underline */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className={`absolute bottom-0 left-0 right-0 h-0.5 ${
+                        darkMode ? 'bg-blue-400' : 'bg-blue-600'
+                      }`}
+                      initial={false}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  )}
+                </Link>
+              </motion.div>
+            );
+          })}
 
-              {/* Active underline */}
-              {currentPath.startsWith(`/${categories.promptGallery.id}`) && (
-                <motion.div
-                  layoutId="activeTab"
-                  className={`absolute bottom-0 left-0 right-0 h-0.5 ${
-                    darkMode ? 'bg-blue-400' : 'bg-blue-600'
-                  }`}
-                  initial={false}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              )}
-            </Link>
-          </motion.div>
-
-          {/* Category Dropdowns */}
-          <DropdownMenu categoryKey="threatIntel" category={categories.threatIntel} />
-          <DropdownMenu categoryKey="engineering" category={categories.engineering} />
-          <DropdownMenu categoryKey="jobTools" category={categories.jobTools} />
+          {/* Engineering Dropdown */}
+          <DropdownMenu dropdownKey="engineering" dropdown={engineering} />
         </div>
 
         {/* Mobile Navigation */}
@@ -351,77 +298,58 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
               className="md:hidden overflow-hidden"
             >
               <div className="py-3 space-y-1" role="menu">
-                {/* Home */}
-                <Link
-                  to={`/${categories.home.id}`}
-                  className={`flex items-center px-4 py-2.5 font-medium transition-colors ${
-                    currentPath.startsWith(`/${categories.home.id}`)
-                      ? darkMode
-                        ? 'text-blue-400 bg-gray-800'
-                        : 'text-blue-600 bg-gray-50'
-                      : darkMode
-                      ? 'text-gray-300 hover:bg-gray-800'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="mr-3 text-xl">{categories.home.icon}</span>
-                  {categories.home.name}
-                </Link>
-
-                {/* Prompt Gallery */}
-                <Link
-                  to={`/${categories.promptGallery.id}`}
-                  className={`flex items-center px-4 py-2.5 font-medium transition-colors ${
-                    currentPath.startsWith(`/${categories.promptGallery.id}`)
-                      ? darkMode
-                        ? 'text-blue-400 bg-gray-800'
-                        : 'text-blue-600 bg-gray-50'
-                      : darkMode
-                      ? 'text-gray-300 hover:bg-gray-800'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="mr-3 text-xl">{categories.promptGallery.icon}</span>
-                  {categories.promptGallery.name}
-                </Link>
-
-                {/* All other items grouped by category */}
-                {Object.entries(categories).map(([key, category]) => {
-                  if (key === 'home' || key === 'promptGallery' || !category.items) return null;
-
+                {/* Top Level Links */}
+                {topLevelLinks.map((link) => {
+                  const isActive = currentPath.startsWith(`/${link.id}`);
                   return (
-                    <div key={key} className="pt-3">
-                      <div className={`px-4 py-2 text-xs font-bold uppercase tracking-wider ${
-                        darkMode ? 'text-gray-500' : 'text-gray-400'
-                      }`}>
-                        {category.icon} {category.name}
-                      </div>
-                      <div className="space-y-0.5">
-                        {category.items.map((item) => {
-                          const isActive = currentPath.startsWith(`/${item.id}`);
-                          return (
-                            <Link
-                              key={item.id}
-                              to={`/${item.id}`}
-                              className={`flex items-center px-6 py-2.5 font-medium transition-colors ${
-                                isActive
-                                  ? darkMode
-                                    ? 'text-blue-400 bg-gray-800'
-                                    : 'text-blue-600 bg-gray-50'
-                                  : darkMode
-                                  ? 'text-gray-300 hover:bg-gray-800'
-                                  : 'text-gray-700 hover:bg-gray-50'
-                              }`}
-                            >
-                              <span className="mr-3 text-xl">{item.icon}</span>
-                              {item.name}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <Link
+                      key={link.id}
+                      to={`/${link.id}`}
+                      className={`block px-4 py-2.5 font-medium transition-colors ${
+                        isActive
+                          ? darkMode
+                            ? 'text-blue-400 bg-gray-800'
+                            : 'text-blue-600 bg-gray-50'
+                          : darkMode
+                          ? 'text-gray-300 hover:bg-gray-800'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {link.name}
+                    </Link>
                   );
                 })}
+
+                {/* Engineering Section */}
+                <div className="pt-3">
+                  <div className={`px-4 py-2 text-xs font-bold uppercase tracking-wider ${
+                    darkMode ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
+                    {engineering.name}
+                  </div>
+                  <div className="space-y-0.5">
+                    {engineering.items.map((item) => {
+                      const isActive = currentPath.startsWith(`/${item.id}`);
+                      return (
+                        <Link
+                          key={item.id}
+                          to={`/${item.id}`}
+                          className={`block px-6 py-2.5 font-medium transition-colors ${
+                            isActive
+                              ? darkMode
+                                ? 'text-blue-400 bg-gray-800'
+                                : 'text-blue-600 bg-gray-50'
+                              : darkMode
+                              ? 'text-gray-300 hover:bg-gray-800'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {item.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
