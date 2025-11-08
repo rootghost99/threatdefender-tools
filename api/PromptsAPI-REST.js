@@ -89,11 +89,9 @@ async function callTableAPI(method, path, body = null, context) {
   const separator = path.includes('?') ? '&' : '?';
   const url = `https://${account}.table.core.windows.net${path}${separator}${sasToken}`;
 
-  const dateStr = new Date().toUTCString();
-
+  // When using SAS tokens, don't include x-ms-date or x-ms-version headers
+  // These are only for SharedKey authentication
   const headers = {
-    'x-ms-date': dateStr,
-    'x-ms-version': '2019-02-02',
     'Accept': 'application/json;odata=nometadata',
     'DataServiceVersion': '3.0'
   };

@@ -96,9 +96,9 @@ app.http('TableStorageDiagnostic', {
       const path = `/${tableName}()`;
       const url = `https://${account}.table.core.windows.net${path}?${sasParams}`;
 
+      // When using SAS tokens, don't include x-ms-date or x-ms-version headers
+      // These are only for SharedKey authentication
       const headers = {
-        'x-ms-date': new Date().toUTCString(),
-        'x-ms-version': '2019-02-02',
         'Accept': 'application/json;odata=nometadata',
         'DataServiceVersion': '3.0'
       };
