@@ -6,16 +6,16 @@ const loadingResults = {
   modules: {}
 };
 
-// Track PromptsAPI-Unified loading
+// Track PromptsAPI-REST loading
 try {
-  const testModule = require('./PromptsAPI-Unified');
-  loadingResults.modules['PromptsAPI-Unified'] = {
+  const testModule = require('./PromptsAPI-REST');
+  loadingResults.modules['PromptsAPI-REST'] = {
     status: 'SUCCESS',
     message: 'Module loaded without errors',
     exports: Object.keys(testModule || {})
   };
 } catch (error) {
-  loadingResults.modules['PromptsAPI-Unified'] = {
+  loadingResults.modules['PromptsAPI-REST'] = {
     status: 'FAILED',
     error: error.message,
     stack: error.stack,
@@ -33,10 +33,10 @@ try {
 }
 
 try {
-  require('@azure/data-tables');
-  loadingResults.dependencies['@azure/data-tables'] = 'Available';
+  require('axios');
+  loadingResults.dependencies['axios'] = 'Available';
 } catch (e) {
-  loadingResults.dependencies['@azure/data-tables'] = `Missing: ${e.message}`;
+  loadingResults.dependencies['axios'] = `Missing: ${e.message}`;
 }
 
 try {
