@@ -63,7 +63,7 @@ export default function ThreatDefenderDashboard() {
   }, [location.pathname, tabs]);
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <SkipNav darkMode={darkMode} />
 
       <Navigation
@@ -73,7 +73,7 @@ export default function ThreatDefenderDashboard() {
       />
 
       {/* Main Content */}
-      <main id="main-content" className="max-w-7xl mx-auto px-6 py-6">
+      <main id="main-content" className="flex-1 max-w-7xl mx-auto px-6 py-6 w-full">
         <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
           <AnimatePresence mode="wait">
             <Routes>
@@ -133,7 +133,7 @@ export default function ThreatDefenderDashboard() {
       </main>
 
       {/* Footer */}
-      <footer className={`mt-12 py-6 border-t ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <footer className={`py-6 border-t ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className="max-w-7xl mx-auto px-6 text-center">
           <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             ThreatDefender Operations Suite | Built for ThreatDefender MSSP Team
