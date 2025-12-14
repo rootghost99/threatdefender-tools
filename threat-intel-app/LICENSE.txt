@@ -1,0 +1,31 @@
+Threat Intel Checker - End User License Agreement
+
+Copyright (c) 2024 ThreatDefender Team
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use
+the Software for security operations, threat intelligence analysis, and
+security research purposes.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+IMPORTANT NOTICES:
+
+1. API Key Usage: This software queries third-party threat intelligence
+   services. You are responsible for obtaining and properly using API keys
+   in accordance with each service's terms of use.
+
+2. Data Privacy: Indicators you submit may be sent to external threat
+   intelligence services. Do not submit sensitive or classified indicators
+   without appropriate authorization.
+
+3. Security: API keys are stored locally on your machine in an encrypted
+   format. Keep your system secure to protect these credentials.
+
+By installing and using this software, you agree to these terms.

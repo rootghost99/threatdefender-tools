@@ -1,0 +1,16 @@
+{
+  "apiKeys": {
+    "virusTotal": "YOUR_VIRUSTOTAL_API_KEY",
+    "abuseIPDB": "YOUR_ABUSEIPDB_API_KEY",
+    "urlScan": "YOUR_URLSCAN_API_KEY",
+    "greyNoise": "YOUR_GREYNOISE_API_KEY",
+    "shodan": "YOUR_SHODAN_API_KEY",
+    "alienVault": "YOUR_ALIENVAULT_OTX_API_KEY",
+    "mxToolbox": "YOUR_MXTOOLBOX_API_KEY",
+    "hybridAnalysis": "YOUR_HYBRID_ANALYSIS_API_KEY"
+  },
+  "preferences": {
+    "darkMode": true,
+    "serverPort": 3001
+  }
+}
