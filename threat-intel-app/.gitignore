@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+src/node_modules/
+
+# Build outputs
+dist/
+src/build/
+*.exe
+*.msi
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files (contains secrets)
+.env
+.env.local
+.env.*.local
+
+# Electron builder cache
+.cache/
+
+# Settings (contains API keys)
+threat-intel-settings.json
+
+# Temporary files
+*.tmp
+*.temp
