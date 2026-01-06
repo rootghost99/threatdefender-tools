@@ -1,12 +1,65 @@
 // AuthContext - Provides authentication state and token acquisition throughout the app
+// This context is only active when MSAL is properly configured
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { useMsal, useIsAuthenticated } from '@azure/msal-react';
-import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { armScopes, logAnalyticsScopes } from '../authConfig';
+
+// Try to import MSAL hooks - they may not be available if MSAL isn't initialized
+let useMsal, useIsAuthenticated, InteractionRequiredAuthError;
+let msalAvailable = false;
+
+try {
+  const msalReact = require('@azure/msal-react');
+  const msalBrowser = require('@azure/msal-browser');
+  useMsal = msalReact.useMsal;
+  useIsAuthenticated = msalReact.useIsAuthenticated;
+  InteractionRequiredAuthError = msalBrowser.InteractionRequiredAuthError;
+  msalAvailable = true;
+} catch (e) {
+  console.warn('MSAL not available:', e.message);
+}
+
+// Import scopes config
+let armScopes = { scopes: ['https://management.azure.com/user_impersonation'] };
+let logAnalyticsScopes = { scopes: ['https://api.loganalytics.io/Data.Read'] };
+
+try {
+  const authConfig = require('../authConfig');
+  armScopes = authConfig.armScopes;
+  logAnalyticsScopes = authConfig.logAnalyticsScopes;
+} catch (e) {
+  // Use defaults
+}
 
 const AuthContext = createContext(null);
 
+// Default values when auth is not available
+const defaultAuthValue = {
+  isAuthenticated: false,
+  isLoading: false,
+  account: null,
+  acquireToken: async () => { throw new Error('Auth not configured'); },
+  getArmToken: async () => { throw new Error('Auth not configured'); },
+  getLogAnalyticsToken: async () => { throw new Error('Auth not configured'); },
+  fetchFromArm: async () => { throw new Error('Auth not configured'); },
+  fetchFromLogAnalytics: async () => { throw new Error('Auth not configured'); },
+  getSentinelWorkspaces: async () => { throw new Error('Auth not configured'); },
+  getSentinelIncident: async () => { throw new Error('Auth not configured'); },
+  getIncidentLogs: async () => { throw new Error('Auth not configured'); },
+};
+
 export function AuthProvider({ children }) {
+  // If MSAL isn't available, just render children without auth context
+  if (!msalAvailable) {
+    return (
+      <AuthContext.Provider value={defaultAuthValue}>
+        {children}
+      </AuthContext.Provider>
+    );
+  }
+
+  return <AuthProviderInner>{children}</AuthProviderInner>;
+}
+
+function AuthProviderInner({ children }) {
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const [isLoading, setIsLoading] = useState(false);
@@ -126,7 +179,7 @@ export function AuthProvider({ children }) {
         for (const ws of workspacesResponse.value || []) {
           // Check if Sentinel is enabled by looking for SecurityInsights solution
           try {
-            const sentinelCheck = await fetchFromArm(
+            await fetchFromArm(
               `https://management.azure.com${ws.id}/providers/Microsoft.SecurityInsights/settings?api-version=2023-11-01`
             );
 
@@ -243,8 +296,9 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
+  // Return default values if context not available (no AuthProvider)
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    return defaultAuthValue;
   }
   return context;
 }
