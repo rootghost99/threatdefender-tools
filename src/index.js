@@ -9,39 +9,32 @@ import { NavigationProvider } from './contexts/NavigationContext';
 let MsalWrapper = ({ children }) => children; // Default passthrough
 
 const initializeMsal = async () => {
-  const clientId = process.env.REACT_APP_AZURE_CLIENT_ID;
+  try {
+    const { PublicClientApplication } = await import('@azure/msal-browser');
+    const { MsalProvider } = await import('@azure/msal-react');
+    const { msalConfig } = await import('./authConfig');
+    const { AuthProvider } = await import('./contexts/AuthContext');
 
-  // Only initialize MSAL if client ID is configured
-  if (clientId) {
-    try {
-      const { PublicClientApplication } = await import('@azure/msal-browser');
-      const { MsalProvider } = await import('@azure/msal-react');
-      const { msalConfig } = await import('./authConfig');
-      const { AuthProvider } = await import('./contexts/AuthContext');
+    const msalInstance = new PublicClientApplication(msalConfig);
+    await msalInstance.initialize();
 
-      const msalInstance = new PublicClientApplication(msalConfig);
-      await msalInstance.initialize();
-
-      const accounts = msalInstance.getAllAccounts();
-      if (accounts.length > 0) {
-        msalInstance.setActiveAccount(accounts[0]);
-      }
-
-      // Create wrapper component with MSAL
-      MsalWrapper = ({ children }) => (
-        <MsalProvider instance={msalInstance}>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </MsalProvider>
-      );
-
-      console.log('MSAL initialized successfully');
-    } catch (err) {
-      console.warn('MSAL initialization failed, Sentinel lookup will be disabled:', err.message);
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      msalInstance.setActiveAccount(accounts[0]);
     }
-  } else {
-    console.log('REACT_APP_AZURE_CLIENT_ID not configured, Sentinel lookup disabled');
+
+    // Create wrapper component with MSAL
+    MsalWrapper = ({ children }) => (
+      <MsalProvider instance={msalInstance}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </MsalProvider>
+    );
+
+    console.log('MSAL initialized successfully');
+  } catch (err) {
+    console.warn('MSAL initialization failed, Sentinel lookup will be disabled:', err.message);
   }
 };
 

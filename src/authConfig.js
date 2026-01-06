@@ -3,8 +3,8 @@
 
 export const msalConfig = {
   auth: {
-    // Client ID from Azure AD App Registration (set via environment variable or hardcode for dev)
-    clientId: process.env.REACT_APP_AZURE_CLIENT_ID || '',
+    // Client ID from Azure AD App Registration
+    clientId: '6568134a-58b0-479a-b5d8-3fe94e482f24',
     // Tenant ID for threathuntermssp.com
     authority: 'https://login.microsoftonline.com/b97db93f-ba65-4ed8-8be9-15e047852060',
     // Redirect URI after authentication
