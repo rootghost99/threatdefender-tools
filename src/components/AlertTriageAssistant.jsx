@@ -558,6 +558,8 @@ ${classification.containmentRecommendations?.map((s, i) => `${i + 1}. ${s}`).joi
                 rows={10}
                 placeholder="Paste the raw alert content here (JSON, email body, SIEM export, etc.)...
 
+Use Link to LA to grab all alert details and paste them here.
+
 Examples of what to paste:
 - Microsoft Sentinel alert JSON
 - Defender for Endpoint alert details
