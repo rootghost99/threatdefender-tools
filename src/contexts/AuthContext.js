@@ -1,33 +1,8 @@
 // AuthContext - Provides authentication state and token acquisition throughout the app
-// This context is only active when MSAL is properly configured
 import React, { createContext, useContext, useState, useCallback } from 'react';
-
-// Try to import MSAL hooks - they may not be available if MSAL isn't initialized
-let useMsal, useIsAuthenticated, InteractionRequiredAuthError;
-let msalAvailable = false;
-
-try {
-  const msalReact = require('@azure/msal-react');
-  const msalBrowser = require('@azure/msal-browser');
-  useMsal = msalReact.useMsal;
-  useIsAuthenticated = msalReact.useIsAuthenticated;
-  InteractionRequiredAuthError = msalBrowser.InteractionRequiredAuthError;
-  msalAvailable = true;
-} catch (e) {
-  console.warn('MSAL not available:', e.message);
-}
-
-// Import scopes config
-let armScopes = { scopes: ['https://management.azure.com/user_impersonation'] };
-let logAnalyticsScopes = { scopes: ['https://api.loganalytics.io/Data.Read'] };
-
-try {
-  const authConfig = require('../authConfig');
-  armScopes = authConfig.armScopes;
-  logAnalyticsScopes = authConfig.logAnalyticsScopes;
-} catch (e) {
-  // Use defaults
-}
+import { useMsal, useIsAuthenticated } from '@azure/msal-react';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
+import { armScopes, logAnalyticsScopes } from '../authConfig';
 
 const AuthContext = createContext(null);
 
@@ -47,19 +22,6 @@ const defaultAuthValue = {
 };
 
 export function AuthProvider({ children }) {
-  // If MSAL isn't available, just render children without auth context
-  if (!msalAvailable) {
-    return (
-      <AuthContext.Provider value={defaultAuthValue}>
-        {children}
-      </AuthContext.Provider>
-    );
-  }
-
-  return <AuthProviderInner>{children}</AuthProviderInner>;
-}
-
-function AuthProviderInner({ children }) {
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const [isLoading, setIsLoading] = useState(false);
@@ -245,7 +207,7 @@ function AuthProviderInner({ children }) {
   }, [fetchFromArm]);
 
   // Run a Log Analytics query for incident-related logs
-  const getIncidentLogs = useCallback(async (workspaceCustomerId, incidentId, timeRange = '7d') => {
+  const getIncidentLogs = useCallback(async (workspaceCustomerId, incidentId) => {
     // Query SecurityIncident and related tables
     const query = `
       // Get incident details
