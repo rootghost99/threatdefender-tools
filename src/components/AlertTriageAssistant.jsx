@@ -230,8 +230,9 @@ function SplashScreen({ onComplete, darkMode }) {
 // Main Component
 export default function AlertTriageAssistant({ darkMode }) {
   const navigate = useNavigate();
-  const { isAuthenticated, getSentinelWorkspaces, getSentinelIncident, getIncidentLogs, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isMsalAvailable, login, getSentinelWorkspaces, getSentinelIncident, getIncidentLogs, isLoading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
+  const [loginError, setLoginError] = useState(null);
 
   // Sentinel workspace/incident state
   const [workspaces, setWorkspaces] = useState([]);
@@ -643,87 +644,127 @@ ${classification.containmentRecommendations?.map((s, i) => `${i + 1}. ${s}`).joi
         {!classification && (
           <div className="space-y-4">
             {/* Sentinel Workspace & Incident Lookup */}
-            {isAuthenticated && (
+            {isMsalAvailable && (
               <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-750 border-gray-600' : 'bg-blue-50 border-blue-200'}`}>
                 <h4 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   <span>🔗</span> Fetch from Microsoft Sentinel
                 </h4>
 
-                {workspacesError && (
-                  <div className="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-sm">
-                    {workspacesError}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {/* Workspace Dropdown */}
-                  <div className="md:col-span-1">
-                    <label className={`block text-xs font-medium mb-1 ${subText}`}>
-                      Sentinel Workspace
-                    </label>
-                    <select
-                      value={selectedWorkspace}
-                      onChange={(e) => setSelectedWorkspace(e.target.value)}
-                      disabled={workspacesLoading || workspaces.length === 0}
-                      className={`w-full px-3 py-2 rounded-lg border text-sm ${inputBg} ${workspacesLoading ? 'opacity-50' : ''}`}
-                    >
-                      <option value="">
-                        {workspacesLoading ? 'Loading workspaces...' : workspaces.length === 0 ? 'No workspaces found' : 'Select workspace...'}
-                      </option>
-                      {workspaces.map((ws) => (
-                        <option key={ws.id} value={ws.id}>
-                          {ws.name} ({ws.subscriptionName})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Incident Number Input */}
-                  <div className="md:col-span-1">
-                    <label className={`block text-xs font-medium mb-1 ${subText}`}>
-                      Incident Number
-                    </label>
-                    <input
-                      type="text"
-                      value={incidentNumber}
-                      onChange={(e) => setIncidentNumber(e.target.value)}
-                      placeholder="e.g., 12345"
-                      className={`w-full px-3 py-2 rounded-lg border text-sm ${inputBg}`}
-                    />
-                  </div>
-
-                  {/* Fetch Button */}
-                  <div className="md:col-span-1 flex items-end">
+                {/* Show login prompt if not authenticated */}
+                {!isAuthenticated ? (
+                  <div className="text-center py-4">
+                    {loginError && (
+                      <div className="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-sm">
+                        {loginError}
+                      </div>
+                    )}
+                    <p className={`mb-4 text-sm ${subText}`}>
+                      Sign in with your Microsoft account to fetch incidents directly from Sentinel workspaces.
+                    </p>
                     <button
-                      onClick={fetchIncident}
-                      disabled={!selectedWorkspace || !incidentNumber.trim() || incidentLoading || authLoading}
-                      className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
-                        selectedWorkspace && incidentNumber.trim() && !incidentLoading && !authLoading
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                          : darkMode
-                          ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      onClick={async () => {
+                        setLoginError(null);
+                        try {
+                          await login();
+                        } catch (err) {
+                          setLoginError(err.message || 'Login failed. Please try again.');
+                        }
+                      }}
+                      disabled={authLoading}
+                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                        authLoading
+                          ? darkMode ? 'bg-gray-700 text-gray-500' : 'bg-gray-200 text-gray-400'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
                       }`}
                     >
-                      {incidentLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <span className="animate-spin">⏳</span> Fetching...
+                      {authLoading ? (
+                        <span className="flex items-center gap-2">
+                          <span className="animate-spin">⏳</span> Signing in...
                         </span>
                       ) : (
-                        '📥 Fetch Incident'
+                        '🔐 Sign in with Microsoft'
                       )}
                     </button>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {workspacesError && (
+                      <div className="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-sm">
+                        {workspacesError}
+                      </div>
+                    )}
 
-                <p className={`mt-2 text-xs ${subText}`}>
-                  Select a workspace and enter an incident number to automatically fetch alert details, entities, and related logs.
-                </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {/* Workspace Dropdown */}
+                      <div className="md:col-span-1">
+                        <label className={`block text-xs font-medium mb-1 ${subText}`}>
+                          Sentinel Workspace
+                        </label>
+                        <select
+                          value={selectedWorkspace}
+                          onChange={(e) => setSelectedWorkspace(e.target.value)}
+                          disabled={workspacesLoading || workspaces.length === 0}
+                          className={`w-full px-3 py-2 rounded-lg border text-sm ${inputBg} ${workspacesLoading ? 'opacity-50' : ''}`}
+                        >
+                          <option value="">
+                            {workspacesLoading ? 'Loading workspaces...' : workspaces.length === 0 ? 'No workspaces found' : 'Select workspace...'}
+                          </option>
+                          {workspaces.map((ws) => (
+                            <option key={ws.id} value={ws.id}>
+                              {ws.name} ({ws.subscriptionName})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Incident Number Input */}
+                      <div className="md:col-span-1">
+                        <label className={`block text-xs font-medium mb-1 ${subText}`}>
+                          Incident Number
+                        </label>
+                        <input
+                          type="text"
+                          value={incidentNumber}
+                          onChange={(e) => setIncidentNumber(e.target.value)}
+                          placeholder="e.g., 12345"
+                          className={`w-full px-3 py-2 rounded-lg border text-sm ${inputBg}`}
+                        />
+                      </div>
+
+                      {/* Fetch Button */}
+                      <div className="md:col-span-1 flex items-end">
+                        <button
+                          onClick={fetchIncident}
+                          disabled={!selectedWorkspace || !incidentNumber.trim() || incidentLoading || authLoading}
+                          className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
+                            selectedWorkspace && incidentNumber.trim() && !incidentLoading && !authLoading
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                              : darkMode
+                              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          {incidentLoading ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <span className="animate-spin">⏳</span> Fetching...
+                            </span>
+                          ) : (
+                            '📥 Fetch Incident'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className={`mt-2 text-xs ${subText}`}>
+                      Select a workspace and enter an incident number to automatically fetch alert details, entities, and related logs.
+                    </p>
+                  </>
+                )}
               </div>
             )}
 
             {/* Divider */}
-            {isAuthenticated && (
+            {isMsalAvailable && (
               <div className="flex items-center gap-4">
                 <div className={`flex-1 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}></div>
                 <span className={`text-sm ${subText}`}>or paste manually</span>
