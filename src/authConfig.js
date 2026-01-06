@@ -56,13 +56,9 @@ export const logAnalyticsScopes = {
   scopes: ['https://api.loganalytics.io/Data.Read'],
 };
 
-// Combined login request with all needed scopes
+// Login request - only basic scopes (tokens for other APIs acquired separately)
 export const loginRequest = {
-  scopes: [
-    'User.Read',
-    'https://management.azure.com/user_impersonation',
-    'https://api.loganalytics.io/Data.Read',
-  ],
+  scopes: ['User.Read', 'openid', 'profile'],
 };
 
 // Graph API scopes (for user profile)
