@@ -168,7 +168,7 @@ export function AuthProvider({ children }) {
     }
   }, [getLogAnalyticsToken]);
 
-  // Get list of Sentinel workspaces user has access to
+  // Get list of Sentinel workspaces using Azure Resource Graph (much faster than checking each workspace)
   const getSentinelWorkspaces = useCallback(async (onProgress) => {
     const CACHE_KEY = 'sentinel_workspaces_cache';
     const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -186,56 +186,69 @@ export function AuthProvider({ children }) {
       // Cache read failed, continue with fetch
     }
 
-    // First get subscriptions
+    // Get subscriptions for the query
     const subsResponse = await fetchFromArm(
       'https://management.azure.com/subscriptions?api-version=2022-12-01'
     );
-
-    // Get all Log Analytics workspaces from all subscriptions in parallel
     const subscriptions = subsResponse.value || [];
-    const workspacePromises = subscriptions.map(async (sub) => {
-      const response = await fetchFromArmSilent(
-        `https://management.azure.com/subscriptions/${sub.subscriptionId}/providers/Microsoft.OperationalInsights/workspaces?api-version=2022-10-01`
+    const subscriptionIds = subscriptions.map(s => s.subscriptionId);
+
+    // Build subscription lookup for display names
+    const subLookup = {};
+    subscriptions.forEach(s => { subLookup[s.subscriptionId] = s.displayName; });
+
+    // Use Azure Resource Graph to find all Sentinel-enabled workspaces in one query
+    const resourceGraphQuery = {
+      query: `
+        resources
+        | where type == "microsoft.operationsmanagement/solutions"
+        | where name startswith "SecurityInsights("
+        | extend workspaceId = tolower(tostring(properties.workspaceResourceId))
+        | project workspaceId, subscriptionId
+      `,
+      subscriptions: subscriptionIds,
+    };
+
+    const graphResponse = await fetchFromArm(
+      'https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01',
+      {
+        method: 'POST',
+        body: JSON.stringify(resourceGraphQuery),
+      }
+    );
+
+    const sentinelWorkspaceIds = (graphResponse.data || []).map(row => row.workspaceId);
+
+    if (sentinelWorkspaceIds.length === 0) {
+      return [];
+    }
+
+    // Get workspace details for each Sentinel workspace
+    const workspacePromises = sentinelWorkspaceIds.map(async (wsId) => {
+      const wsResponse = await fetchFromArmSilent(
+        `https://management.azure.com${wsId}?api-version=2022-10-01`
       );
-      return (response?.value || []).map(ws => ({ ...ws, subscription: sub }));
+      if (wsResponse) {
+        const subscriptionId = wsId.split('/subscriptions/')[1]?.split('/')[0];
+        return {
+          id: wsResponse.id,
+          name: wsResponse.name,
+          customerId: wsResponse.properties?.customerId,
+          location: wsResponse.location,
+          subscriptionId,
+          subscriptionName: subLookup[subscriptionId] || subscriptionId,
+          resourceGroup: wsResponse.id.split('/resourceGroups/')[1]?.split('/')[0],
+        };
+      }
+      return null;
     });
 
-    const workspaceArrays = await Promise.all(workspacePromises);
-    const allWorkspaces = workspaceArrays.flat();
+    const results = await Promise.all(workspacePromises);
+    const sentinelWorkspaces = results.filter(Boolean);
 
-    // Check Sentinel on all workspaces in parallel (larger batches for speed)
-    const batchSize = 20;
-    const sentinelWorkspaces = [];
-
-    for (let i = 0; i < allWorkspaces.length; i += batchSize) {
-      const batch = allWorkspaces.slice(i, i + batchSize);
-      const results = await Promise.all(
-        batch.map(async (ws) => {
-          // Silent check - returns null if Sentinel not enabled
-          const result = await fetchFromArmSilent(
-            `https://management.azure.com${ws.id}/providers/Microsoft.SecurityInsights/incidents?api-version=2023-11-01&$top=1`
-          );
-          if (result !== null) {
-            return {
-              id: ws.id,
-              name: ws.name,
-              customerId: ws.properties?.customerId,
-              location: ws.location,
-              subscriptionId: ws.subscription.subscriptionId,
-              subscriptionName: ws.subscription.displayName,
-              resourceGroup: ws.id.split('/resourceGroups/')[1]?.split('/')[0],
-            };
-          }
-          return null;
-        })
-      );
-      const newWorkspaces = results.filter(Boolean);
-      sentinelWorkspaces.push(...newWorkspaces);
-
-      // Report progress if callback provided
-      if (onProgress && newWorkspaces.length > 0) {
-        onProgress([...sentinelWorkspaces]);
-      }
+    // Report progress
+    if (onProgress) {
+      onProgress(sentinelWorkspaces);
     }
 
     // Cache the results
