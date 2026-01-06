@@ -1,6 +1,5 @@
 // Alert Triage Assistant - AI-powered alert classification and IOC enrichment
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -229,7 +228,6 @@ function SplashScreen({ onComplete, darkMode }) {
 
 // Main Component
 export default function AlertTriageAssistant({ darkMode }) {
-  const navigate = useNavigate();
   const { isAuthenticated, isMsalAvailable, login, getSentinelWorkspaces, getSentinelIncident, getIncidentLogs, isLoading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const [loginError, setLoginError] = useState(null);
@@ -553,36 +551,6 @@ export default function AlertTriageAssistant({ darkMode }) {
       setLoading(prev => ({ ...prev, classify: false }));
     }
   }, [rawInput, selectedIOCs, summarizeEnrichment]);
-
-  // Send to IR Playbook
-  const sendToIRPlaybook = useCallback(() => {
-    if (!classification) return;
-
-    const playbookInput = {
-      category: classification.category,
-      severity: classification.severity,
-      incidentDetails: `
-Alert Summary: ${classification.summary}
-
-Extracted IOCs:
-${Object.entries(selectedIOCs).map(([type, values]) =>
-  values.length ? `- ${type}: ${values.join(', ')}` : ''
-).filter(Boolean).join('\n')}
-
-MITRE ATT&CK Tactics:
-${classification.mitreTactics?.map(t => `- ${t.id}: ${t.name}`).join('\n') || 'N/A'}
-
-Investigation Steps:
-${classification.investigationSteps?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'N/A'}
-
-Containment Recommendations:
-${classification.containmentRecommendations?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'N/A'}
-      `.trim()
-    };
-
-    sessionStorage.setItem('alertTriageHandoff', JSON.stringify(playbookInput));
-    navigate('/ir-playbook?fromTriage=true');
-  }, [classification, selectedIOCs, navigate]);
 
   // Reset all state
   const handleReset = () => {
@@ -1062,14 +1030,6 @@ Examples of what to paste:
               </h4>
               <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>{classification.summary}</p>
             </div>
-
-            {/* Action Button */}
-            <button
-              onClick={sendToIRPlaybook}
-              className="w-full py-3 px-6 rounded-lg font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors"
-            >
-              📋 Generate Full IR Playbook
-            </button>
           </div>
 
           {/* Investigation Steps */}
