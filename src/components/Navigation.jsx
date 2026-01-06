@@ -13,6 +13,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
 
   // Organize tabs into categories
   const topLevelLinks = [
+    { id: 'alert-triage', name: 'Alert Triage' },
     { id: 'threat-intel', name: 'Threat Lookup' },
     { id: 'prompt-gallery', name: 'Prompts' },
     { id: 'ir-playbook', name: 'IR Playbook' },
