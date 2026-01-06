@@ -169,13 +169,13 @@ export function AuthProvider({ children }) {
         );
 
         for (const ws of workspacesResponse.value || []) {
-          // Check if Sentinel is enabled by looking for SecurityInsights solution
+          // Check if Sentinel is enabled by trying to list incidents (with top=1 for speed)
           try {
             await fetchFromArm(
-              `https://management.azure.com${ws.id}/providers/Microsoft.SecurityInsights/settings?api-version=2023-11-01`
+              `https://management.azure.com${ws.id}/providers/Microsoft.SecurityInsights/incidents?api-version=2023-11-01&$top=1`
             );
 
-            // If we can query Sentinel settings, it's a Sentinel workspace
+            // If we can query Sentinel incidents, it's a Sentinel workspace
             workspaces.push({
               id: ws.id,
               name: ws.name,
