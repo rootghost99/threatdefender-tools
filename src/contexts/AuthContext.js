@@ -198,20 +198,29 @@ export function AuthProvider({ children }) {
   }, [fetchFromArm]);
 
   // Get incident details from Sentinel
-  const getSentinelIncident = useCallback(async (workspaceResourceId, incidentId) => {
-    // Normalize incident ID (handle both formats: just number or full incident-GUID)
-    const normalizedId = incidentId.toString().trim();
+  const getSentinelIncident = useCallback(async (workspaceResourceId, incidentNumber) => {
+    // Incident numbers in Sentinel are different from resource IDs
+    // We need to query by incident number to find the actual resource ID (GUID)
+    const normalizedNumber = incidentNumber.toString().trim();
 
-    // Get the incident
-    const incidentResponse = await fetchFromArm(
-      `https://management.azure.com${workspaceResourceId}/providers/Microsoft.SecurityInsights/incidents/${normalizedId}?api-version=2023-11-01`
+    // Query incidents filtering by incident number
+    const incidentsResponse = await fetchFromArm(
+      `https://management.azure.com${workspaceResourceId}/providers/Microsoft.SecurityInsights/incidents?api-version=2023-11-01&$filter=properties/incidentNumber eq ${normalizedNumber}`
     );
+
+    const incidents = incidentsResponse.value || [];
+    if (incidents.length === 0) {
+      throw new Error(`Incident #${normalizedNumber} not found in this workspace`);
+    }
+
+    const incident = incidents[0];
+    const incidentName = incident.name; // This is the GUID
 
     // Get alerts related to this incident
     let alerts = [];
     try {
       const alertsResponse = await fetchFromArm(
-        `https://management.azure.com${workspaceResourceId}/providers/Microsoft.SecurityInsights/incidents/${normalizedId}/alerts?api-version=2023-11-01`
+        `https://management.azure.com${workspaceResourceId}/providers/Microsoft.SecurityInsights/incidents/${incidentName}/alerts?api-version=2023-11-01`
       );
       alerts = alertsResponse.value || [];
     } catch (err) {
@@ -222,7 +231,7 @@ export function AuthProvider({ children }) {
     let entities = [];
     try {
       const entitiesResponse = await fetchFromArm(
-        `https://management.azure.com${workspaceResourceId}/providers/Microsoft.SecurityInsights/incidents/${normalizedId}/entities?api-version=2023-11-01`
+        `https://management.azure.com${workspaceResourceId}/providers/Microsoft.SecurityInsights/incidents/${incidentName}/entities?api-version=2023-11-01`
       );
       entities = entitiesResponse.entities || [];
     } catch (err) {
@@ -230,7 +239,7 @@ export function AuthProvider({ children }) {
     }
 
     return {
-      incident: incidentResponse,
+      incident,
       alerts,
       entities,
     };
