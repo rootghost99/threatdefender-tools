@@ -169,7 +169,23 @@ export function AuthProvider({ children }) {
   }, [getLogAnalyticsToken]);
 
   // Get list of Sentinel workspaces user has access to
-  const getSentinelWorkspaces = useCallback(async () => {
+  const getSentinelWorkspaces = useCallback(async (onProgress) => {
+    const CACHE_KEY = 'sentinel_workspaces_cache';
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+    // Check cache first
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { workspaces, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          return workspaces;
+        }
+      }
+    } catch {
+      // Cache read failed, continue with fetch
+    }
+
     // First get subscriptions
     const subsResponse = await fetchFromArm(
       'https://management.azure.com/subscriptions?api-version=2022-12-01'
@@ -187,8 +203,8 @@ export function AuthProvider({ children }) {
     const workspaceArrays = await Promise.all(workspacePromises);
     const allWorkspaces = workspaceArrays.flat();
 
-    // Check Sentinel on all workspaces in parallel (batched to avoid rate limiting)
-    const batchSize = 10;
+    // Check Sentinel on all workspaces in parallel (larger batches for speed)
+    const batchSize = 20;
     const sentinelWorkspaces = [];
 
     for (let i = 0; i < allWorkspaces.length; i += batchSize) {
@@ -213,7 +229,23 @@ export function AuthProvider({ children }) {
           return null;
         })
       );
-      sentinelWorkspaces.push(...results.filter(Boolean));
+      const newWorkspaces = results.filter(Boolean);
+      sentinelWorkspaces.push(...newWorkspaces);
+
+      // Report progress if callback provided
+      if (onProgress && newWorkspaces.length > 0) {
+        onProgress([...sentinelWorkspaces]);
+      }
+    }
+
+    // Cache the results
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+        workspaces: sentinelWorkspaces,
+        timestamp: Date.now(),
+      }));
+    } catch {
+      // Cache write failed, ignore
     }
 
     return sentinelWorkspaces;

@@ -269,7 +269,10 @@ export default function AlertTriageAssistant({ darkMode }) {
       setWorkspacesLoading(true);
       setWorkspacesError(null);
       try {
-        const ws = await getSentinelWorkspaces();
+        // Use progress callback to show workspaces as they're discovered
+        const ws = await getSentinelWorkspaces((progressWorkspaces) => {
+          setWorkspaces(progressWorkspaces);
+        });
         setWorkspaces(ws);
         // Auto-select first workspace if only one
         if (ws.length === 1) {
