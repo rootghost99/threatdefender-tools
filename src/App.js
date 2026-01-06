@@ -11,6 +11,7 @@ const SOCHandoffTool = lazy(() => import('./components/SOCHandoffTool'));
 const ThreatIntelLookup = lazy(() => import('./components/ThreatIntelLookup'));
 const EmailPostureCheck = lazy(() => import('./components/EmailPostureCheck'));
 const PromptGallery = lazy(() => import('./components/PromptGallery'));
+const AlertTriageAssistant = lazy(() => import('./components/AlertTriageAssistant'));
 
 // Loading component
 function LoadingFallback({ darkMode }) {
@@ -43,8 +44,9 @@ export default function ThreatDefenderDashboard() {
   const location = useLocation();
 
   const tabs = [
+    { id: 'alert-triage', name: 'Alert Triage', icon: '🚨', component: AlertTriageAssistant },
     { id: 'threat-intel', name: 'Threat Intel Lookup', icon: '🛡️', component: ThreatIntelLookup },
-    { id: 'ir-playbook', name: 'IR Playbook Generator', icon: '🚨', component: IRPlaybookGenerator },
+    { id: 'ir-playbook', name: 'IR Playbook Generator', icon: '📋', component: IRPlaybookGenerator },
     { id: 'prompt-gallery', name: 'Prompt Gallery', icon: '📚', component: PromptGallery },
     { id: 'soc-handoff', name: 'SOC Shift Handoff', icon: '🔄', component: SOCHandoffTool },
     { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
@@ -77,6 +79,14 @@ export default function ThreatDefenderDashboard() {
         <Suspense fallback={<LoadingFallback darkMode={darkMode} />}>
           <AnimatePresence mode="wait">
             <Routes>
+              <Route
+                path="/alert-triage"
+                element={
+                  <PageWrapper darkMode={darkMode}>
+                    <AlertTriageAssistant darkMode={darkMode} />
+                  </PageWrapper>
+                }
+              />
               <Route
                 path="/threat-intel"
                 element={
@@ -125,8 +135,8 @@ export default function ThreatDefenderDashboard() {
                   </PageWrapper>
                 }
               />
-              <Route path="/" element={<Navigate to="/threat-intel" replace />} />
-              <Route path="*" element={<Navigate to="/threat-intel" replace />} />
+              <Route path="/" element={<Navigate to="/alert-triage" replace />} />
+              <Route path="*" element={<Navigate to="/alert-triage" replace />} />
             </Routes>
           </AnimatePresence>
         </Suspense>

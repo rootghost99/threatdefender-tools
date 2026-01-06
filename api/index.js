@@ -7,6 +7,13 @@ console.log('Starting Azure Functions initialization');
 console.log('Node version:', process.version);
 console.log('========================================');
 try {
+  require('./AlertTriage');
+  console.log('✓ AlertTriage loaded');
+} catch (e) {
+  console.error('✗ AlertTriage failed:', e.message);
+}
+
+try {
   require('./IRPlaybook');
   console.log('✓ IRPlaybook loaded');
 } catch (e) {
