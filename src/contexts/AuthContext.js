@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { armScopes, logAnalyticsScopes } from '../authConfig';
+import { armScopes, logAnalyticsScopes, loginRequest } from '../authConfig';
 
 const AuthContext = createContext(null);
 
@@ -10,7 +10,10 @@ const AuthContext = createContext(null);
 const defaultAuthValue = {
   isAuthenticated: false,
   isLoading: false,
+  isMsalAvailable: false,
   account: null,
+  login: async () => { throw new Error('Auth not configured'); },
+  logout: async () => { throw new Error('Auth not configured'); },
   acquireToken: async () => { throw new Error('Auth not configured'); },
   getArmToken: async () => { throw new Error('Auth not configured'); },
   getLogAnalyticsToken: async () => { throw new Error('Auth not configured'); },
@@ -28,6 +31,33 @@ export function AuthProvider({ children }) {
 
   // Get the active account
   const account = accounts[0] || null;
+
+  // Login with popup
+  const login = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await instance.loginPopup(loginRequest);
+      if (response?.account) {
+        instance.setActiveAccount(response.account);
+      }
+      return response;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [instance]);
+
+  // Logout
+  const logout = useCallback(async () => {
+    try {
+      await instance.logoutPopup();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      throw error;
+    }
+  }, [instance]);
 
   // Acquire token silently, falling back to popup if needed
   const acquireToken = useCallback(async (scopes) => {
@@ -238,7 +268,10 @@ export function AuthProvider({ children }) {
   const value = {
     isAuthenticated,
     isLoading,
+    isMsalAvailable: true,
     account,
+    login,
+    logout,
     acquireToken,
     getArmToken,
     getLogAnalyticsToken,
