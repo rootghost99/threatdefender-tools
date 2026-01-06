@@ -123,6 +123,23 @@ export function AuthProvider({ children }) {
     }
   }, [getArmToken]);
 
+  // Silent fetch - returns null on error instead of throwing (for expected failures)
+  const fetchFromArmSilent = useCallback(async (url) => {
+    try {
+      const token = await getArmToken();
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) return null;
+      return response.json();
+    } catch {
+      return null;
+    }
+  }, [getArmToken]);
+
   // Fetch from Log Analytics with auth
   const fetchFromLogAnalytics = useCallback(async (workspaceId, query) => {
     setIsLoading(true);
@@ -158,44 +175,49 @@ export function AuthProvider({ children }) {
       'https://management.azure.com/subscriptions?api-version=2022-12-01'
     );
 
-    const workspaces = [];
+    // Get all Log Analytics workspaces from all subscriptions in parallel
+    const subscriptions = subsResponse.value || [];
+    const workspacePromises = subscriptions.map(async (sub) => {
+      const response = await fetchFromArmSilent(
+        `https://management.azure.com/subscriptions/${sub.subscriptionId}/providers/Microsoft.OperationalInsights/workspaces?api-version=2022-10-01`
+      );
+      return (response?.value || []).map(ws => ({ ...ws, subscription: sub }));
+    });
 
-    // For each subscription, get Log Analytics workspaces with Sentinel enabled
-    for (const sub of subsResponse.value || []) {
-      try {
-        // Get all Log Analytics workspaces in this subscription
-        const workspacesResponse = await fetchFromArm(
-          `https://management.azure.com/subscriptions/${sub.subscriptionId}/providers/Microsoft.OperationalInsights/workspaces?api-version=2022-10-01`
-        );
+    const workspaceArrays = await Promise.all(workspacePromises);
+    const allWorkspaces = workspaceArrays.flat();
 
-        for (const ws of workspacesResponse.value || []) {
-          // Check if Sentinel is enabled by trying to list incidents (with top=1 for speed)
-          try {
-            await fetchFromArm(
-              `https://management.azure.com${ws.id}/providers/Microsoft.SecurityInsights/incidents?api-version=2023-11-01&$top=1`
-            );
+    // Check Sentinel on all workspaces in parallel (batched to avoid rate limiting)
+    const batchSize = 10;
+    const sentinelWorkspaces = [];
 
-            // If we can query Sentinel incidents, it's a Sentinel workspace
-            workspaces.push({
+    for (let i = 0; i < allWorkspaces.length; i += batchSize) {
+      const batch = allWorkspaces.slice(i, i + batchSize);
+      const results = await Promise.all(
+        batch.map(async (ws) => {
+          // Silent check - returns null if Sentinel not enabled
+          const result = await fetchFromArmSilent(
+            `https://management.azure.com${ws.id}/providers/Microsoft.SecurityInsights/incidents?api-version=2023-11-01&$top=1`
+          );
+          if (result !== null) {
+            return {
               id: ws.id,
               name: ws.name,
-              customerId: ws.properties?.customerId, // Log Analytics workspace ID for queries
+              customerId: ws.properties?.customerId,
               location: ws.location,
-              subscriptionId: sub.subscriptionId,
-              subscriptionName: sub.displayName,
+              subscriptionId: ws.subscription.subscriptionId,
+              subscriptionName: ws.subscription.displayName,
               resourceGroup: ws.id.split('/resourceGroups/')[1]?.split('/')[0],
-            });
-          } catch {
-            // Sentinel not enabled on this workspace, skip it
+            };
           }
-        }
-      } catch (err) {
-        console.warn(`Failed to get workspaces for subscription ${sub.subscriptionId}:`, err);
-      }
+          return null;
+        })
+      );
+      sentinelWorkspaces.push(...results.filter(Boolean));
     }
 
-    return workspaces;
-  }, [fetchFromArm]);
+    return sentinelWorkspaces;
+  }, [fetchFromArm, fetchFromArmSilent]);
 
   // Get incident details from Sentinel
   const getSentinelIncident = useCallback(async (workspaceResourceId, incidentNumber) => {
