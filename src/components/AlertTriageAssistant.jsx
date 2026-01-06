@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 
 // IOC extraction patterns
 const IOC_PATTERNS = {
@@ -229,7 +230,16 @@ function SplashScreen({ onComplete, darkMode }) {
 // Main Component
 export default function AlertTriageAssistant({ darkMode }) {
   const navigate = useNavigate();
+  const { isAuthenticated, getSentinelWorkspaces, getSentinelIncident, getIncidentLogs, isLoading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
+
+  // Sentinel workspace/incident state
+  const [workspaces, setWorkspaces] = useState([]);
+  const [selectedWorkspace, setSelectedWorkspace] = useState('');
+  const [incidentNumber, setIncidentNumber] = useState('');
+  const [workspacesLoading, setWorkspacesLoading] = useState(false);
+  const [incidentLoading, setIncidentLoading] = useState(false);
+  const [workspacesError, setWorkspacesError] = useState(null);
 
   // Form state
   const [rawInput, setRawInput] = useState('');
@@ -249,6 +259,107 @@ export default function AlertTriageAssistant({ darkMode }) {
   // Loading/error states
   const [loading, setLoading] = useState({ extract: false, enrich: false, classify: false });
   const [error, setError] = useState(null);
+
+  // Load Sentinel workspaces on mount
+  useEffect(() => {
+    async function loadWorkspaces() {
+      if (!isAuthenticated) return;
+
+      setWorkspacesLoading(true);
+      setWorkspacesError(null);
+      try {
+        const ws = await getSentinelWorkspaces();
+        setWorkspaces(ws);
+        // Auto-select first workspace if only one
+        if (ws.length === 1) {
+          setSelectedWorkspace(ws[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to load workspaces:', err);
+        setWorkspacesError(err.message || 'Failed to load workspaces');
+      } finally {
+        setWorkspacesLoading(false);
+      }
+    }
+
+    loadWorkspaces();
+  }, [isAuthenticated, getSentinelWorkspaces]);
+
+  // Fetch incident from Sentinel
+  const fetchIncident = useCallback(async () => {
+    if (!selectedWorkspace || !incidentNumber.trim()) {
+      setError('Please select a workspace and enter an incident number');
+      return;
+    }
+
+    setIncidentLoading(true);
+    setError(null);
+
+    try {
+      // Get incident details, alerts, and entities
+      const { incident, alerts, entities } = await getSentinelIncident(selectedWorkspace, incidentNumber.trim());
+
+      // Get workspace customerId for Log Analytics queries
+      const workspace = workspaces.find(w => w.id === selectedWorkspace);
+
+      // Try to get additional logs from Log Analytics
+      let logs = null;
+      if (workspace?.customerId) {
+        try {
+          logs = await getIncidentLogs(workspace.customerId, incidentNumber.trim());
+        } catch (logErr) {
+          console.warn('Could not fetch Log Analytics data:', logErr);
+        }
+      }
+
+      // Format the incident data as JSON for the raw input
+      const incidentData = {
+        incident: {
+          id: incident.name,
+          title: incident.properties?.title,
+          description: incident.properties?.description,
+          severity: incident.properties?.severity,
+          status: incident.properties?.status,
+          classification: incident.properties?.classification,
+          classificationComment: incident.properties?.classificationComment,
+          owner: incident.properties?.owner,
+          labels: incident.properties?.labels,
+          tactics: incident.properties?.additionalData?.tactics,
+          techniques: incident.properties?.additionalData?.techniques,
+          alertsCount: incident.properties?.additionalData?.alertsCount,
+          createdTimeUtc: incident.properties?.createdTimeUtc,
+          lastModifiedTimeUtc: incident.properties?.lastModifiedTimeUtc,
+        },
+        alerts: alerts.map(alert => ({
+          id: alert.properties?.systemAlertId,
+          name: alert.properties?.alertDisplayName,
+          description: alert.properties?.description,
+          severity: alert.properties?.severity,
+          status: alert.properties?.status,
+          providerName: alert.properties?.providerAlertId,
+          tactics: alert.properties?.tactics,
+          techniques: alert.properties?.techniques,
+          timeGenerated: alert.properties?.timeGenerated,
+          entities: alert.properties?.entities,
+        })),
+        entities: entities.map(entity => ({
+          type: entity.kind,
+          ...entity.properties,
+        })),
+        logAnalyticsData: logs,
+      };
+
+      // Set the raw input with formatted JSON
+      setRawInput(JSON.stringify(incidentData, null, 2));
+      setInputFormat('json');
+
+    } catch (err) {
+      console.error('Failed to fetch incident:', err);
+      setError(`Failed to fetch incident: ${err.message}`);
+    } finally {
+      setIncidentLoading(false);
+    }
+  }, [selectedWorkspace, incidentNumber, workspaces, getSentinelIncident, getIncidentLogs]);
 
   // Styling helpers
   const cardBg = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
@@ -531,6 +642,95 @@ ${classification.containmentRecommendations?.map((s, i) => `${i + 1}. ${s}`).joi
         {/* Step 1: Input */}
         {!classification && (
           <div className="space-y-4">
+            {/* Sentinel Workspace & Incident Lookup */}
+            {isAuthenticated && (
+              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-gray-750 border-gray-600' : 'bg-blue-50 border-blue-200'}`}>
+                <h4 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <span>🔗</span> Fetch from Microsoft Sentinel
+                </h4>
+
+                {workspacesError && (
+                  <div className="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-sm">
+                    {workspacesError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Workspace Dropdown */}
+                  <div className="md:col-span-1">
+                    <label className={`block text-xs font-medium mb-1 ${subText}`}>
+                      Sentinel Workspace
+                    </label>
+                    <select
+                      value={selectedWorkspace}
+                      onChange={(e) => setSelectedWorkspace(e.target.value)}
+                      disabled={workspacesLoading || workspaces.length === 0}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm ${inputBg} ${workspacesLoading ? 'opacity-50' : ''}`}
+                    >
+                      <option value="">
+                        {workspacesLoading ? 'Loading workspaces...' : workspaces.length === 0 ? 'No workspaces found' : 'Select workspace...'}
+                      </option>
+                      {workspaces.map((ws) => (
+                        <option key={ws.id} value={ws.id}>
+                          {ws.name} ({ws.subscriptionName})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Incident Number Input */}
+                  <div className="md:col-span-1">
+                    <label className={`block text-xs font-medium mb-1 ${subText}`}>
+                      Incident Number
+                    </label>
+                    <input
+                      type="text"
+                      value={incidentNumber}
+                      onChange={(e) => setIncidentNumber(e.target.value)}
+                      placeholder="e.g., 12345"
+                      className={`w-full px-3 py-2 rounded-lg border text-sm ${inputBg}`}
+                    />
+                  </div>
+
+                  {/* Fetch Button */}
+                  <div className="md:col-span-1 flex items-end">
+                    <button
+                      onClick={fetchIncident}
+                      disabled={!selectedWorkspace || !incidentNumber.trim() || incidentLoading || authLoading}
+                      className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
+                        selectedWorkspace && incidentNumber.trim() && !incidentLoading && !authLoading
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : darkMode
+                          ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                          : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {incidentLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="animate-spin">⏳</span> Fetching...
+                        </span>
+                      ) : (
+                        '📥 Fetch Incident'
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <p className={`mt-2 text-xs ${subText}`}>
+                  Select a workspace and enter an incident number to automatically fetch alert details, entities, and related logs.
+                </p>
+              </div>
+            )}
+
+            {/* Divider */}
+            {isAuthenticated && (
+              <div className="flex items-center gap-4">
+                <div className={`flex-1 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}></div>
+                <span className={`text-sm ${subText}`}>or paste manually</span>
+                <div className={`flex-1 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}></div>
+              </div>
+            )}
+
             <div>
               <label className={`block text-sm font-semibold mb-2 ${subText}`}>
                 Alert Source Format
