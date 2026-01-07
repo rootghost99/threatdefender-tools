@@ -14,13 +14,6 @@ try {
 }
 
 try {
-  require('./IRPlaybook');
-  console.log('✓ IRPlaybook loaded');
-} catch (e) {
-  console.error('✗ IRPlaybook failed:', e.message);
-}
-
-try {
   require('./KQLAnalyzer');
   console.log('✓ KQLAnalyzer loaded');
 } catch (e) {

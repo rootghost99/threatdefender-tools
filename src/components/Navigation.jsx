@@ -16,7 +16,6 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
     { id: 'alert-triage', name: 'Alert Triage' },
     { id: 'threat-intel', name: 'Threat Lookup' },
     { id: 'prompt-gallery', name: 'Prompts' },
-    { id: 'ir-playbook', name: 'IR Playbook' },
     { id: 'soc-handoff', name: 'Shift Handoff' }
   ];
 

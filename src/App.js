@@ -6,7 +6,6 @@ import SkipNav from './components/SkipNav';
 
 // Lazy load components for better performance
 const KQLDiffViewer = lazy(() => import('./components/KQLDiffViewer'));
-const IRPlaybookGenerator = lazy(() => import('./components/IRPlaybookGenerator'));
 const SOCHandoffTool = lazy(() => import('./components/SOCHandoffTool'));
 const ThreatIntelLookup = lazy(() => import('./components/ThreatIntelLookup'));
 const EmailPostureCheck = lazy(() => import('./components/EmailPostureCheck'));
@@ -46,7 +45,6 @@ export default function ThreatDefenderDashboard() {
   const tabs = [
     { id: 'alert-triage', name: 'Alert Triage', icon: '🚨', component: AlertTriageAssistant },
     { id: 'threat-intel', name: 'Threat Intel Lookup', icon: '🛡️', component: ThreatIntelLookup },
-    { id: 'ir-playbook', name: 'IR Playbook Generator', icon: '📋', component: IRPlaybookGenerator },
     { id: 'prompt-gallery', name: 'Prompt Gallery', icon: '📚', component: PromptGallery },
     { id: 'soc-handoff', name: 'SOC Shift Handoff', icon: '🔄', component: SOCHandoffTool },
     { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
@@ -92,14 +90,6 @@ export default function ThreatDefenderDashboard() {
                 element={
                   <PageWrapper darkMode={darkMode}>
                     <ThreatIntelLookup darkMode={darkMode} />
-                  </PageWrapper>
-                }
-              />
-              <Route
-                path="/ir-playbook"
-                element={
-                  <PageWrapper darkMode={darkMode}>
-                    <IRPlaybookGenerator darkMode={darkMode} />
                   </PageWrapper>
                 }
               />
