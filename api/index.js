@@ -63,6 +63,13 @@ try {
 }
 
 try {
+  require('./EmailHeaderAnalyzer');
+  console.log('✓ EmailHeaderAnalyzer loaded');
+} catch (e) {
+  console.error('✗ EmailHeaderAnalyzer failed:', e.message);
+}
+
+try {
   require('./HybridAnalysisLookup');
   console.log('✓ HybridAnalysisLookup loaded');
 } catch (e) {
