@@ -9,6 +9,7 @@ const KQLDiffViewer = lazy(() => import('./components/KQLDiffViewer'));
 const SOCHandoffTool = lazy(() => import('./components/SOCHandoffTool'));
 const ThreatIntelLookup = lazy(() => import('./components/ThreatIntelLookup'));
 const EmailPostureCheck = lazy(() => import('./components/EmailPostureCheck'));
+const EmailHeaderAnalyzer = lazy(() => import('./components/EmailHeaderAnalyzer'));
 const PromptGallery = lazy(() => import('./components/PromptGallery'));
 const AlertTriageAssistant = lazy(() => import('./components/AlertTriageAssistant'));
 
@@ -49,6 +50,7 @@ export default function ThreatDefenderDashboard() {
     { id: 'soc-handoff', name: 'SOC Shift Handoff', icon: '🔄', component: SOCHandoffTool },
     { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
     { id: 'email-posture', name: 'Email Posture Check', icon: '📧', component: EmailPostureCheck },
+    { id: 'email-headers', name: 'Email Header Analyzer', icon: '🔬', component: EmailHeaderAnalyzer },
   ];
 
   // Update document title based on route
@@ -122,6 +124,14 @@ export default function ThreatDefenderDashboard() {
                 element={
                   <PageWrapper darkMode={darkMode}>
                     <EmailPostureCheck darkMode={darkMode} />
+                  </PageWrapper>
+                }
+              />
+              <Route
+                path="/email-headers"
+                element={
+                  <PageWrapper darkMode={darkMode}>
+                    <EmailHeaderAnalyzer darkMode={darkMode} />
                   </PageWrapper>
                 }
               />
