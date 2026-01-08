@@ -5,6 +5,7 @@ import PromptDetail from './PromptDetail';
 import PromptEditor from './PromptEditor';
 import PromptAdmin from './PromptAdmin';
 import Breadcrumb from './Breadcrumb';
+import { SOC_PROMPT_TEMPLATES } from '../data/socPromptTemplates';
 
 // Main gallery list view
 function PromptGalleryList({ darkMode }) {
@@ -15,6 +16,8 @@ function PromptGalleryList({ darkMode }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [showSplash, setShowSplash] = useState(true);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   // Show splash screen on mount
   useEffect(() => {
@@ -73,6 +76,46 @@ function PromptGalleryList({ darkMode }) {
   // Get unique categories
   const categories = ['', ...new Set(prompts.map(p => p.category).filter(Boolean))];
 
+  // Load SOC prompt templates
+  const loadSOCTemplates = async (selectedTemplates) => {
+    setLoadingTemplates(true);
+    try {
+      const templatesToLoad = selectedTemplates || SOC_PROMPT_TEMPLATES;
+      let loadedCount = 0;
+      let skippedCount = 0;
+
+      for (const template of templatesToLoad) {
+        // Check if a prompt with this title already exists
+        const existing = prompts.find(p =>
+          p.title.toLowerCase() === template.title.toLowerCase()
+        );
+        if (existing) {
+          skippedCount++;
+          continue;
+        }
+
+        const response = await fetch('/api/prompts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(template)
+        });
+
+        if (response.ok) {
+          loadedCount++;
+        }
+      }
+
+      setShowTemplateModal(false);
+      await fetchPrompts(); // Refresh the list
+      alert(`Loaded ${loadedCount} SOC templates.${skippedCount > 0 ? ` Skipped ${skippedCount} duplicates.` : ''}`);
+    } catch (err) {
+      console.error('Error loading templates:', err);
+      alert('Error loading templates: ' + err.message);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
   // Styles
   const cardBg = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
   const textPrimary = darkMode ? 'text-white' : 'text-gray-900';
@@ -107,6 +150,83 @@ function PromptGalleryList({ darkMode }) {
 
   return (
     <div className="space-y-6">
+      {/* SOC Templates Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`max-w-2xl w-full max-h-[80vh] overflow-y-auto rounded-lg border ${cardBg} p-6`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-xl font-bold ${textPrimary}`}>
+                🚀 Load SOC Documentation Templates
+              </h3>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className={`text-2xl ${textMuted} hover:${textPrimary}`}
+              >
+                ×
+              </button>
+            </div>
+
+            <p className={`mb-4 ${textSecondary}`}>
+              These pre-built templates generate <strong>dual-output documentation</strong>: professional client-facing notes and casual internal ticket notes in a single run.
+            </p>
+
+            <div className="space-y-3 mb-6">
+              {SOC_PROMPT_TEMPLATES.map((template, idx) => {
+                const alreadyExists = prompts.some(p =>
+                  p.title.toLowerCase() === template.title.toLowerCase()
+                );
+                return (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-lg border ${alreadyExists
+                      ? (darkMode ? 'border-gray-600 opacity-60' : 'border-gray-300 opacity-60')
+                      : (darkMode ? 'border-gray-600 hover:border-blue-500' : 'border-gray-300 hover:border-blue-500')
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className={`font-bold ${textPrimary}`}>
+                          {template.title}
+                          {alreadyExists && (
+                            <span className={`ml-2 text-xs px-2 py-0.5 rounded ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'}`}>
+                              Already loaded
+                            </span>
+                          )}
+                        </h4>
+                        <p className={`text-sm mt-1 ${textMuted}`}>{template.description}</p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {template.tags.slice(0, 4).map((tag, i) => (
+                            <span key={i} className={`text-xs px-2 py-0.5 rounded ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-600'}`}>
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className={`px-4 py-2 rounded font-semibold ${buttonSecondary} ${textPrimary}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => loadSOCTemplates()}
+                disabled={loadingTemplates}
+                className={`px-6 py-2 rounded font-bold text-white ${loadingTemplates ? 'bg-gray-500 cursor-not-allowed' : buttonPrimary}`}
+              >
+                {loadingTemplates ? 'Loading...' : `Load All ${SOC_PROMPT_TEMPLATES.length} Templates`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sticky Header */}
       <div className={`p-6 rounded-lg border ${cardBg} sticky top-20 z-40`}>
         <div className="flex items-center justify-between mb-4">
@@ -118,7 +238,14 @@ function PromptGalleryList({ darkMode }) {
               Browse, search, and run vetted AI prompts for security analysis
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
+            <button
+              onClick={() => setShowTemplateModal(true)}
+              className={`px-4 py-2 rounded font-semibold ${darkMode ? 'bg-purple-700 hover:bg-purple-600 text-white' : 'bg-purple-100 hover:bg-purple-200 text-purple-800'}`}
+              title="Load pre-built SOC documentation prompts"
+            >
+              🚀 SOC Templates
+            </button>
             <button
               onClick={() => navigate('/prompt-gallery/admin')}
               className={`px-4 py-2 rounded font-semibold ${buttonSecondary} ${textPrimary}`}
