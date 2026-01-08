@@ -3,6 +3,110 @@ import React, { useState, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../contexts/AuthContext';
 
+// IOC extraction patterns
+const IOC_PATTERNS = {
+  ipv4: /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g,
+  md5: /\b[a-fA-F0-9]{32}\b/g,
+  sha1: /\b[a-fA-F0-9]{40}\b/g,
+  sha256: /\b[a-fA-F0-9]{64}\b/g,
+  domain: /\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|edu|gov|mil|io|co|uk|de|fr|ru|cn|jp|au|ca|info|biz|xyz|top|online|site|club|work|live|store|tech|app|dev|me|tv|cc|ws|pw|tk|ml|ga|cf|gq|email|link|click|download|zip|mov|support|help|cloud|host|world)\b/gi,
+  url: /https?:\/\/[^\s<>"')\]]+/gi,
+  email: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+  cve: /CVE-\d{4}-\d{4,}/gi
+};
+
+// Defang patterns for common obfuscation
+const DEFANG_PATTERNS = [
+  { pattern: /\[\.?\]/g, replacement: '.' },
+  { pattern: /hxxp/gi, replacement: 'http' },
+  { pattern: /\[@\]/g, replacement: '@' }
+];
+
+// Refang text (convert defanged IOCs back to original)
+function refangText(text) {
+  let result = text;
+  DEFANG_PATTERNS.forEach(({ pattern, replacement }) => {
+    result = result.replace(pattern, replacement);
+  });
+  return result;
+}
+
+// Check if IP is private/internal
+function isPrivateIP(ip) {
+  const parts = ip.split('.').map(Number);
+  return (
+    parts[0] === 10 ||
+    parts[0] === 127 ||
+    parts[0] === 0 ||
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+    (parts[0] === 192 && parts[1] === 168)
+  );
+}
+
+// Extract IOCs from text
+function extractIOCs(text) {
+  if (!text) return { ips: [], domains: [], urls: [], md5s: [], sha1s: [], sha256s: [], emails: [], cves: [] };
+
+  const refangedText = refangText(text);
+  const result = {
+    ips: [],
+    domains: [],
+    urls: [],
+    md5s: [],
+    sha1s: [],
+    sha256s: [],
+    emails: [],
+    cves: []
+  };
+
+  // Extract SHA-256 first (longest hash)
+  const sha256Matches = refangedText.match(IOC_PATTERNS.sha256) || [];
+  result.sha256s = [...new Set(sha256Matches.map(h => h.toLowerCase()))];
+
+  // Extract SHA-1 (exclude if part of SHA-256)
+  const sha1Matches = refangedText.match(IOC_PATTERNS.sha1) || [];
+  result.sha1s = [...new Set(sha1Matches.map(h => h.toLowerCase()))]
+    .filter(h => !result.sha256s.some(s256 => s256.includes(h)));
+
+  // Extract MD5 (exclude if part of longer hash)
+  const md5Matches = refangedText.match(IOC_PATTERNS.md5) || [];
+  result.md5s = [...new Set(md5Matches.map(h => h.toLowerCase()))]
+    .filter(h => !result.sha1s.some(s1 => s1.includes(h)) && !result.sha256s.some(s256 => s256.includes(h)));
+
+  // Extract IPs (exclude private)
+  const ipMatches = refangedText.match(IOC_PATTERNS.ipv4) || [];
+  result.ips = [...new Set(ipMatches)].filter(ip => !isPrivateIP(ip));
+
+  // Extract URLs
+  const urlMatches = refangedText.match(IOC_PATTERNS.url) || [];
+  result.urls = [...new Set(urlMatches)];
+
+  // Extract domains (exclude those already in URLs)
+  const domainMatches = refangedText.match(IOC_PATTERNS.domain) || [];
+  const urlDomains = result.urls.map(u => {
+    try { return new URL(u).hostname; } catch { return ''; }
+  });
+  result.domains = [...new Set(domainMatches.map(d => d.toLowerCase()))]
+    .filter(d => !urlDomains.includes(d));
+
+  // Extract emails
+  const emailMatches = refangedText.match(IOC_PATTERNS.email) || [];
+  result.emails = [...new Set(emailMatches.map(e => e.toLowerCase()))];
+
+  // Extract CVEs
+  const cveMatches = refangedText.match(IOC_PATTERNS.cve) || [];
+  result.cves = [...new Set(cveMatches.map(c => c.toUpperCase()))];
+
+  return result;
+}
+
+// Get total IOC count
+function getIOCCount(iocs) {
+  return iocs.ips.length + iocs.domains.length + iocs.urls.length +
+    iocs.md5s.length + iocs.sha1s.length + iocs.sha256s.length +
+    iocs.emails.length + iocs.cves.length;
+}
+
 export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
   const { isAuthenticated, getSentinelWorkspaces, getSentinelIncident, getIncidentLogs } = useAuth();
 
@@ -27,6 +131,13 @@ export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
   const [incidentLoading, setIncidentLoading] = useState(false);
   const [incidentError, setIncidentError] = useState(null);
   const [showSentinelLoader, setShowSentinelLoader] = useState(false);
+
+  // IOC extraction and enrichment state
+  const [extractedIOCs, setExtractedIOCs] = useState(null);
+  const [enrichmentResults, setEnrichmentResults] = useState({});
+  const [enriching, setEnriching] = useState(false);
+  const [enrichmentProgress, setEnrichmentProgress] = useState({ current: 0, total: 0 });
+  const [showIOCPanel, setShowIOCPanel] = useState(false);
 
   // Fetch prompt details
   useEffect(() => {
@@ -178,6 +289,172 @@ export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
     }
   }, [selectedWorkspace, incidentNumber, workspaces, getSentinelIncident, getIncidentLogs]);
 
+  // Extract IOCs when context changes
+  useEffect(() => {
+    if (context) {
+      const iocs = extractIOCs(context);
+      setExtractedIOCs(iocs);
+      // Clear enrichment when context changes
+      setEnrichmentResults({});
+    } else {
+      setExtractedIOCs(null);
+      setEnrichmentResults({});
+    }
+  }, [context]);
+
+  // Enrich IOCs via ThreatIntelLookup API
+  const enrichIOCs = useCallback(async () => {
+    if (!extractedIOCs) return;
+
+    // Collect all indicators to enrich
+    const allIndicators = [
+      ...extractedIOCs.ips.map(v => ({ value: v, type: 'IP' })),
+      ...extractedIOCs.domains.map(v => ({ value: v, type: 'Domain' })),
+      ...extractedIOCs.urls.slice(0, 10).map(v => ({ value: v, type: 'URL' })), // Limit URLs
+      ...extractedIOCs.sha256s.map(v => ({ value: v, type: 'SHA256' })),
+      ...extractedIOCs.sha1s.map(v => ({ value: v, type: 'SHA1' })),
+      ...extractedIOCs.md5s.map(v => ({ value: v, type: 'MD5' }))
+    ];
+
+    if (allIndicators.length === 0) {
+      return;
+    }
+
+    setEnriching(true);
+    setEnrichmentProgress({ current: 0, total: allIndicators.length });
+
+    const results = {};
+    const batchSize = 3;
+
+    try {
+      for (let i = 0; i < allIndicators.length; i += batchSize) {
+        const batch = allIndicators.slice(i, i + batchSize);
+
+        const batchResults = await Promise.all(
+          batch.map(async ({ value, type }) => {
+            try {
+              const resp = await fetch('/api/ThreatIntelLookup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ indicator: value })
+              });
+
+              if (!resp.ok) {
+                return { indicator: value, type, error: 'Lookup failed' };
+              }
+
+              const data = await resp.json();
+              return { indicator: value, type, ...data };
+            } catch (err) {
+              return { indicator: value, type, error: err.message };
+            }
+          })
+        );
+
+        batchResults.forEach(result => {
+          results[result.indicator] = result;
+        });
+
+        setEnrichmentProgress({ current: Math.min(i + batchSize, allIndicators.length), total: allIndicators.length });
+
+        // Small delay between batches to avoid rate limiting
+        if (i + batchSize < allIndicators.length) {
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+
+      setEnrichmentResults(results);
+    } catch (err) {
+      console.error('Enrichment error:', err);
+    } finally {
+      setEnriching(false);
+    }
+  }, [extractedIOCs]);
+
+  // Summarize enrichment for prompt context
+  const getEnrichmentSummary = useCallback(() => {
+    if (Object.keys(enrichmentResults).length === 0) return null;
+
+    const summary = {
+      highRiskIOCs: [],
+      maliciousIndicators: [],
+      suspiciousIndicators: [],
+      cleanIndicators: [],
+      enrichmentDetails: {}
+    };
+
+    Object.entries(enrichmentResults).forEach(([indicator, data]) => {
+      if (data.error) return;
+
+      const vtMalicious = data.virusTotal?.malicious || 0;
+      const vtSuspicious = data.virusTotal?.suspicious || 0;
+      const abuseScore = data.abuseIPDB?.abuseScore || 0;
+      const otxPulses = data.alienVault?.pulseCount || 0;
+
+      // Classify risk level
+      if (vtMalicious > 5 || abuseScore > 50) {
+        summary.highRiskIOCs.push(indicator);
+        summary.maliciousIndicators.push({
+          indicator,
+          type: data.type,
+          detections: vtMalicious,
+          abuseScore
+        });
+      } else if (vtMalicious > 0 || vtSuspicious > 0 || abuseScore > 20 || otxPulses > 0) {
+        summary.suspiciousIndicators.push({
+          indicator,
+          type: data.type,
+          detections: vtMalicious + vtSuspicious,
+          pulses: otxPulses
+        });
+      } else if (vtMalicious === 0 && !data.error) {
+        summary.cleanIndicators.push(indicator);
+      }
+
+      // Store detailed enrichment
+      summary.enrichmentDetails[indicator] = {
+        type: data.type,
+        virusTotal: data.virusTotal ? {
+          malicious: data.virusTotal.malicious,
+          suspicious: data.virusTotal.suspicious,
+          harmless: data.virusTotal.harmless
+        } : null,
+        abuseIPDB: data.abuseIPDB ? {
+          score: data.abuseIPDB.abuseScore,
+          reports: data.abuseIPDB.totalReports,
+          country: data.abuseIPDB.countryCode
+        } : null,
+        greyNoise: data.greyNoise ? {
+          classification: data.greyNoise.classification,
+          noise: data.greyNoise.noise
+        } : null,
+        alienVault: data.alienVault ? {
+          pulses: data.alienVault.pulseCount
+        } : null,
+        shodan: data.shodan ? {
+          ports: data.shodan.openPortsCount,
+          vulns: data.shodan.vulnCount
+        } : null
+      };
+    });
+
+    return summary;
+  }, [enrichmentResults]);
+
+  // Get risk badge for an indicator
+  const getIndicatorRisk = (indicator) => {
+    const data = enrichmentResults[indicator];
+    if (!data || data.error) return 'unknown';
+
+    const vtMalicious = data.virusTotal?.malicious || 0;
+    const abuseScore = data.abuseIPDB?.abuseScore || 0;
+
+    if (vtMalicious > 5 || abuseScore > 50) return 'high';
+    if (vtMalicious > 0 || abuseScore > 20) return 'medium';
+    if (data.virusTotal && vtMalicious === 0) return 'clean';
+    return 'unknown';
+  };
+
   // Run prompt
   const handleRun = async () => {
     setRunning(true);
@@ -186,10 +463,63 @@ export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
     setUsage(null);
 
     try {
+      // Build enhanced context with IOC and enrichment data
+      let enhancedContext = context;
+
+      // Add extracted IOCs summary if present
+      if (extractedIOCs && getIOCCount(extractedIOCs) > 0) {
+        const iocSummary = `\n\n---\n## Extracted IOCs\n` +
+          (extractedIOCs.ips.length > 0 ? `- **IPs**: ${extractedIOCs.ips.join(', ')}\n` : '') +
+          (extractedIOCs.domains.length > 0 ? `- **Domains**: ${extractedIOCs.domains.join(', ')}\n` : '') +
+          (extractedIOCs.urls.length > 0 ? `- **URLs**: ${extractedIOCs.urls.slice(0, 5).join(', ')}${extractedIOCs.urls.length > 5 ? ` (+${extractedIOCs.urls.length - 5} more)` : ''}\n` : '') +
+          (extractedIOCs.sha256s.length > 0 ? `- **SHA256 Hashes**: ${extractedIOCs.sha256s.join(', ')}\n` : '') +
+          (extractedIOCs.sha1s.length > 0 ? `- **SHA1 Hashes**: ${extractedIOCs.sha1s.join(', ')}\n` : '') +
+          (extractedIOCs.md5s.length > 0 ? `- **MD5 Hashes**: ${extractedIOCs.md5s.join(', ')}\n` : '') +
+          (extractedIOCs.emails.length > 0 ? `- **Emails**: ${extractedIOCs.emails.join(', ')}\n` : '') +
+          (extractedIOCs.cves.length > 0 ? `- **CVEs**: ${extractedIOCs.cves.join(', ')}\n` : '');
+
+        enhancedContext += iocSummary;
+      }
+
+      // Add enrichment summary if present
+      const enrichmentSummary = getEnrichmentSummary();
+      if (enrichmentSummary) {
+        let enrichmentSection = '\n## Threat Intelligence Enrichment\n';
+
+        if (enrichmentSummary.highRiskIOCs.length > 0) {
+          enrichmentSection += `\n### High Risk Indicators (${enrichmentSummary.highRiskIOCs.length})\n`;
+          enrichmentSummary.maliciousIndicators.forEach(ind => {
+            enrichmentSection += `- **${ind.indicator}** (${ind.type}): ${ind.detections} VT detections`;
+            if (ind.abuseScore) enrichmentSection += `, ${ind.abuseScore}% AbuseIPDB score`;
+            enrichmentSection += '\n';
+          });
+        }
+
+        if (enrichmentSummary.suspiciousIndicators.length > 0) {
+          enrichmentSection += `\n### Suspicious Indicators (${enrichmentSummary.suspiciousIndicators.length})\n`;
+          enrichmentSummary.suspiciousIndicators.forEach(ind => {
+            enrichmentSection += `- **${ind.indicator}** (${ind.type}): ${ind.detections} detections`;
+            if (ind.pulses) enrichmentSection += `, ${ind.pulses} OTX pulses`;
+            enrichmentSection += '\n';
+          });
+        }
+
+        if (enrichmentSummary.cleanIndicators.length > 0) {
+          enrichmentSection += `\n### Clean/Benign Indicators (${enrichmentSummary.cleanIndicators.length})\n`;
+          enrichmentSection += enrichmentSummary.cleanIndicators.join(', ') + '\n';
+        }
+
+        // Add detailed enrichment as JSON for AI analysis
+        enrichmentSection += '\n### Detailed Enrichment Data\n```json\n' +
+          JSON.stringify(enrichmentSummary.enrichmentDetails, null, 2) + '\n```\n';
+
+        enhancedContext += enrichmentSection;
+      }
+
       const response = await fetch(`/api/prompts/${promptId}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context, variables })
+        body: JSON.stringify({ context: enhancedContext, variables })
       });
 
       if (!response.ok) {
@@ -505,6 +835,260 @@ export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
             </button>
           )}
         </div>
+
+        {/* IOC Extraction Panel */}
+        {extractedIOCs && getIOCCount(extractedIOCs) > 0 && (
+          <div className={`mt-4 p-4 rounded-lg border ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-300'}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className={`font-bold ${textPrimary}`}>🔍 Extracted IOCs</span>
+                <span className={`text-xs px-2 py-0.5 rounded ${darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>
+                  {getIOCCount(extractedIOCs)} found
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowIOCPanel(!showIOCPanel)}
+                  className={`px-3 py-1 rounded text-xs font-semibold ${buttonSecondary} ${textPrimary}`}
+                >
+                  {showIOCPanel ? 'Hide Details' : 'Show Details'}
+                </button>
+                <button
+                  onClick={enrichIOCs}
+                  disabled={enriching}
+                  className={`px-3 py-1 rounded text-xs font-semibold text-white ${
+                    enriching ? 'bg-gray-500 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'
+                  }`}
+                >
+                  {enriching
+                    ? `⏳ Enriching ${enrichmentProgress.current}/${enrichmentProgress.total}`
+                    : Object.keys(enrichmentResults).length > 0
+                      ? '🔄 Re-enrich'
+                      : '🔎 Enrich IOCs'
+                  }
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Summary */}
+            <div className="flex flex-wrap gap-2 text-xs">
+              {extractedIOCs.ips.length > 0 && (
+                <span className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  {extractedIOCs.ips.length} IPs
+                </span>
+              )}
+              {extractedIOCs.domains.length > 0 && (
+                <span className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  {extractedIOCs.domains.length} Domains
+                </span>
+              )}
+              {extractedIOCs.urls.length > 0 && (
+                <span className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  {extractedIOCs.urls.length} URLs
+                </span>
+              )}
+              {extractedIOCs.sha256s.length > 0 && (
+                <span className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  {extractedIOCs.sha256s.length} SHA256
+                </span>
+              )}
+              {extractedIOCs.sha1s.length > 0 && (
+                <span className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  {extractedIOCs.sha1s.length} SHA1
+                </span>
+              )}
+              {extractedIOCs.md5s.length > 0 && (
+                <span className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  {extractedIOCs.md5s.length} MD5
+                </span>
+              )}
+              {extractedIOCs.emails.length > 0 && (
+                <span className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  {extractedIOCs.emails.length} Emails
+                </span>
+              )}
+              {extractedIOCs.cves.length > 0 && (
+                <span className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  {extractedIOCs.cves.length} CVEs
+                </span>
+              )}
+            </div>
+
+            {/* Enrichment Summary */}
+            {Object.keys(enrichmentResults).length > 0 && (
+              <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {(() => {
+                    const summary = getEnrichmentSummary();
+                    if (!summary) return null;
+                    return (
+                      <>
+                        {summary.highRiskIOCs.length > 0 && (
+                          <span className="px-2 py-1 rounded bg-red-500/20 text-red-400 border border-red-500/50">
+                            🚨 {summary.highRiskIOCs.length} High Risk
+                          </span>
+                        )}
+                        {summary.suspiciousIndicators.length > 0 && (
+                          <span className="px-2 py-1 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/50">
+                            ⚠️ {summary.suspiciousIndicators.length} Suspicious
+                          </span>
+                        )}
+                        {summary.cleanIndicators.length > 0 && (
+                          <span className="px-2 py-1 rounded bg-green-500/20 text-green-400 border border-green-500/50">
+                            ✅ {summary.cleanIndicators.length} Clean
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Detailed IOC List */}
+            {showIOCPanel && (
+              <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                <div className="space-y-3 text-sm">
+                  {/* IPs */}
+                  {extractedIOCs.ips.length > 0 && (
+                    <div>
+                      <div className={`font-semibold mb-1 ${textSecondary}`}>IP Addresses</div>
+                      <div className="flex flex-wrap gap-1">
+                        {extractedIOCs.ips.map((ip, i) => {
+                          const risk = getIndicatorRisk(ip);
+                          const riskColors = {
+                            high: 'bg-red-500/20 text-red-400 border-red-500/50',
+                            medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
+                            clean: 'bg-green-500/20 text-green-400 border-green-500/50',
+                            unknown: darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
+                          };
+                          return (
+                            <span key={i} className={`px-2 py-0.5 rounded text-xs font-mono border ${riskColors[risk]}`}>
+                              {ip}
+                              {enrichmentResults[ip]?.virusTotal && (
+                                <span className="ml-1 opacity-75">
+                                  ({enrichmentResults[ip].virusTotal.malicious}/{enrichmentResults[ip].virusTotal.malicious + enrichmentResults[ip].virusTotal.suspicious + (enrichmentResults[ip].virusTotal.harmless || 0)})
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Domains */}
+                  {extractedIOCs.domains.length > 0 && (
+                    <div>
+                      <div className={`font-semibold mb-1 ${textSecondary}`}>Domains</div>
+                      <div className="flex flex-wrap gap-1">
+                        {extractedIOCs.domains.map((domain, i) => {
+                          const risk = getIndicatorRisk(domain);
+                          const riskColors = {
+                            high: 'bg-red-500/20 text-red-400 border-red-500/50',
+                            medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
+                            clean: 'bg-green-500/20 text-green-400 border-green-500/50',
+                            unknown: darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
+                          };
+                          return (
+                            <span key={i} className={`px-2 py-0.5 rounded text-xs font-mono border ${riskColors[risk]}`}>
+                              {domain}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hashes */}
+                  {(extractedIOCs.sha256s.length > 0 || extractedIOCs.sha1s.length > 0 || extractedIOCs.md5s.length > 0) && (
+                    <div>
+                      <div className={`font-semibold mb-1 ${textSecondary}`}>File Hashes</div>
+                      <div className="space-y-1">
+                        {extractedIOCs.sha256s.map((hash, i) => {
+                          const risk = getIndicatorRisk(hash);
+                          const riskColors = {
+                            high: 'bg-red-500/20 text-red-400 border-red-500/50',
+                            medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
+                            clean: 'bg-green-500/20 text-green-400 border-green-500/50',
+                            unknown: darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
+                          };
+                          return (
+                            <div key={i} className={`px-2 py-1 rounded text-xs font-mono border ${riskColors[risk]} break-all`}>
+                              <span className="opacity-50">SHA256:</span> {hash}
+                              {enrichmentResults[hash]?.virusTotal && (
+                                <span className="ml-2">
+                                  ({enrichmentResults[hash].virusTotal.malicious} detections)
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {extractedIOCs.sha1s.map((hash, i) => (
+                          <div key={i} className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} break-all`}>
+                            <span className="opacity-50">SHA1:</span> {hash}
+                          </div>
+                        ))}
+                        {extractedIOCs.md5s.map((hash, i) => (
+                          <div key={i} className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} break-all`}>
+                            <span className="opacity-50">MD5:</span> {hash}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* URLs */}
+                  {extractedIOCs.urls.length > 0 && (
+                    <div>
+                      <div className={`font-semibold mb-1 ${textSecondary}`}>URLs</div>
+                      <div className="space-y-1">
+                        {extractedIOCs.urls.slice(0, 10).map((url, i) => (
+                          <div key={i} className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} break-all`}>
+                            {url}
+                          </div>
+                        ))}
+                        {extractedIOCs.urls.length > 10 && (
+                          <div className={`text-xs ${textMuted}`}>
+                            +{extractedIOCs.urls.length - 10} more URLs
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Emails */}
+                  {extractedIOCs.emails.length > 0 && (
+                    <div>
+                      <div className={`font-semibold mb-1 ${textSecondary}`}>Email Addresses</div>
+                      <div className="flex flex-wrap gap-1">
+                        {extractedIOCs.emails.map((email, i) => (
+                          <span key={i} className={`px-2 py-0.5 rounded text-xs font-mono ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                            {email}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CVEs */}
+                  {extractedIOCs.cves.length > 0 && (
+                    <div>
+                      <div className={`font-semibold mb-1 ${textSecondary}`}>CVE References</div>
+                      <div className="flex flex-wrap gap-1">
+                        {extractedIOCs.cves.map((cve, i) => (
+                          <span key={i} className={`px-2 py-0.5 rounded text-xs font-mono ${darkMode ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
+                            {cve}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Variables */}
