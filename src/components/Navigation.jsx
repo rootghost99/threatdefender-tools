@@ -16,6 +16,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
     { id: 'alert-triage', name: 'Alert Triage' },
     { id: 'threat-intel', name: 'Threat Lookup' },
     { id: 'prompt-gallery', name: 'Prompts' },
+    { id: 'email-headers', name: 'Header Analyzer' },
     { id: 'soc-handoff', name: 'Shift Handoff' }
   ];
 
@@ -23,8 +24,7 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
     name: 'Engineering',
     items: [
       { id: 'kql-diff', name: 'KQL Diff Viewer' },
-      { id: 'email-posture', name: 'Email Posture Check' },
-      { id: 'email-headers', name: 'Email Header Analyzer' }
+      { id: 'email-posture', name: 'Email Posture Check' }
     ]
   };
 
