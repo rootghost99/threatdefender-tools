@@ -323,6 +323,7 @@ export default function PromptEditor({ darkMode, promptId, onBack }) {
                 className={`w-full px-4 py-2 rounded border ${inputBg}`}
               >
                 <option value="General">General</option>
+                <option value="SOC Documentation">SOC Documentation</option>
                 <option value="Incident Response">Incident Response</option>
                 <option value="Threat Analysis">Threat Analysis</option>
                 <option value="Forensics">Forensics</option>

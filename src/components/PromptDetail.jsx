@@ -80,6 +80,41 @@ export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
     }
   };
 
+  // Copy specific section to clipboard
+  const copySection = (sectionTitle) => {
+    if (!output) return;
+
+    // Find section by looking for headers (## or ###)
+    const lines = output.split('\n');
+    let inSection = false;
+    let sectionContent = [];
+
+    for (const line of lines) {
+      // Check if this is the target section header
+      if (line.match(/^#{2,3}\s/) && line.toLowerCase().includes(sectionTitle.toLowerCase())) {
+        inSection = true;
+        sectionContent.push(line);
+        continue;
+      }
+      // Check if we've hit the next section
+      if (inSection && line.match(/^#{2,3}\s/)) {
+        break;
+      }
+      if (inSection) {
+        sectionContent.push(line);
+      }
+    }
+
+    if (sectionContent.length > 0) {
+      navigator.clipboard.writeText(sectionContent.join('\n').trim());
+    }
+  };
+
+  // Check if output contains dual sections (client + internal)
+  const hasDualOutput = output &&
+    (output.toLowerCase().includes('client-facing') || output.toLowerCase().includes('client facing')) &&
+    (output.toLowerCase().includes('internal') || output.toLowerCase().includes('ticket notes'));
+
   // Delete prompt
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this prompt? This action cannot be undone.')) {
@@ -304,13 +339,38 @@ export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
                 </p>
               )}
             </div>
-            <button
-              onClick={copyOutput}
-              className={`px-4 py-2 rounded font-semibold ${buttonSecondary} ${textPrimary}`}
-            >
-              📋 Copy
-            </button>
+            <div className="flex gap-2 flex-wrap justify-end">
+              {hasDualOutput && (
+                <>
+                  <button
+                    onClick={() => copySection('client-facing')}
+                    className={`px-3 py-2 rounded font-semibold text-sm ${darkMode ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-green-100 hover:bg-green-200 text-green-800'}`}
+                    title="Copy client-facing notes only"
+                  >
+                    📤 Copy Client Notes
+                  </button>
+                  <button
+                    onClick={() => copySection('internal')}
+                    className={`px-3 py-2 rounded font-semibold text-sm ${darkMode ? 'bg-yellow-700 hover:bg-yellow-600 text-white' : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800'}`}
+                    title="Copy internal ticket notes only"
+                  >
+                    📝 Copy Internal Notes
+                  </button>
+                </>
+              )}
+              <button
+                onClick={copyOutput}
+                className={`px-4 py-2 rounded font-semibold ${buttonSecondary} ${textPrimary}`}
+              >
+                📋 Copy All
+              </button>
+            </div>
           </div>
+          {hasDualOutput && (
+            <div className={`mb-4 p-3 rounded text-sm ${darkMode ? 'bg-blue-900/30 text-blue-300 border border-blue-700' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+              💡 <strong>Tip:</strong> This output contains separate sections for client-facing and internal notes. Use the buttons above to copy each section individually.
+            </div>
+          )}
           <div className={`prose prose-sm max-w-none ${darkMode ? 'prose-invert [&_*]:text-gray-100 [&_code]:bg-gray-700 [&_code]:text-gray-100 [&_pre]:bg-gray-900 [&_pre]:text-gray-100' : ''}`}>
             <ReactMarkdown>{output}</ReactMarkdown>
           </div>
