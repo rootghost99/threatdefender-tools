@@ -5,6 +5,57 @@ import { motion } from 'framer-motion';
 
 const STORAGE_KEY = 'threatdefender-resources';
 
+// Separate component for username modal to properly manage input state
+function UsernameModal({ darkMode, cardBg, textPrimary, textMuted, inputBg, onSave, onCancel }) {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleSave = () => {
+    if (inputValue.trim()) {
+      onSave(inputValue);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className={`p-6 rounded-lg border ${cardBg} max-w-md w-full mx-4`}>
+        <h3 className={`text-lg font-semibold mb-4 ${textPrimary}`}>
+          Set Your Username
+        </h3>
+        <p className={`text-sm mb-4 ${textMuted}`}>
+          Enter a username to track who made changes. This will be saved for future edits.
+        </p>
+        <input
+          type="text"
+          placeholder="Enter your name or username"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          className={`w-full px-4 py-2 rounded-lg border mb-4 ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleSave();
+            }
+          }}
+          autoFocus
+        />
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={onCancel}
+            className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Helper to get current user (simplified - uses localStorage username or 'anonymous')
 const getCurrentUser = () => {
   return localStorage.getItem('threatdefender-username') || 'anonymous';
@@ -198,44 +249,15 @@ export default function Resources({ darkMode }) {
     >
       {/* Username Prompt Modal */}
       {showUsernamePrompt && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className={`p-6 rounded-lg border ${cardBg} max-w-md w-full mx-4`}>
-            <h3 className={`text-lg font-semibold mb-4 ${textPrimary}`}>
-              Set Your Username
-            </h3>
-            <p className={`text-sm mb-4 ${textMuted}`}>
-              Enter a username to track who made changes. This will be saved for future edits.
-            </p>
-            <input
-              type="text"
-              placeholder="Enter your name or username"
-              className={`w-full px-4 py-2 rounded-lg border mb-4 ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSetUsername(e.target.value);
-                }
-              }}
-              autoFocus
-            />
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setShowUsernamePrompt(false)}
-                className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={(e) => {
-                  const input = e.target.closest('div').querySelector('input');
-                  handleSetUsername(input.value);
-                }}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
+        <UsernameModal
+          darkMode={darkMode}
+          cardBg={cardBg}
+          textPrimary={textPrimary}
+          textMuted={textMuted}
+          inputBg={inputBg}
+          onSave={handleSetUsername}
+          onCancel={() => setShowUsernamePrompt(false)}
+        />
       )}
 
       {/* Header */}
