@@ -1,17 +1,26 @@
 // Resources - Cybersecurity Tools and Links Management
+// Uses localStorage for persistence (works without backend API)
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+
+const STORAGE_KEY = 'threatdefender-resources';
+
+// Helper to get current user (simplified - uses localStorage username or 'anonymous')
+const getCurrentUser = () => {
+  return localStorage.getItem('threatdefender-username') || 'anonymous';
+};
 
 export default function Resources({ darkMode }) {
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ siteName: '', url: '', notes: '' });
   const [isAdding, setIsAdding] = useState(false);
   const [newResource, setNewResource] = useState({ siteName: '', url: '', notes: '' });
   const [saving, setSaving] = useState(false);
+  const [username, setUsername] = useState(getCurrentUser());
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
 
   // Styling classes based on dark mode
   const cardBg = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
@@ -19,59 +28,75 @@ export default function Resources({ darkMode }) {
   const textSecondary = darkMode ? 'text-gray-300' : 'text-gray-700';
   const textMuted = darkMode ? 'text-gray-400' : 'text-gray-500';
   const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400';
-  const tableBg = darkMode ? 'bg-gray-800' : 'bg-white';
   const tableHeaderBg = darkMode ? 'bg-gray-700' : 'bg-gray-50';
   const tableRowHover = darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50';
   const borderColor = darkMode ? 'border-gray-700' : 'border-gray-200';
 
+  // Load resources from localStorage on mount
   useEffect(() => {
-    fetchResources();
+    loadResources();
   }, []);
 
-  const fetchResources = async () => {
+  const loadResources = () => {
     setLoading(true);
-    setError(null);
     try {
-      const response = await fetch('/api/resources');
-      if (!response.ok) {
-        throw new Error('Failed to fetch resources');
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        setResources(JSON.parse(stored));
       }
-      const data = await response.json();
-      setResources(data.resources || []);
     } catch (err) {
-      setError(err.message);
+      console.error('Error loading resources:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreate = async () => {
+  const saveResources = (newResources) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newResources));
+      setResources(newResources);
+    } catch (err) {
+      console.error('Error saving resources:', err);
+      alert('Error saving resources');
+    }
+  };
+
+  const generateId = () => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  };
+
+  const handleCreate = () => {
     if (!newResource.siteName.trim() || !newResource.url.trim()) {
       alert('Site name and URL are required');
       return;
     }
 
-    setSaving(true);
-    try {
-      const response = await fetch('/api/resources', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newResource)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create resource');
-      }
-
-      const data = await response.json();
-      setResources([...resources, data.resource]);
-      setNewResource({ siteName: '', url: '', notes: '' });
-      setIsAdding(false);
-    } catch (err) {
-      alert('Error creating resource: ' + err.message);
-    } finally {
-      setSaving(false);
+    // Prompt for username if not set
+    if (username === 'anonymous') {
+      setShowUsernamePrompt(true);
+      return;
     }
+
+    setSaving(true);
+    const now = new Date().toISOString();
+    const resource = {
+      id: generateId(),
+      siteName: newResource.siteName.trim(),
+      url: newResource.url.trim(),
+      notes: newResource.notes.trim(),
+      createdBy: username,
+      createdAt: now,
+      lastUpdatedBy: username,
+      updatedAt: now
+    };
+
+    const newResources = [...resources, resource].sort((a, b) =>
+      (a.siteName || '').localeCompare(b.siteName || '')
+    );
+    saveResources(newResources);
+    setNewResource({ siteName: '', url: '', notes: '' });
+    setIsAdding(false);
+    setSaving(false);
   };
 
   const handleEdit = (resource) => {
@@ -79,57 +104,51 @@ export default function Resources({ darkMode }) {
     setEditForm({
       siteName: resource.siteName,
       url: resource.url,
-      notes: resource.notes
+      notes: resource.notes || ''
     });
   };
 
-  const handleUpdate = async () => {
+  const handleUpdate = () => {
     if (!editForm.siteName.trim() || !editForm.url.trim()) {
       alert('Site name and URL are required');
       return;
     }
 
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/resources/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update resource');
-      }
-
-      const data = await response.json();
-      setResources(resources.map(r => r.id === editingId ? data.resource : r));
-      setEditingId(null);
-      setEditForm({ siteName: '', url: '', notes: '' });
-    } catch (err) {
-      alert('Error updating resource: ' + err.message);
-    } finally {
-      setSaving(false);
+    // Prompt for username if not set
+    if (username === 'anonymous') {
+      setShowUsernamePrompt(true);
+      return;
     }
+
+    setSaving(true);
+    const now = new Date().toISOString();
+    const newResources = resources.map(r => {
+      if (r.id === editingId) {
+        return {
+          ...r,
+          siteName: editForm.siteName.trim(),
+          url: editForm.url.trim(),
+          notes: editForm.notes.trim(),
+          lastUpdatedBy: username,
+          updatedAt: now
+        };
+      }
+      return r;
+    }).sort((a, b) => (a.siteName || '').localeCompare(b.siteName || ''));
+
+    saveResources(newResources);
+    setEditingId(null);
+    setEditForm({ siteName: '', url: '', notes: '' });
+    setSaving(false);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     if (!window.confirm('Are you sure you want to delete this resource?')) {
       return;
     }
 
-    try {
-      const response = await fetch(`/api/resources/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete resource');
-      }
-
-      setResources(resources.filter(r => r.id !== id));
-    } catch (err) {
-      alert('Error deleting resource: ' + err.message);
-    }
+    const newResources = resources.filter(r => r.id !== id);
+    saveResources(newResources);
   };
 
   const cancelEdit = () => {
@@ -140,6 +159,15 @@ export default function Resources({ darkMode }) {
   const cancelAdd = () => {
     setIsAdding(false);
     setNewResource({ siteName: '', url: '', notes: '' });
+  };
+
+  const handleSetUsername = (newUsername) => {
+    const trimmed = newUsername.trim();
+    if (trimmed) {
+      localStorage.setItem('threatdefender-username', trimmed);
+      setUsername(trimmed);
+    }
+    setShowUsernamePrompt(false);
   };
 
   // Filter resources based on search term
@@ -168,6 +196,48 @@ export default function Resources({ darkMode }) {
       animate={{ opacity: 1 }}
       className="space-y-6"
     >
+      {/* Username Prompt Modal */}
+      {showUsernamePrompt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`p-6 rounded-lg border ${cardBg} max-w-md w-full mx-4`}>
+            <h3 className={`text-lg font-semibold mb-4 ${textPrimary}`}>
+              Set Your Username
+            </h3>
+            <p className={`text-sm mb-4 ${textMuted}`}>
+              Enter a username to track who made changes. This will be saved for future edits.
+            </p>
+            <input
+              type="text"
+              placeholder="Enter your name or username"
+              className={`w-full px-4 py-2 rounded-lg border mb-4 ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSetUsername(e.target.value);
+                }
+              }}
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowUsernamePrompt(false)}
+                className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={(e) => {
+                  const input = e.target.closest('div').querySelector('input');
+                  handleSetUsername(input.value);
+                }}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className={`p-6 rounded-lg border ${cardBg}`}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -180,19 +250,32 @@ export default function Resources({ darkMode }) {
             </p>
           </div>
 
-          <button
-            onClick={() => setIsAdding(true)}
-            disabled={isAdding || editingId}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              isAdding || editingId
-                ? 'bg-gray-500 cursor-not-allowed'
-                : darkMode
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}
-          >
-            + Add Resource
-          </button>
+          <div className="flex items-center gap-3">
+            {username !== 'anonymous' && (
+              <span className={`text-sm ${textMuted}`}>
+                Editing as: <span className={textSecondary}>{username}</span>
+                <button
+                  onClick={() => setShowUsernamePrompt(true)}
+                  className="ml-2 text-blue-500 hover:text-blue-400"
+                >
+                  (change)
+                </button>
+              </span>
+            )}
+            <button
+              onClick={() => setIsAdding(true)}
+              disabled={isAdding || editingId}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isAdding || editingId
+                  ? 'bg-gray-500 cursor-not-allowed'
+                  : darkMode
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+            >
+              + Add Resource
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -207,20 +290,6 @@ export default function Resources({ darkMode }) {
         </div>
       </div>
 
-      {/* Error State */}
-      {error && (
-        <div className={`p-4 rounded-lg border ${darkMode ? 'bg-red-900/20 border-red-800 text-red-400' : 'bg-red-50 border-red-200 text-red-600'}`}>
-          <p className="font-medium">Error loading resources</p>
-          <p className="text-sm mt-1">{error}</p>
-          <button
-            onClick={fetchResources}
-            className="mt-2 text-sm underline hover:no-underline"
-          >
-            Try again
-          </button>
-        </div>
-      )}
-
       {/* Loading State */}
       {loading && (
         <div className={`p-12 rounded-lg border ${cardBg} text-center`}>
@@ -230,7 +299,7 @@ export default function Resources({ darkMode }) {
       )}
 
       {/* Resources Table */}
-      {!loading && !error && (
+      {!loading && (
         <div className={`rounded-lg border overflow-hidden ${cardBg}`}>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -265,6 +334,7 @@ export default function Resources({ darkMode }) {
                           value={newResource.siteName}
                           onChange={(e) => setNewResource({ ...newResource, siteName: e.target.value })}
                           className={`w-full px-3 py-1.5 rounded border ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          autoFocus
                         />
                         <input
                           type="url"
@@ -332,6 +402,7 @@ export default function Resources({ darkMode }) {
                               value={editForm.siteName}
                               onChange={(e) => setEditForm({ ...editForm, siteName: e.target.value })}
                               className={`w-full px-3 py-1.5 rounded border ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                              autoFocus
                             />
                             <input
                               type="url"
@@ -474,9 +545,10 @@ export default function Resources({ darkMode }) {
       )}
 
       {/* Stats */}
-      {!loading && !error && resources.length > 0 && (
+      {!loading && resources.length > 0 && (
         <div className={`text-sm ${textMuted}`}>
           Showing {filteredResources.length} of {resources.length} resources
+          <span className="ml-2">(stored in browser)</span>
         </div>
       )}
     </motion.div>
