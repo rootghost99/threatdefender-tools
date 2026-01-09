@@ -287,6 +287,36 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
 
           {/* Engineering Dropdown */}
           <DropdownMenu dropdownKey="engineering" dropdown={engineering} />
+
+          {/* Resources Link */}
+          <motion.div whileHover={{ y: -1 }} whileTap={{ y: 0 }}>
+            <Link
+              to="/resources"
+              className={`relative px-3 py-1.5 text-sm font-medium transition-colors ${
+                currentPath.startsWith('/resources')
+                  ? darkMode
+                    ? 'text-blue-400'
+                    : 'text-blue-600'
+                  : darkMode
+                  ? 'text-gray-400 hover:text-gray-200'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Resources
+
+              {/* Active underline */}
+              {currentPath.startsWith('/resources') && (
+                <motion.div
+                  layoutId="activeTab"
+                  className={`absolute bottom-0 left-0 right-0 h-0.5 ${
+                    darkMode ? 'bg-blue-400' : 'bg-blue-600'
+                  }`}
+                  initial={false}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
+            </Link>
+          </motion.div>
         </div>
 
         {/* Mobile Navigation */}
@@ -351,6 +381,22 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
                     })}
                   </div>
                 </div>
+
+                {/* Resources Link */}
+                <Link
+                  to="/resources"
+                  className={`block px-4 py-2.5 font-medium transition-colors ${
+                    currentPath.startsWith('/resources')
+                      ? darkMode
+                        ? 'text-blue-400 bg-gray-800'
+                        : 'text-blue-600 bg-gray-50'
+                      : darkMode
+                      ? 'text-gray-300 hover:bg-gray-800'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Resources
+                </Link>
               </div>
             </motion.div>
           )}

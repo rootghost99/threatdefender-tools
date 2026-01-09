@@ -12,6 +12,7 @@ const EmailPostureCheck = lazy(() => import('./components/EmailPostureCheck'));
 const EmailHeaderAnalyzer = lazy(() => import('./components/EmailHeaderAnalyzer'));
 const PromptGallery = lazy(() => import('./components/PromptGallery'));
 const AlertTriageAssistant = lazy(() => import('./components/AlertTriageAssistant'));
+const Resources = lazy(() => import('./components/Resources'));
 
 // Loading component
 function LoadingFallback({ darkMode }) {
@@ -51,6 +52,7 @@ export default function ThreatDefenderDashboard() {
     { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
     { id: 'email-posture', name: 'Email Posture Check', icon: '📧', component: EmailPostureCheck },
     { id: 'email-headers', name: 'Email Header Analyzer', icon: '🔬', component: EmailHeaderAnalyzer },
+    { id: 'resources', name: 'Resources', icon: '🔗', component: Resources },
   ];
 
   // Update document title based on route
@@ -132,6 +134,14 @@ export default function ThreatDefenderDashboard() {
                 element={
                   <PageWrapper darkMode={darkMode}>
                     <EmailHeaderAnalyzer darkMode={darkMode} />
+                  </PageWrapper>
+                }
+              />
+              <Route
+                path="/resources"
+                element={
+                  <PageWrapper darkMode={darkMode}>
+                    <Resources darkMode={darkMode} />
                   </PageWrapper>
                 }
               />
