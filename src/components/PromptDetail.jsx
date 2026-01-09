@@ -66,12 +66,20 @@ export default function PromptDetail({ darkMode, promptId, onBack, onEdit }) {
       setWorkspacesError(null);
       try {
         const ws = await getSentinelWorkspaces((progressWorkspaces) => {
-          setWorkspaces(progressWorkspaces);
+          // Sort alphabetically by name as they load
+          const sorted = [...progressWorkspaces].sort((a, b) =>
+            (a.name || '').localeCompare(b.name || '')
+          );
+          setWorkspaces(sorted);
         });
-        setWorkspaces(ws);
+        // Sort final results alphabetically by name
+        const sortedWorkspaces = [...ws].sort((a, b) =>
+          (a.name || '').localeCompare(b.name || '')
+        );
+        setWorkspaces(sortedWorkspaces);
         // Auto-select first workspace if only one
-        if (ws.length === 1) {
-          setSelectedWorkspace(ws[0].id);
+        if (sortedWorkspaces.length === 1) {
+          setSelectedWorkspace(sortedWorkspaces[0].id);
         }
       } catch (err) {
         console.error('Failed to load workspaces:', err);
