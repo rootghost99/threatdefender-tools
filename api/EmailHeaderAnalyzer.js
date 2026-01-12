@@ -356,34 +356,95 @@ function analyzeAuthentication(headers) {
   // Parse Authentication-Results header
   const authResults = headers['authentication-results'];
   if (authResults) {
-    result.authenticationResultsRaw = authResults;
+    const authValues = Array.isArray(authResults) ? authResults : [authResults];
+    const parsedEntries = [];
+    const methodEntries = {
+      spf: [],
+      dkim: [],
+      dmarc: [],
+      compauth: []
+    };
+    let entryIndex = 0;
 
-    // Extract SPF result
-    const spfMatch = authResults.match(/spf=(\w+)(?:\s*\(([^\)]*)\))?/i);
-    if (spfMatch) {
-      result.spf.status = spfMatch[1].toLowerCase();
-      result.spf.details = spfMatch[2] || null;
+    for (const authValue of authValues) {
+      const tokens = tokenizeAuthResults(authValue);
+      let currentEntry = null;
+
+      for (const token of tokens) {
+        const trimmed = token.trim();
+        if (!trimmed) continue;
+
+        const commentMatch = trimmed.match(/^\((.*)\)$/);
+        if (commentMatch) {
+          if (currentEntry) {
+            currentEntry.comments.push(commentMatch[1].trim());
+            currentEntry.rawParts.push(trimmed);
+          }
+          continue;
+        }
+
+        const pairMatch = trimmed.match(/^([a-z0-9_.-]+)\s*=\s*([a-z0-9_.-]+)/i);
+        if (pairMatch) {
+          const method = pairMatch[1].toLowerCase();
+          const value = pairMatch[2].toLowerCase();
+
+          if (methodEntries[method]) {
+            currentEntry = {
+              method,
+              result: value,
+              comments: [],
+              details: [],
+              rawParts: [trimmed],
+              index: entryIndex++
+            };
+            methodEntries[method].push(currentEntry);
+            parsedEntries.push(currentEntry);
+          } else if (currentEntry) {
+            currentEntry.details.push(trimmed);
+            currentEntry.rawParts.push(trimmed);
+          }
+          continue;
+        }
+
+        if (currentEntry) {
+          currentEntry.details.push(trimmed);
+          currentEntry.rawParts.push(trimmed);
+        }
+      }
     }
 
-    // Extract DKIM result
-    const dkimMatch = authResults.match(/dkim=(\w+)(?:\s*\(([^\)]*)\))?/i);
-    if (dkimMatch) {
-      result.dkim.status = dkimMatch[1].toLowerCase();
-      result.dkim.details = dkimMatch[2] || null;
+    result.authenticationResultsRaw = parsedEntries.map((entry) => ({
+      method: entry.method,
+      result: entry.result,
+      comment: entry.comments.length ? entry.comments.join(' ') : null,
+      details: entry.details.length ? entry.details.join(' ') : null,
+      raw: entry.rawParts.join(' ')
+    }));
+
+    const spfEntry = selectAuthenticationEntry(methodEntries.spf);
+    if (spfEntry) {
+      result.spf.status = spfEntry.result;
+      result.spf.details = buildAuthEntryDetails(spfEntry);
     }
 
-    // Extract DMARC result
-    const dmarcMatch = authResults.match(/dmarc=(\w+)(?:\s*\(([^\)]*)\))?/i);
-    if (dmarcMatch) {
-      result.dmarc.status = dmarcMatch[1].toLowerCase();
-      result.dmarc.details = dmarcMatch[2] || null;
+    const dkimEntry = selectAuthenticationEntry(methodEntries.dkim);
+    if (dkimEntry) {
+      result.dkim.status = dkimEntry.result;
+      result.dkim.details = buildAuthEntryDetails(dkimEntry);
     }
 
-    // Extract compauth (Microsoft specific)
-    const compauthMatch = authResults.match(/compauth=(\w+)(?:\s*reason=(\d+))?/i);
-    if (compauthMatch) {
-      result.compauth.status = compauthMatch[1].toLowerCase();
-      result.compauth.reason = compauthMatch[2] || null;
+    const dmarcEntry = selectAuthenticationEntry(methodEntries.dmarc);
+    if (dmarcEntry) {
+      result.dmarc.status = dmarcEntry.result;
+      result.dmarc.details = buildAuthEntryDetails(dmarcEntry);
+    }
+
+    const compauthEntry = selectAuthenticationEntry(methodEntries.compauth);
+    if (compauthEntry) {
+      result.compauth.status = compauthEntry.result;
+      result.compauth.details = buildAuthEntryDetails(compauthEntry);
+      const reasonMatch = compauthEntry.details.join(' ').match(/reason=(\d+)/i);
+      result.compauth.reason = reasonMatch ? reasonMatch[1] : null;
     }
   }
 
@@ -434,6 +495,77 @@ function analyzeAuthentication(headers) {
   result.overallStatus = determineOverallAuthStatus(result);
 
   return result;
+}
+
+function tokenizeAuthResults(value) {
+  const tokens = [];
+  let current = '';
+  let parenDepth = 0;
+
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+
+    if (char === '(') {
+      parenDepth += 1;
+    } else if (char === ')' && parenDepth > 0) {
+      parenDepth -= 1;
+    }
+
+    if ((char === ';' || /\s/.test(char)) && parenDepth === 0) {
+      if (current.trim()) {
+        tokens.push(current.trim());
+      }
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.trim()) {
+    tokens.push(current.trim());
+  }
+
+  return tokens;
+}
+
+function buildAuthEntryDetails(entry) {
+  const parts = [];
+  if (entry.comments.length) {
+    parts.push(entry.comments.join(' '));
+  }
+  if (entry.details.length) {
+    parts.push(entry.details.join(' '));
+  }
+  return parts.length ? parts.join(' ') : null;
+}
+
+function selectAuthenticationEntry(entries) {
+  if (!entries.length) {
+    return null;
+  }
+
+  let best = null;
+  let bestRank = -1;
+
+  for (const entry of entries) {
+    const rank = getAuthSeverityRank(entry.result);
+    if (!best || rank > bestRank || (rank === bestRank && entry.index > best.index)) {
+      best = entry;
+      bestRank = rank;
+    }
+  }
+
+  return best;
+}
+
+function getAuthSeverityRank(result) {
+  const normalized = result.toLowerCase();
+  if (['fail', 'failed', 'hardfail', 'permerror'].includes(normalized)) return 4;
+  if (['temperror', 'softfail', 'neutral', 'none'].includes(normalized)) return 3;
+  if (['pass', 'passed', 'policy'].includes(normalized)) return 2;
+  if (['present'].includes(normalized)) return 1;
+  return 0;
 }
 
 function parseDKIMSignature(signature) {
