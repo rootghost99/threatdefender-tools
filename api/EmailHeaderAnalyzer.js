@@ -136,7 +136,7 @@ function saveHeader(headers, name, value) {
   const normalizedName = name.toLowerCase();
 
   // Headers that can appear multiple times
-  const multipleHeaders = ['received', 'dkim-signature', 'arc-seal', 'arc-message-signature', 'arc-authentication-results', 'x-received'];
+  const multipleHeaders = ['received', 'dkim-signature', 'arc-seal', 'arc-message-signature', 'arc-authentication-results', 'authentication-results', 'x-received'];
 
   if (multipleHeaders.includes(normalizedName)) {
     if (!headers[normalizedName]) {
@@ -356,31 +356,35 @@ function analyzeAuthentication(headers) {
   // Parse Authentication-Results header
   const authResults = headers['authentication-results'];
   if (authResults) {
-    result.authenticationResultsRaw = authResults;
+    const authResultsArray = Array.isArray(authResults) ? authResults : [authResults];
+    // Use the most recent hop's Authentication-Results (topmost header).
+    const selectedAuthResults = authResultsArray[0];
+    result.authenticationResultsRaw = authResultsArray;
+    result.authenticationResultsUsed = selectedAuthResults;
 
     // Extract SPF result
-    const spfMatch = authResults.match(/spf=(\w+)(?:\s*\(([^\)]*)\))?/i);
+    const spfMatch = selectedAuthResults.match(/spf=(\w+)(?:\s*\(([^\)]*)\))?/i);
     if (spfMatch) {
       result.spf.status = spfMatch[1].toLowerCase();
       result.spf.details = spfMatch[2] || null;
     }
 
     // Extract DKIM result
-    const dkimMatch = authResults.match(/dkim=(\w+)(?:\s*\(([^\)]*)\))?/i);
+    const dkimMatch = selectedAuthResults.match(/dkim=(\w+)(?:\s*\(([^\)]*)\))?/i);
     if (dkimMatch) {
       result.dkim.status = dkimMatch[1].toLowerCase();
       result.dkim.details = dkimMatch[2] || null;
     }
 
     // Extract DMARC result
-    const dmarcMatch = authResults.match(/dmarc=(\w+)(?:\s*\(([^\)]*)\))?/i);
+    const dmarcMatch = selectedAuthResults.match(/dmarc=(\w+)(?:\s*\(([^\)]*)\))?/i);
     if (dmarcMatch) {
       result.dmarc.status = dmarcMatch[1].toLowerCase();
       result.dmarc.details = dmarcMatch[2] || null;
     }
 
     // Extract compauth (Microsoft specific)
-    const compauthMatch = authResults.match(/compauth=(\w+)(?:\s*reason=(\d+))?/i);
+    const compauthMatch = selectedAuthResults.match(/compauth=(\w+)(?:\s*reason=(\d+))?/i);
     if (compauthMatch) {
       result.compauth.status = compauthMatch[1].toLowerCase();
       result.compauth.reason = compauthMatch[2] || null;
