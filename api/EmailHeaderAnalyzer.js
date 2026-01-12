@@ -1,6 +1,7 @@
 // /api/EmailHeaderAnalyzer.js
 // Email Header Security Analyzer - Parses and analyzes email headers for security issues
 const { app } = require('@azure/functions');
+const net = require('net');
 
 app.http('EmailHeaderAnalyzer', {
   methods: ['POST', 'OPTIONS'],
@@ -326,20 +327,105 @@ function formatDelay(ms) {
 }
 
 function isInternalIP(ip) {
-  if (!ip) return false;
-  return ip.startsWith('10.') ||
-         ip.startsWith('192.168.') ||
-         ip.startsWith('172.16.') ||
-         ip.startsWith('172.17.') ||
-         ip.startsWith('172.18.') ||
-         ip.startsWith('172.19.') ||
-         ip.startsWith('172.2') ||
-         ip.startsWith('172.30.') ||
-         ip.startsWith('172.31.') ||
-         ip.startsWith('127.') ||
-         ip.startsWith('::1') ||
-         ip.startsWith('fc') ||
-         ip.startsWith('fd');
+  if (!ip || net.isIP(ip) === 0) return false;
+  return INTERNAL_CIDRS.some((cidr) => cidrContains(ip, cidr));
+}
+
+const INTERNAL_CIDRS = [
+  '10.0.0.0/8',
+  '172.16.0.0/12',
+  '192.168.0.0/16',
+  '127.0.0.0/8',
+  '::1/128',
+  'fc00::/7',
+  'fe80::/10'
+];
+
+// Inline CIDR expectations:
+// - isInternalIP('10.1.2.3') === true
+// - isInternalIP('172.20.1.1') === true
+// - isInternalIP('172.32.0.1') === false
+// - isInternalIP('192.168.1.10') === true
+// - isInternalIP('127.0.0.1') === true
+// - isInternalIP('8.8.8.8') === false
+// - isInternalIP('::1') === true
+// - isInternalIP('fe80::1') === true
+// - isInternalIP('fc00::1234') === true
+// - isInternalIP('2001:4860:4860::8888') === false
+
+function cidrContains(ip, cidr) {
+  const [range, prefixText] = cidr.split('/');
+  const prefix = Number(prefixText);
+  const rangeVersion = net.isIP(range);
+  const ipVersion = net.isIP(ip);
+  if (!rangeVersion || rangeVersion !== ipVersion || Number.isNaN(prefix)) {
+    return false;
+  }
+  if (rangeVersion === 4) {
+    if (prefix < 0 || prefix > 32) return false;
+    const ipInt = parseIPv4(ip);
+    const rangeInt = parseIPv4(range);
+    if (ipInt === null || rangeInt === null) return false;
+    const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+    return (ipInt & mask) === (rangeInt & mask);
+  }
+  if (prefix < 0 || prefix > 128) return false;
+  const ipBig = parseIPv6(ip);
+  const rangeBig = parseIPv6(range);
+  if (ipBig === null || rangeBig === null) return false;
+  const shift = 128n - BigInt(prefix);
+  const mask = shift === 128n ? 0n : (~0n << shift) & ((1n << 128n) - 1n);
+  return (ipBig & mask) === (rangeBig & mask);
+}
+
+function parseIPv4(ip) {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return null;
+  let value = 0;
+  for (const part of parts) {
+    const num = Number(part);
+    if (!Number.isInteger(num) || num < 0 || num > 255) return null;
+    value = (value << 8) + num;
+  }
+  return value >>> 0;
+}
+
+function parseIPv6(ip) {
+  const [head = '', tail = ''] = ip.split('::');
+  let headParts = head.length > 0 ? head.split(':') : [];
+  let tailParts = tail.length > 0 ? tail.split(':') : [];
+
+  if (tailParts.some((part) => part.includes('.'))) {
+    const ipv4Part = tailParts.pop();
+    const ipv4Parts = ipv4Part.split('.').map(Number);
+    if (ipv4Parts.length !== 4 || ipv4Parts.some((num) => !Number.isInteger(num) || num < 0 || num > 255)) {
+      return null;
+    }
+    const high = ((ipv4Parts[0] << 8) | ipv4Parts[1]).toString(16);
+    const low = ((ipv4Parts[2] << 8) | ipv4Parts[3]).toString(16);
+    tailParts = [...tailParts, high, low];
+  }
+
+  const totalParts = headParts.length + tailParts.length;
+  if (ip.includes('::')) {
+    const zerosToInsert = 8 - totalParts;
+    if (zerosToInsert < 0) return null;
+    headParts = [...headParts, ...Array(zerosToInsert).fill('0')];
+  } else if (totalParts !== 8) {
+    return null;
+  }
+
+  const parts = [...headParts, ...tailParts];
+  if (parts.length !== 8) return null;
+  let value = 0n;
+  for (const part of parts) {
+    const segment = parseInt(part, 16);
+    if (!Number.isInteger(segment) || segment < 0 || segment > 0xffff) {
+      return null;
+    }
+    value = (value << 16n) + BigInt(segment);
+  }
+  return value;
 }
 
 /* ---------------------- Authentication Analysis ---------------------- */
