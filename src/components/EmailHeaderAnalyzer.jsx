@@ -512,22 +512,30 @@ Authentication-Results: mx.recipient.com; spf=pass; dkim=pass; dmarc=pass`}
             {results.securityAnalysis.totalFindings > 0 && (
               <div className="mt-4 flex justify-center gap-4">
                 {results.summary.findingsCount.high > 0 && (
-                  <span className="px-3 py-1 rounded-full bg-red-900 text-red-200 text-sm">
+                  <span className={`px-3 py-1 rounded-full text-sm ${
+                    darkMode ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-700'
+                  }`}>
                     {results.summary.findingsCount.high} High
                   </span>
                 )}
                 {results.summary.findingsCount.medium > 0 && (
-                  <span className="px-3 py-1 rounded-full bg-orange-900 text-orange-200 text-sm">
+                  <span className={`px-3 py-1 rounded-full text-sm ${
+                    darkMode ? 'bg-orange-900 text-orange-200' : 'bg-orange-100 text-orange-700'
+                  }`}>
                     {results.summary.findingsCount.medium} Medium
                   </span>
                 )}
                 {results.summary.findingsCount.low > 0 && (
-                  <span className="px-3 py-1 rounded-full bg-yellow-900 text-yellow-200 text-sm">
+                  <span className={`px-3 py-1 rounded-full text-sm ${
+                    darkMode ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-100 text-yellow-700'
+                  }`}>
                     {results.summary.findingsCount.low} Low
                   </span>
                 )}
                 {results.summary.findingsCount.info > 0 && (
-                  <span className="px-3 py-1 rounded-full bg-blue-900 text-blue-200 text-sm">
+                  <span className={`px-3 py-1 rounded-full text-sm ${
+                    darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700'
+                  }`}>
                     {results.summary.findingsCount.info} Info
                   </span>
                 )}
@@ -544,12 +552,12 @@ Authentication-Results: mx.recipient.com; spf=pass; dkim=pass; dmarc=pass`}
                       key={idx}
                       className={`p-3 rounded-lg border-l-4 ${
                         rec.priority === 'critical'
-                          ? 'bg-red-900 border-red-600'
+                          ? (darkMode ? 'bg-red-900 border-red-600' : 'bg-red-50 border-red-400')
                           : rec.priority === 'high'
-                            ? 'bg-orange-900 border-orange-600'
+                            ? (darkMode ? 'bg-orange-900 border-orange-600' : 'bg-orange-50 border-orange-400')
                             : rec.priority === 'medium'
-                              ? 'bg-yellow-900 border-yellow-600'
-                              : 'bg-blue-900 border-blue-600'
+                              ? (darkMode ? 'bg-yellow-900 border-yellow-600' : 'bg-yellow-50 border-yellow-400')
+                              : (darkMode ? 'bg-blue-900 border-blue-600' : 'bg-blue-50 border-blue-400')
                       }`}
                     >
                       <span className="font-semibold">[{rec.priority.toUpperCase()}]</span> {rec.action}
@@ -833,10 +841,12 @@ Authentication-Results: mx.recipient.com; spf=pass; dkim=pass; dmarc=pass`}
                             key={idx}
                             className={`p-3 rounded-lg border-l-4 ${
                               issue.severity === 'high'
-                                ? 'bg-red-900 border-red-600'
+                                ? (darkMode ? 'bg-red-900 border-red-600' : 'bg-red-50 border-red-400')
                                 : issue.severity === 'medium'
-                                  ? 'bg-orange-900 border-orange-600'
-                                  : 'bg-yellow-900 border-yellow-600'
+                                  ? (darkMode ? 'bg-orange-900 border-orange-600' : 'bg-orange-50 border-orange-400')
+                                  : issue.severity === 'info'
+                                    ? (darkMode ? 'bg-blue-900 border-blue-600' : 'bg-blue-50 border-blue-400')
+                                    : (darkMode ? 'bg-yellow-900 border-yellow-600' : 'bg-yellow-50 border-yellow-400')
                             }`}
                           >
                             {issue.message}
@@ -892,7 +902,7 @@ Authentication-Results: mx.recipient.com; spf=pass; dkim=pass; dmarc=pass`}
                               {finding.category}
                             </span>
                           </div>
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-200'}`}>
+                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                             {finding.description}
                           </p>
                         </div>
