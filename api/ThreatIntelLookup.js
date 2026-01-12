@@ -59,7 +59,7 @@ app.http('ThreatIntelLookup', {
           results.virusTotal = await queryVirusTotal(indicator, indicatorType, vtApiKey);
           context.log('VirusTotal query successful');
         } catch (error) {
-          context.log.error('VirusTotal error:', error.message);
+          context.error('VirusTotal error:', error.message);
           results.virusTotal = { error: error.message };
         }
       }
@@ -71,7 +71,7 @@ app.http('ThreatIntelLookup', {
           results.abuseIPDB = await queryAbuseIPDB(indicator, aipdbApiKey);
           context.log('AbuseIPDB query successful');
         } catch (error) {
-          context.log.error('AbuseIPDB error:', error.message);
+          context.error('AbuseIPDB error:', error.message);
           results.abuseIPDB = { error: error.message };
         }
       }
@@ -83,7 +83,7 @@ app.http('ThreatIntelLookup', {
           results.urlScan = await queryURLScan(indicator, indicatorType, urlscanApiKey);
           context.log('URLScan query successful');
         } catch (error) {
-          context.log.error('URLScan error:', error.message);
+          context.error('URLScan error:', error.message);
           results.urlScan = { error: error.message };
         }
       }
@@ -95,7 +95,7 @@ app.http('ThreatIntelLookup', {
           results.greyNoise = await queryGreyNoise(indicator, greynoiseApiKey);
           context.log('GreyNoise query successful');
         } catch (error) {
-          context.log.error('GreyNoise error:', error.message);
+          context.error('GreyNoise error:', error.message);
           results.greyNoise = { error: error.message };
         }
       }
@@ -107,7 +107,7 @@ app.http('ThreatIntelLookup', {
           results.shodan = await queryShodan(indicator, shodanApiKey);
           context.log('Shodan query successful');
         } catch (error) {
-          context.log.error('Shodan error:', error.message);
+          context.error('Shodan error:', error.message);
           results.shodan = { error: error.message };
         }
       }
@@ -119,7 +119,7 @@ app.http('ThreatIntelLookup', {
           results.alienVault = await queryAlienVault(indicator, indicatorType, otxApiKey);
           context.log('AlienVault OTX query successful');
         } catch (error) {
-          context.log.error('AlienVault OTX error:', error.message);
+          context.error('AlienVault OTX error:', error.message);
           results.alienVault = { error: error.message };
         }
       }
@@ -131,7 +131,7 @@ app.http('ThreatIntelLookup', {
           results.mxToolbox = await queryMXToolbox(indicator, mxToolboxApiKey);
           context.log('MXToolbox query successful');
         } catch (error) {
-          context.log.error('MXToolbox error:', error.message);
+          context.error('MXToolbox error:', error.message);
           results.mxToolbox = { error: error.message };
         }
       }
@@ -143,7 +143,7 @@ app.http('ThreatIntelLookup', {
           results.arin = await queryArinRdap(indicator);
           context.log('ARIN RDAP query successful');
         } catch (error) {
-          context.log.error('ARIN RDAP error:', error.message);
+          context.error('ARIN RDAP error:', error.message);
           results.arin = { error: error.message };
         }
       }
@@ -161,8 +161,8 @@ app.http('ThreatIntelLookup', {
 
     } catch (error) {
       // Avoid referencing "indicator" here if parsing failed
-      context.log.error('CRITICAL ERROR in ThreatIntelLookup:', error.message);
-      context.log.error('Error stack:', error.stack);
+      context.error('CRITICAL ERROR in ThreatIntelLookup:', error.message);
+      context.error('Error stack:', error.stack);
       return {
         status: 500,
         headers: {

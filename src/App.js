@@ -64,7 +64,7 @@ export default function ThreatDefenderDashboard() {
     } else {
       document.title = 'ThreatDefender Command Base';
     }
-  }, [location.pathname, tabs]);
+  }, [location.pathname]); // Removed tabs from dependencies to avoid infinite re-renders
 
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>

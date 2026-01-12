@@ -13,25 +13,6 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-// Helper functions for prompt execution
-function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-function getUserFromRequest(request) {
-  const clientPrincipal = request.headers.get('x-ms-client-principal');
-  if (clientPrincipal) {
-    try {
-      const decoded = Buffer.from(clientPrincipal, 'base64').toString('utf8');
-      const user = JSON.parse(decoded);
-      return user.userDetails || 'authenticated-user';
-    } catch (e) {
-      return 'authenticated-user';
-    }
-  }
-  return 'system';
-}
-
 // Variable substitution
 function substituteVariables(text, variables) {
   if (!text || !variables) return text;

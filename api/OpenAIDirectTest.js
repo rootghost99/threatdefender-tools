@@ -78,7 +78,7 @@ app.http('OpenAIDirectTest', {
                     choicesLength: apiResult.choices?.length || 0
                 };
             } catch (apiError) {
-                context.log.error('API call failed:', apiError);
+                context.error('API call failed:', apiError);
                 result.step3_apiCall = {
                     status: 'FAILED',
                     errorMessage: apiError.message,
@@ -100,7 +100,7 @@ app.http('OpenAIDirectTest', {
             };
 
         } catch (error) {
-            context.log.error('Unexpected error:', error);
+            context.error('Unexpected error:', error);
             result.error = {
                 message: error.message,
                 type: error.constructor?.name,

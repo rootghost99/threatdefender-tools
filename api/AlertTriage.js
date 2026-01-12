@@ -219,8 +219,8 @@ OUTPUT FORMAT: Valid JSON only matching the provided schema. No markdown formatt
         }
         triage = JSON.parse(cleanContent.trim());
       } catch (parseErr) {
-        context.log.error('JSON parse error:', parseErr.message);
-        context.log.error('Raw content:', content.substring(0, 500));
+        context.error('JSON parse error:', parseErr.message);
+        context.error('Raw content:', content.substring(0, 500));
         return {
           status: 502,
           headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
@@ -230,7 +230,7 @@ OUTPUT FORMAT: Valid JSON only matching the provided schema. No markdown formatt
 
       const valid = validateTriage(triage);
       if (!valid) {
-        context.log.error('Schema validation failed:', validateTriage.errors);
+        context.error('Schema validation failed:', validateTriage.errors);
         return {
           status: 422,
           headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
@@ -261,7 +261,7 @@ OUTPUT FORMAT: Valid JSON only matching the provided schema. No markdown formatt
         }
       };
     } catch (err) {
-      context.log.error('Alert Triage error:', err.message);
+      context.error('Alert Triage error:', err.message);
       return {
         status: 500,
         headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' },

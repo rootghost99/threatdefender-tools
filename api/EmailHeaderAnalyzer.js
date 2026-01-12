@@ -74,8 +74,8 @@ app.http('EmailHeaderAnalyzer', {
       };
 
     } catch (error) {
-      context.log.error('CRITICAL ERROR in EmailHeaderAnalyzer:', error.message);
-      context.log.error('Error stack:', error.stack);
+      context.error('CRITICAL ERROR in EmailHeaderAnalyzer:', error.message);
+      context.error('Error stack:', error.stack);
       return {
         status: 500,
         headers: {

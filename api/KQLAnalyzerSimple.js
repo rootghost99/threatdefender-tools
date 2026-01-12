@@ -59,10 +59,10 @@ app.http('KQLAnalyzerSimple', {
             };
 
         } catch (error) {
-            context.log.error('Error in KQLAnalyzerSimple:', error);
-            context.log.error('Error type:', error.constructor.name);
-            context.log.error('Error message:', error.message);
-            context.log.error('Error stack:', error.stack);
+            context.error('Error in KQLAnalyzerSimple:', error);
+            context.error('Error type:', error.constructor.name);
+            context.error('Error message:', error.message);
+            context.error('Error stack:', error.stack);
 
             return {
                 status: 500,

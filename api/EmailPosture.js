@@ -80,7 +80,7 @@ app.http('EmailPosture', {
           context.log('Querying MXToolbox Email Health for:', cleanDomain);
           mxToolboxResult = await queryMXToolboxEmailHealth(cleanDomain, mxToolboxApiKey, context);
         } catch (error) {
-          context.log.error('MXToolbox error:', error.message);
+          context.error('MXToolbox error:', error.message);
           mxToolboxResult = { error: error.message };
         }
       }
@@ -116,8 +116,8 @@ app.http('EmailPosture', {
       };
 
     } catch (error) {
-      context.log.error('CRITICAL ERROR in EmailPosture:', error.message);
-      context.log.error('Error stack:', error.stack);
+      context.error('CRITICAL ERROR in EmailPosture:', error.message);
+      context.error('Error stack:', error.stack);
       return {
         status: 500,
         headers: {

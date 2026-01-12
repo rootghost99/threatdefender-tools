@@ -26,7 +26,7 @@ app.http('KQLAnalyzer', {
             try {
                 body = await request.json();
             } catch (parseError) {
-                context.log.error('Failed to parse request body:', parseError);
+                context.error('Failed to parse request body:', parseError);
                 return {
                     status: 400,
                     headers: {
@@ -62,7 +62,7 @@ app.http('KQLAnalyzer', {
             const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4';
 
             if (!endpoint || !apiKey) {
-                context.log.error('Missing Azure OpenAI configuration');
+                context.error('Missing Azure OpenAI configuration');
                 return {
                     status: 500,
                     headers: {
@@ -124,7 +124,7 @@ Provide analysis with:
                 context.log('OpenAI REST API response status:', response.status);
 
                 if (response.status !== 200) {
-                    context.log.error('OpenAI API error response:', response.data);
+                    context.error('OpenAI API error response:', response.data);
                     return {
                         status: 500,
                         headers: {
@@ -142,7 +142,7 @@ Provide analysis with:
                 const result = response.data;
 
                 if (!result.choices || !result.choices[0] || !result.choices[0].message) {
-                    context.log.error('Invalid OpenAI response format:', result);
+                    context.error('Invalid OpenAI response format:', result);
                     return {
                         status: 500,
                         headers: {
@@ -170,7 +170,7 @@ Provide analysis with:
                 };
 
             } catch (apiError) {
-                context.log.error('OpenAI REST API call failed:', apiError);
+                context.error('OpenAI REST API call failed:', apiError);
                 return {
                     status: 500,
                     headers: {
@@ -186,7 +186,7 @@ Provide analysis with:
             }
 
         } catch (error) {
-            context.log.error('Error in KQLAnalyzerREST:', error);
+            context.error('Error in KQLAnalyzerREST:', error);
             return {
                 status: 500,
                 headers: {
