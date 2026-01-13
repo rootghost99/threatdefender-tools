@@ -255,6 +255,32 @@ function SectionCard({ title, icon, children, darkMode, defaultExpanded = true, 
   );
 }
 
+// Copy Button Component for individual items
+function CopyButton({ content, darkMode }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`px-3 py-1 text-xs rounded transition-colors ${
+        copied
+          ? 'bg-green-600 text-white'
+          : darkMode
+            ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+      }`}
+    >
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  );
+}
+
 // IOC Badge Component
 function IOCBadge({ type, count, icon, darkMode }) {
   if (count === 0) return null;
@@ -1141,9 +1167,12 @@ Examples of what to paste:
               <div className="space-y-4">
                 {classification.kqlQueries.map((kql, idx) => (
                   <div key={idx}>
-                    <h5 className={`font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {kql.purpose}
-                    </h5>
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {kql.purpose}
+                      </h5>
+                      <CopyButton content={formatKQLQuery(kql.query)} darkMode={darkMode} />
+                    </div>
                     <pre className={`p-3 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap ${darkMode ? 'bg-gray-900 text-green-400' : 'bg-gray-100 text-gray-800'}`}>
                       {formatKQLQuery(kql.query)}
                     </pre>
