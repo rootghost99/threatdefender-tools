@@ -182,13 +182,16 @@ app.http('ThreatIntelLookup', {
 /* ---------------------- helpers ---------------------- */
 
 function detectIndicatorType(indicator) {
-  const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+  const ipv4Regex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+  // IPv6 regex: matches full, compressed, and IPv4-mapped IPv6 addresses
+  const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$|^(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}$|^(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}$|^(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}$|^[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}$|^:(?::[0-9a-fA-F]{1,4}){1,7}$|^::(?:[fF]{4}:)?(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
   const sha1Regex = /^[a-fA-F0-9]{40}$/;
   const sha256Regex = /^[a-fA-F0-9]{64}$/;
   const urlRegex = /^https?:\/\//;
   const domainRegex = /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
 
-  if (ipRegex.test(indicator)) return 'IP';
+  if (ipv4Regex.test(indicator)) return 'IP';
+  if (ipv6Regex.test(indicator)) return 'IP'; // IPv6 also returns 'IP' for enrichment sources
   if (sha256Regex.test(indicator)) return 'SHA256';
   if (sha1Regex.test(indicator)) return 'SHA1';
   if (urlRegex.test(indicator)) return 'URL';

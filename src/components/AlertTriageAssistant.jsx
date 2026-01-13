@@ -6,6 +6,10 @@ import { useAuth } from '../contexts/AuthContext';
 // IOC extraction patterns
 const IOC_PATTERNS = {
   ipv4: /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g,
+  // IPv6 pattern: matches full, compressed (::), and IPv4-mapped forms
+  ipv6: /\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,7}:\b|\b(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}\b|\b(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}\b|\b(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}\b|\b[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}\b|\b:(?::[0-9a-fA-F]{1,4}){1,7}\b|\b::(?:[fF]{4}:)?(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g,
+  // GUID/UUID pattern: matches Azure AD user IDs, object IDs, etc.
+  guid: /\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g,
   md5: /\b[a-fA-F0-9]{32}\b/g,
   sha1: /\b[a-fA-F0-9]{40}\b/g,
   sha256: /\b[a-fA-F0-9]{64}\b/g,
@@ -37,6 +41,8 @@ function extractIOCs(text) {
   const refangedText = refangIOC(text);
   const extracted = {
     ips: [],
+    ipv6s: [],
+    guids: [],
     domains: [],
     urls: [],
     md5s: [],
@@ -46,7 +52,7 @@ function extractIOCs(text) {
     cves: []
   };
 
-  // Extract each type
+  // Extract IPv4 addresses
   const ipMatches = refangedText.match(IOC_PATTERNS.ipv4) || [];
   extracted.ips = [...new Set(ipMatches)].filter(ip => {
     // Filter out common private/local IPs
@@ -56,6 +62,21 @@ function extractIOCs(text) {
            !ip.startsWith('127.') &&
            !ip.startsWith('0.');
   });
+
+  // Extract IPv6 addresses
+  const ipv6Matches = refangedText.match(IOC_PATTERNS.ipv6) || [];
+  extracted.ipv6s = [...new Set(ipv6Matches)].filter(ip => {
+    const lower = ip.toLowerCase();
+    // Filter out loopback (::1), link-local (fe80::), and private (fc00::/7, fd00::/8)
+    return lower !== '::1' &&
+           !lower.startsWith('fe80:') &&
+           !lower.startsWith('fc') &&
+           !lower.startsWith('fd');
+  });
+
+  // Extract GUIDs/UUIDs (Azure AD user IDs, object IDs, etc.)
+  const guidMatches = refangedText.match(IOC_PATTERNS.guid) || [];
+  extracted.guids = [...new Set(guidMatches.map(g => g.toLowerCase()))];
 
   const urlMatches = refangedText.match(IOC_PATTERNS.url) || [];
   extracted.urls = [...new Set(urlMatches)];
@@ -412,12 +433,13 @@ export default function AlertTriageAssistant({ darkMode }) {
   // Bulk enrich IOCs
   const handleEnrich = useCallback(async () => {
     const allIndicators = [
-      ...selectedIOCs.ips.map(v => ({ value: v, type: 'ip' })),
-      ...selectedIOCs.domains.map(v => ({ value: v, type: 'domain' })),
-      ...selectedIOCs.urls.map(v => ({ value: v, type: 'url' })),
-      ...selectedIOCs.sha256s.map(v => ({ value: v, type: 'sha256' })),
-      ...selectedIOCs.sha1s.map(v => ({ value: v, type: 'sha1' })),
-      ...selectedIOCs.md5s.map(v => ({ value: v, type: 'md5' }))
+      ...(selectedIOCs.ips || []).map(v => ({ value: v, type: 'ip' })),
+      ...(selectedIOCs.ipv6s || []).map(v => ({ value: v, type: 'ipv6' })),
+      ...(selectedIOCs.domains || []).map(v => ({ value: v, type: 'domain' })),
+      ...(selectedIOCs.urls || []).map(v => ({ value: v, type: 'url' })),
+      ...(selectedIOCs.sha256s || []).map(v => ({ value: v, type: 'sha256' })),
+      ...(selectedIOCs.sha1s || []).map(v => ({ value: v, type: 'sha1' })),
+      ...(selectedIOCs.md5s || []).map(v => ({ value: v, type: 'md5' }))
     ];
 
     if (allIndicators.length === 0) {
@@ -572,7 +594,9 @@ export default function AlertTriageAssistant({ darkMode }) {
 
   // IOC type configurations
   const iocTypes = [
-    { key: 'ips', label: 'IP Addresses', icon: '🌐' },
+    { key: 'ips', label: 'IPv4 Addresses', icon: '🌐' },
+    { key: 'ipv6s', label: 'IPv6 Addresses', icon: '🌍' },
+    { key: 'guids', label: 'GUIDs/User IDs', icon: '🆔' },
     { key: 'domains', label: 'Domains', icon: '🔗' },
     { key: 'urls', label: 'URLs', icon: '🔍' },
     { key: 'sha256s', label: 'SHA-256', icon: '🔐' },
