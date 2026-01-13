@@ -36,6 +36,63 @@ function refangIOC(ioc) {
   return refanged;
 }
 
+// Format KQL query for multi-line display
+function formatKQLQuery(query) {
+  if (!query || typeof query !== 'string') return query;
+
+  // KQL operators that should start on a new line
+  const lineBreakOperators = [
+    'where',
+    'project',
+    'extend',
+    'summarize',
+    'join',
+    'union',
+    'order by',
+    'sort by',
+    'top',
+    'take',
+    'limit',
+    'distinct',
+    'count',
+    'render',
+    'mv-expand',
+    'parse',
+    'evaluate',
+    'make-series',
+    'let',
+    'datatable'
+  ];
+
+  // First, normalize whitespace and split on pipe operator
+  let formatted = query.trim();
+
+  // Split on pipe that's followed by a KQL operator
+  // This regex matches | followed by optional whitespace and a KQL operator
+  const pipeOperatorPattern = new RegExp(
+    `\\s*\\|\\s*(${lineBreakOperators.join('|')})\\b`,
+    'gi'
+  );
+
+  // Replace pipe + operator with newline + pipe + operator
+  formatted = formatted.replace(pipeOperatorPattern, (match, operator) => {
+    return `\n| ${operator}`;
+  });
+
+  // Handle any remaining standalone pipes that weren't caught
+  // (pipes followed by operators not in our list)
+  formatted = formatted.replace(/\s*\|\s*(?!\s*\n)/g, '\n| ');
+
+  // Clean up any double newlines and trim each line
+  formatted = formatted
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join('\n');
+
+  return formatted;
+}
+
 // Extract IOCs from text
 function extractIOCs(text) {
   const refangedText = refangIOC(text);
@@ -1087,8 +1144,8 @@ Examples of what to paste:
                     <h5 className={`font-medium mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       {kql.purpose}
                     </h5>
-                    <pre className={`p-3 rounded-lg text-sm overflow-x-auto ${darkMode ? 'bg-gray-900 text-green-400' : 'bg-gray-100 text-gray-800'}`}>
-                      {kql.query}
+                    <pre className={`p-3 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap ${darkMode ? 'bg-gray-900 text-green-400' : 'bg-gray-100 text-gray-800'}`}>
+                      {formatKQLQuery(kql.query)}
                     </pre>
                   </div>
                 ))}
