@@ -2,6 +2,7 @@
 // Connects to td-triage-api for follow-up analysis on Sentinel incidents
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 
 // Default API base URL - adjust for your environment
 const DEFAULT_API_BASE = '/api';
@@ -291,18 +292,14 @@ export default function TriageChat({
   onError,
   onSessionLoaded
 }) {
-  // Try to get sessionId from props or URL
-  const [sessionId] = useState(() => {
-    if (propSessionId) return propSessionId;
+  // Get sessionId from route params
+  const { sessionId: routeSessionId } = useParams();
 
-    // Try to extract from URL path (e.g., /triage-chat/:sessionId)
-    const pathMatch = window.location.pathname.match(/\/triage-chat\/([a-f0-9-]{36})/i);
-    if (pathMatch) return pathMatch[1];
-
-    // Try to extract from URL params
+  // Use route param, prop, or fallback to URL search params
+  const sessionId = routeSessionId || propSessionId || (() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('sessionId') || params.get('session');
-  });
+  })();
 
   // State
   const [session, setSession] = useState(null);
@@ -331,7 +328,7 @@ export default function TriageChat({
 
     async function fetchSession() {
       try {
-        const response = await fetch(`${apiBaseUrl}/session/${sessionId}`);
+        const response = await fetch(`${apiBaseUrl}/TriageSession/${sessionId}`);
 
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
@@ -377,7 +374,7 @@ export default function TriageChat({
     setError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/session/${sessionId}`, {
+      const response = await fetch(`${apiBaseUrl}/TriageSession/${sessionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: messageText.trim() })
