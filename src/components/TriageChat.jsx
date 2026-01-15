@@ -595,20 +595,29 @@ export default function TriageChat({
         <InitialAnalysis analysis={session.initialAnalysis} darkMode={darkMode} />
 
         {/* Chat Messages */}
-        {messages.length === 0 && !session.initialAnalysis && (
-          <div style={{
-            textAlign: 'center',
-            padding: '40px 20px',
-            color: darkMode ? '#6b7280' : '#9ca3af'
-          }}>
-            <div style={{ fontSize: '32px', marginBottom: '12px' }}>&#x1F4AC;</div>
-            <div>Ask follow-up questions about this incident</div>
-          </div>
-        )}
+        {/* Skip initial analysis messages (first 2) if initialAnalysis card is shown */}
+        {(() => {
+          const displayMessages = session.initialAnalysis && messages.length >= 2
+            ? messages.slice(2)  // Skip initial prompt/response pair
+            : messages;
 
-        {messages.map((msg, idx) => (
-          <ChatMessage key={idx} message={msg} darkMode={darkMode} />
-        ))}
+          if (displayMessages.length === 0 && !session.initialAnalysis) {
+            return (
+              <div style={{
+                textAlign: 'center',
+                padding: '40px 20px',
+                color: darkMode ? '#6b7280' : '#9ca3af'
+              }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>&#x1F4AC;</div>
+                <div>Ask follow-up questions about this incident</div>
+              </div>
+            );
+          }
+
+          return displayMessages.map((msg, idx) => (
+            <ChatMessage key={idx} message={msg} darkMode={darkMode} />
+          ));
+        })()}
 
         {loading && <LoadingIndicator darkMode={darkMode} />}
 
