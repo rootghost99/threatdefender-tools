@@ -328,7 +328,7 @@ export default function TriageChat({
 
     async function fetchSession() {
       try {
-        const response = await fetch(`${apiBaseUrl}/TriageSession/${sessionId}`);
+        const response = await fetch(`${apiBaseUrl}/TriageSession?sessionId=${sessionId}`);
 
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
@@ -374,7 +374,7 @@ export default function TriageChat({
     setError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/TriageSession/${sessionId}`, {
+      const response = await fetch(`${apiBaseUrl}/TriageSession?sessionId=${sessionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: messageText.trim() })

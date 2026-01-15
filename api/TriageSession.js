@@ -153,237 +153,206 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
-// GET /api/TriageSession/{sessionId} - Retrieve session
-app.http('GetTriageSession', {
-  methods: ['GET', 'OPTIONS'],
+// Single function to handle all TriageSession operations
+// GET /api/TriageSession?sessionId=xxx - Retrieve session
+// POST /api/TriageSession?sessionId=xxx - Send follow-up message
+// POST /api/TriageSession (no sessionId) - Create new session
+app.http('TriageSession', {
+  methods: ['GET', 'POST', 'OPTIONS'],
   authLevel: 'anonymous',
-  route: 'TriageSession/{sessionId}',
   handler: async (request, context) => {
-    const sessionId = request.params.sessionId;
-    context.log(`GET TriageSession: ${sessionId}`);
+    context.log(`TriageSession: ${request.method}`);
 
+    // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return { status: 200, headers: CORS_HEADERS };
     }
 
-    if (!sessionId) {
+    // Get sessionId from query params
+    const url = new URL(request.url);
+    const sessionId = url.searchParams.get('sessionId');
+
+    try {
+      // GET - Retrieve session
+      if (request.method === 'GET') {
+        if (!sessionId) {
+          return {
+            status: 400,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+            jsonBody: { error: 'sessionId query parameter is required' }
+          };
+        }
+
+        context.log(`GET session: ${sessionId}`);
+        const cosmosContainer = getCosmosContainer();
+
+        const { resources } = await cosmosContainer.items
+          .query({
+            query: 'SELECT * FROM c WHERE c.id = @sessionId',
+            parameters: [{ name: '@sessionId', value: sessionId }]
+          })
+          .fetchAll();
+
+        if (resources.length === 0) {
+          return {
+            status: 404,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+            jsonBody: { error: 'Session not found' }
+          };
+        }
+
+        return {
+          status: 200,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          jsonBody: { session: resources[0] }
+        };
+      }
+
+      // POST with sessionId - Send follow-up message
+      if (request.method === 'POST' && sessionId) {
+        context.log(`POST message to session: ${sessionId}`);
+
+        const body = await request.json().catch(() => ({}));
+        const { message } = body;
+
+        if (!message || !message.trim()) {
+          return {
+            status: 400,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+            jsonBody: { error: 'Message is required' }
+          };
+        }
+
+        const cosmosContainer = getCosmosContainer();
+
+        // Fetch session
+        const { resources } = await cosmosContainer.items
+          .query({
+            query: 'SELECT * FROM c WHERE c.id = @sessionId',
+            parameters: [{ name: '@sessionId', value: sessionId }]
+          })
+          .fetchAll();
+
+        if (resources.length === 0) {
+          return {
+            status: 404,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+            jsonBody: { error: 'Session not found' }
+          };
+        }
+
+        const session = resources[0];
+
+        // Build conversation for Claude
+        const systemPrompt = buildSystemPrompt(session);
+        const conversationHistory = session.conversationHistory || [];
+        const messagesForClaude = [
+          ...conversationHistory,
+          { role: 'user', content: message.trim() }
+        ];
+
+        // Call Claude API
+        context.log('Calling Claude API for follow-up analysis');
+        const assistantResponse = await callClaude(systemPrompt, messagesForClaude);
+
+        // Update session
+        const updatedHistory = [
+          ...conversationHistory,
+          { role: 'user', content: message.trim() },
+          { role: 'assistant', content: assistantResponse }
+        ];
+
+        const updatedSession = {
+          ...session,
+          conversationHistory: updatedHistory,
+          lastUpdated: new Date().toISOString(),
+          messageCount: (session.messageCount || 0) + 2
+        };
+
+        // Save to Cosmos DB
+        await cosmosContainer.items.upsert(updatedSession);
+
+        return {
+          status: 200,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          jsonBody: {
+            response: assistantResponse,
+            messageCount: updatedSession.messageCount
+          }
+        };
+      }
+
+      // POST without sessionId - Create new session
+      if (request.method === 'POST' && !sessionId) {
+        context.log('POST create new session');
+
+        const body = await request.json().catch(() => ({}));
+        const {
+          incidentId,
+          incidentTitle,
+          incidentSeverity,
+          tenantName,
+          systemPrompt,
+          incidentContext,
+          initialAnalysis
+        } = body;
+
+        if (!incidentId) {
+          return {
+            status: 400,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+            jsonBody: { error: 'incidentId is required' }
+          };
+        }
+
+        const newSessionId = generateUUID();
+        const now = new Date().toISOString();
+
+        const session = {
+          id: newSessionId,
+          incidentId: String(incidentId),
+          incidentTitle: incidentTitle || null,
+          incidentSeverity: incidentSeverity || null,
+          tenantName: tenantName || null,
+          systemPrompt: systemPrompt || null,
+          incidentContext: incidentContext || null,
+          initialAnalysis: initialAnalysis || null,
+          conversationHistory: [],
+          createdAt: now,
+          lastUpdated: now,
+          messageCount: 0,
+          ttl: 604800 // 7 days
+        };
+
+        const cosmosContainer = getCosmosContainer();
+        await cosmosContainer.items.create(session);
+
+        context.log(`Session created: ${newSessionId} for incident: ${incidentId}`);
+
+        return {
+          status: 201,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          jsonBody: {
+            sessionId: newSessionId,
+            incidentId: session.incidentId,
+            createdAt: session.createdAt,
+            chatUrl: `/triage-chat/${newSessionId}`
+          }
+        };
+      }
+
       return {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        jsonBody: { error: 'Session ID is required' }
+        jsonBody: { error: 'Invalid request' }
       };
-    }
 
-    try {
-      const cosmosContainer = getCosmosContainer();
-
-      // Query by session ID (we need to scan since we don't know the partition key)
-      const { resources } = await cosmosContainer.items
-        .query({
-          query: 'SELECT * FROM c WHERE c.id = @sessionId',
-          parameters: [{ name: '@sessionId', value: sessionId }]
-        })
-        .fetchAll();
-
-      if (resources.length === 0) {
-        return {
-          status: 404,
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          jsonBody: { error: 'Session not found' }
-        };
-      }
-
-      const session = resources[0];
-
-      return {
-        status: 200,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        jsonBody: { session }
-      };
     } catch (error) {
-      context.error('Error fetching session:', error.message);
+      context.error('TriageSession error:', error.message);
       return {
         status: 500,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        jsonBody: { error: `Failed to fetch session: ${error.message}` }
-      };
-    }
-  }
-});
-
-// POST /api/TriageSession/{sessionId} - Send follow-up message
-app.http('PostTriageMessage', {
-  methods: ['POST', 'OPTIONS'],
-  authLevel: 'anonymous',
-  route: 'TriageSession/{sessionId}',
-  handler: async (request, context) => {
-    const sessionId = request.params.sessionId;
-    context.log(`POST TriageSession message: ${sessionId}`);
-
-    if (request.method === 'OPTIONS') {
-      return { status: 200, headers: CORS_HEADERS };
-    }
-
-    if (!sessionId) {
-      return {
-        status: 400,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        jsonBody: { error: 'Session ID is required' }
-      };
-    }
-
-    try {
-      const body = await request.json().catch(() => ({}));
-      const { message } = body;
-
-      if (!message || !message.trim()) {
-        return {
-          status: 400,
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          jsonBody: { error: 'Message is required' }
-        };
-      }
-
-      const cosmosContainer = getCosmosContainer();
-
-      // Fetch session
-      const { resources } = await cosmosContainer.items
-        .query({
-          query: 'SELECT * FROM c WHERE c.id = @sessionId',
-          parameters: [{ name: '@sessionId', value: sessionId }]
-        })
-        .fetchAll();
-
-      if (resources.length === 0) {
-        return {
-          status: 404,
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          jsonBody: { error: 'Session not found' }
-        };
-      }
-
-      const session = resources[0];
-
-      // Build conversation for Claude
-      const systemPrompt = buildSystemPrompt(session);
-      const conversationHistory = session.conversationHistory || [];
-      const messagesForClaude = [
-        ...conversationHistory,
-        { role: 'user', content: message.trim() }
-      ];
-
-      // Call Claude API
-      context.log('Calling Claude API for follow-up analysis');
-      const assistantResponse = await callClaude(systemPrompt, messagesForClaude);
-
-      // Update session
-      const updatedHistory = [
-        ...conversationHistory,
-        { role: 'user', content: message.trim() },
-        { role: 'assistant', content: assistantResponse }
-      ];
-
-      const updatedSession = {
-        ...session,
-        conversationHistory: updatedHistory,
-        lastUpdated: new Date().toISOString(),
-        messageCount: (session.messageCount || 0) + 2
-      };
-
-      // Save to Cosmos DB
-      await cosmosContainer.items.upsert(updatedSession);
-
-      return {
-        status: 200,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        jsonBody: {
-          response: assistantResponse,
-          messageCount: updatedSession.messageCount
-        }
-      };
-    } catch (error) {
-      context.error('Error processing message:', error.message);
-      return {
-        status: 500,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        jsonBody: { error: `Failed to process message: ${error.message}` }
-      };
-    }
-  }
-});
-
-// POST /api/TriageSession - Create new session (called by Logic App)
-app.http('CreateTriageSession', {
-  methods: ['POST', 'OPTIONS'],
-  authLevel: 'anonymous',
-  route: 'TriageSession',
-  handler: async (request, context) => {
-    context.log('POST create TriageSession');
-
-    if (request.method === 'OPTIONS') {
-      return { status: 200, headers: CORS_HEADERS };
-    }
-
-    try {
-      const body = await request.json().catch(() => ({}));
-      const {
-        incidentId,
-        incidentTitle,
-        incidentSeverity,
-        tenantName,
-        systemPrompt,
-        incidentContext,
-        initialAnalysis
-      } = body;
-
-      if (!incidentId) {
-        return {
-          status: 400,
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          jsonBody: { error: 'incidentId is required' }
-        };
-      }
-
-      const sessionId = generateUUID();
-      const now = new Date().toISOString();
-
-      const session = {
-        id: sessionId,
-        incidentId: String(incidentId),
-        incidentTitle: incidentTitle || null,
-        incidentSeverity: incidentSeverity || null,
-        tenantName: tenantName || null,
-        systemPrompt: systemPrompt || null,
-        incidentContext: incidentContext || null,
-        initialAnalysis: initialAnalysis || null,
-        conversationHistory: [],
-        createdAt: now,
-        lastUpdated: now,
-        messageCount: 0,
-        ttl: 604800 // 7 days
-      };
-
-      const cosmosContainer = getCosmosContainer();
-      await cosmosContainer.items.create(session);
-
-      context.log(`Session created: ${sessionId} for incident: ${incidentId}`);
-
-      return {
-        status: 201,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        jsonBody: {
-          sessionId,
-          incidentId: session.incidentId,
-          createdAt: session.createdAt,
-          chatUrl: `/triage-chat/${sessionId}`
-        }
-      };
-    } catch (error) {
-      context.error('Error creating session:', error.message);
-      return {
-        status: 500,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        jsonBody: { error: `Failed to create session: ${error.message}` }
+        jsonBody: { error: `Operation failed: ${error.message}` }
       };
     }
   }
