@@ -1,9 +1,9 @@
 // /api/TriageSession.js
 // Azure Functions (v4, Node 18+) - AI Triage Chat Session API
-// Manages triage chat sessions with Cosmos DB and Claude API
+// Uses direct Cosmos DB REST API to avoid SDK crypto issues in SWA environment
 
 const { app } = require('@azure/functions');
-const { CosmosClient } = require('@azure/cosmos');
+const crypto = require('crypto');
 
 // Cosmos DB configuration
 const COSMOS_DATABASE = 'TriageDB';
@@ -13,20 +13,175 @@ const COSMOS_CONTAINER = 'Sessions';
 const CLAUDE_ENDPOINT = process.env.CLAUDE_API_ENDPOINT || 'https://th-aifoundry.services.ai.azure.com/anthropic/v1/messages';
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
 
-// Cosmos client singleton
-let cosmosClient = null;
-let container = null;
-
-function getCosmosContainer() {
-  if (!container) {
-    const connectionString = process.env.COSMOS_CONNECTION;
-    if (!connectionString) {
-      throw new Error('COSMOS_CONNECTION environment variable not configured');
-    }
-    cosmosClient = new CosmosClient(connectionString);
-    container = cosmosClient.database(COSMOS_DATABASE).container(COSMOS_CONTAINER);
+// Parse Cosmos DB connection string
+function parseConnectionString(connectionString) {
+  if (!connectionString) {
+    throw new Error('COSMOS_CONNECTION environment variable not configured');
   }
-  return container;
+
+  const parts = {};
+  connectionString.split(';').forEach(part => {
+    const [key, ...valueParts] = part.split('=');
+    if (key && valueParts.length > 0) {
+      parts[key] = valueParts.join('=');
+    }
+  });
+
+  const endpoint = parts['AccountEndpoint'];
+  const key = parts['AccountKey'];
+
+  if (!endpoint || !key) {
+    throw new Error('Invalid COSMOS_CONNECTION: missing AccountEndpoint or AccountKey');
+  }
+
+  return { endpoint: endpoint.replace(/\/$/, ''), key };
+}
+
+// Generate Cosmos DB REST API authorization header
+function generateCosmosAuthHeader(verb, resourceType, resourceLink, date, masterKey) {
+  const text = `${verb.toLowerCase()}\n${resourceType.toLowerCase()}\n${resourceLink}\n${date.toLowerCase()}\n\n`;
+
+  const body = Buffer.from(text, 'utf-8');
+  const signature = crypto.createHmac('sha256', Buffer.from(masterKey, 'base64'))
+    .update(body)
+    .digest('base64');
+
+  return encodeURIComponent(`type=master&ver=1.0&sig=${signature}`);
+}
+
+// Make Cosmos DB REST API request
+async function cosmosRequest(method, resourceType, resourceLink, body = null) {
+  const { endpoint, key } = parseConnectionString(process.env.COSMOS_CONNECTION);
+  const date = new Date().toUTCString();
+  const auth = generateCosmosAuthHeader(method, resourceType, resourceLink, date, key);
+
+  const url = `${endpoint}/${resourceLink}`;
+
+  const headers = {
+    'Authorization': auth,
+    'x-ms-date': date,
+    'x-ms-version': '2018-12-31',
+    'Content-Type': 'application/json'
+  };
+
+  // Add partition key header for document operations
+  if (resourceType === 'docs' && body && body.incidentId) {
+    headers['x-ms-documentdb-partitionkey'] = JSON.stringify([body.incidentId]);
+  }
+
+  const options = {
+    method,
+    headers
+  };
+
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, options);
+  const responseText = await response.text();
+
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Cosmos DB error ${response.status}: ${responseText}`);
+  }
+
+  return {
+    status: response.status,
+    data: responseText ? JSON.parse(responseText) : null
+  };
+}
+
+// Query documents in Cosmos DB
+async function queryDocuments(query, parameters = []) {
+  const { endpoint, key } = parseConnectionString(process.env.COSMOS_CONNECTION);
+  const date = new Date().toUTCString();
+  const resourceLink = `dbs/${COSMOS_DATABASE}/colls/${COSMOS_CONTAINER}`;
+  const auth = generateCosmosAuthHeader('POST', 'docs', resourceLink, date, key);
+
+  const url = `${endpoint}/${resourceLink}/docs`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': auth,
+      'x-ms-date': date,
+      'x-ms-version': '2018-12-31',
+      'Content-Type': 'application/query+json',
+      'x-ms-documentdb-isquery': 'true',
+      'x-ms-documentdb-query-enablecrosspartition': 'true'
+    },
+    body: JSON.stringify({ query, parameters })
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Cosmos DB query error ${response.status}: ${responseText}`);
+  }
+
+  const data = JSON.parse(responseText);
+  return data.Documents || [];
+}
+
+// Create document in Cosmos DB
+async function createDocument(document) {
+  const resourceLink = `dbs/${COSMOS_DATABASE}/colls/${COSMOS_CONTAINER}`;
+  const { endpoint, key } = parseConnectionString(process.env.COSMOS_CONNECTION);
+  const date = new Date().toUTCString();
+  const auth = generateCosmosAuthHeader('POST', 'docs', resourceLink, date, key);
+
+  const url = `${endpoint}/${resourceLink}/docs`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': auth,
+      'x-ms-date': date,
+      'x-ms-version': '2018-12-31',
+      'Content-Type': 'application/json',
+      'x-ms-documentdb-partitionkey': JSON.stringify([document.incidentId])
+    },
+    body: JSON.stringify(document)
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Cosmos DB create error ${response.status}: ${responseText}`);
+  }
+
+  return JSON.parse(responseText);
+}
+
+// Upsert document in Cosmos DB
+async function upsertDocument(document) {
+  const resourceLink = `dbs/${COSMOS_DATABASE}/colls/${COSMOS_CONTAINER}`;
+  const { endpoint, key } = parseConnectionString(process.env.COSMOS_CONNECTION);
+  const date = new Date().toUTCString();
+  const auth = generateCosmosAuthHeader('POST', 'docs', resourceLink, date, key);
+
+  const url = `${endpoint}/${resourceLink}/docs`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': auth,
+      'x-ms-date': date,
+      'x-ms-version': '2018-12-31',
+      'Content-Type': 'application/json',
+      'x-ms-documentdb-partitionkey': JSON.stringify([document.incidentId]),
+      'x-ms-documentdb-is-upsert': 'true'
+    },
+    body: JSON.stringify(document)
+  });
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Cosmos DB upsert error ${response.status}: ${responseText}`);
+  }
+
+  return JSON.parse(responseText);
 }
 
 // Call Claude API for follow-up analysis
@@ -184,14 +339,11 @@ app.http('TriageSession', {
         }
 
         context.log(`GET session: ${sessionId}`);
-        const cosmosContainer = getCosmosContainer();
 
-        const { resources } = await cosmosContainer.items
-          .query({
-            query: 'SELECT * FROM c WHERE c.id = @sessionId',
-            parameters: [{ name: '@sessionId', value: sessionId }]
-          })
-          .fetchAll();
+        const resources = await queryDocuments(
+          'SELECT * FROM c WHERE c.id = @sessionId',
+          [{ name: '@sessionId', value: sessionId }]
+        );
 
         if (resources.length === 0) {
           return {
@@ -223,15 +375,11 @@ app.http('TriageSession', {
           };
         }
 
-        const cosmosContainer = getCosmosContainer();
-
         // Fetch session
-        const { resources } = await cosmosContainer.items
-          .query({
-            query: 'SELECT * FROM c WHERE c.id = @sessionId',
-            parameters: [{ name: '@sessionId', value: sessionId }]
-          })
-          .fetchAll();
+        const resources = await queryDocuments(
+          'SELECT * FROM c WHERE c.id = @sessionId',
+          [{ name: '@sessionId', value: sessionId }]
+        );
 
         if (resources.length === 0) {
           return {
@@ -270,7 +418,7 @@ app.http('TriageSession', {
         };
 
         // Save to Cosmos DB
-        await cosmosContainer.items.upsert(updatedSession);
+        await upsertDocument(updatedSession);
 
         return {
           status: 200,
@@ -324,8 +472,7 @@ app.http('TriageSession', {
           ttl: 604800 // 7 days
         };
 
-        const cosmosContainer = getCosmosContainer();
-        await cosmosContainer.items.create(session);
+        await createDocument(session);
 
         context.log(`Session created: ${newSessionId} for incident: ${incidentId}`);
 
