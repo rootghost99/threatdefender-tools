@@ -162,9 +162,9 @@ function LoadingIndicator({ darkMode }) {
 
 // Initial analysis display component
 function InitialAnalysis({ analysis, darkMode }) {
-  if (!analysis) return null;
-
   const [expanded, setExpanded] = useState(true);
+
+  if (!analysis) return null;
 
   return (
     <div
