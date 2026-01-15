@@ -12,6 +12,7 @@ const EmailPostureCheck = lazy(() => import('./components/EmailPostureCheck'));
 const EmailHeaderAnalyzer = lazy(() => import('./components/EmailHeaderAnalyzer'));
 const PromptGallery = lazy(() => import('./components/PromptGallery'));
 const AlertTriageAssistant = lazy(() => import('./components/AlertTriageAssistant'));
+const TriageChat = lazy(() => import('./components/TriageChat'));
 const Resources = lazy(() => import('./components/Resources'));
 
 // Loading component
@@ -142,6 +143,14 @@ export default function ThreatDefenderDashboard() {
                 element={
                   <PageWrapper darkMode={darkMode}>
                     <Resources darkMode={darkMode} />
+                  </PageWrapper>
+                }
+              />
+              <Route
+                path="/triage-chat/:sessionId"
+                element={
+                  <PageWrapper darkMode={darkMode}>
+                    <TriageChat darkMode={darkMode} apiBaseUrl="/api" />
                   </PageWrapper>
                 }
               />
