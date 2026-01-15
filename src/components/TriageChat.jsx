@@ -16,13 +16,77 @@ const SEVERITY_COLORS = {
   Informational: { bg: '#6b7280', text: '#ffffff', border: '#4b5563' }
 };
 
-// Quick action buttons configuration
-const QUICK_ACTIONS = [
-  { id: 'critical', label: 'Critical steps', message: 'What are the most critical investigation steps I should take immediately for this incident?' },
-  { id: 'tpfp', label: 'TP/FP assessment', message: 'Based on the available evidence, what is your assessment of whether this is a true positive or false positive? Please explain your reasoning.' },
-  { id: 'logs', label: 'Log recommendations', message: 'What additional logs should I query in Microsoft Sentinel to investigate this incident further? Please provide specific KQL queries.' },
-  { id: 'summary', label: 'Executive summary', message: 'Please provide a brief executive summary of this incident suitable for reporting to management, including current status and recommended actions.' }
-];
+// Incident type detection keywords
+const INCIDENT_TYPE_KEYWORDS = {
+  email: ['phishing', 'spam', 'malicious email', 'bec', 'business email'],
+  identity: ['sign-in', 'login', 'impossible travel', 'mfa', 'authentication', 'password'],
+  malware: ['malware', 'virus', 'ransomware', 'defender', 'edr', 'suspicious process'],
+  data: ['exfiltration', 'data loss', 'dlp', 'sensitive', 'upload']
+};
+
+// Incident type labels with icons
+const INCIDENT_TYPE_LABELS = {
+  email: { icon: '📧', label: 'Email Threat Actions' },
+  identity: { icon: '🔐', label: 'Identity Threat Actions' },
+  malware: { icon: '🦠', label: 'Malware Threat Actions' },
+  data: { icon: '📊', label: 'Data Protection Actions' },
+  general: { icon: '🔍', label: 'Investigation Actions' }
+};
+
+// Quick actions per incident type
+const QUICK_ACTIONS_BY_TYPE = {
+  email: [
+    { id: 'links', label: 'Check clicked links', message: 'Did the user click any links in the suspicious email? If so, what were they and what happened after?' },
+    { id: 'mailbox', label: 'Pull mailbox logs', message: 'Pull mailbox audit logs for this user. Show me recent email activity including any rules created, forwarding changes, or suspicious actions.' },
+    { id: 'forwarding', label: 'Check forwarding', message: 'Check if this email was forwarded externally. Are there any mailbox rules that forward or redirect emails to external addresses?' },
+    { id: 'recipients', label: 'List recipients', message: 'List other recipients of this email. How many users in the organization received this same message?' },
+    { id: 'notification', label: 'Draft notification', message: 'Draft a user notification message I can send to affected users about this phishing/malicious email incident.' }
+  ],
+  identity: [
+    { id: 'travel', label: 'Verify travel/VPN', message: 'Is this a legitimate travel or VPN scenario? What evidence supports or contradicts a true positive assessment?' },
+    { id: 'signins', label: 'Recent sign-ins', message: 'Show recent sign-in activity for this user. Include locations, devices, and any failed attempts.' },
+    { id: 'risky', label: 'Other risky sign-ins', message: 'Check for other risky sign-ins in this tenant. Are there similar patterns affecting other users?' },
+    { id: 'password', label: 'Password reset?', message: 'Should we reset this user\'s password? What are the risks of not resetting versus false positive disruption?' },
+    { id: 'ca', label: 'CA policy hits', message: 'Review conditional access policy hits for this user. What policies were triggered and what was the outcome?' }
+  ],
+  malware: [
+    { id: 'isolated', label: 'Device isolated?', message: 'Is this device currently isolated? What is the current containment status and network connectivity?' },
+    { id: 'process', label: 'Process tree', message: 'What\'s the full process tree for this detection? Show the parent process chain and any child processes spawned.' },
+    { id: 'lateral', label: 'Lateral movement', message: 'Check for lateral movement indicators. Has there been any suspicious network activity or authentication from this device to others?' },
+    { id: 'iocs', label: 'Other devices', message: 'List other devices with this IOC (hash, domain, IP). How widespread is this indicator across the environment?' },
+    { id: 'avscan', label: 'Run full scan?', message: 'Should we run a full AV scan on this device? What remediation actions are recommended?' }
+  ],
+  data: [
+    { id: 'accessed', label: 'What data?', message: 'What data was accessed or potentially exfiltrated? Provide details on file types, sensitivity labels, and volume.' },
+    { id: 'authorized', label: 'User authorized?', message: 'Is this user authorized for this data? What are their normal access patterns compared to this activity?' },
+    { id: 'dlpalerts', label: 'Other DLP alerts', message: 'Check for other DLP alerts on this user. Is there a pattern of data handling policy violations?' },
+    { id: 'revoke', label: 'Revoke access?', message: 'Should we revoke this user\'s access to sensitive data? What is the risk assessment and business impact?' },
+    { id: 'report', label: 'Draft report', message: 'Draft an incident report for this data exposure suitable for compliance/legal review. Include timeline, scope, and recommended actions.' }
+  ],
+  general: [
+    { id: 'critical', label: 'Critical steps', message: 'What are the most critical investigation steps I should take immediately for this incident?' },
+    { id: 'tpfp', label: 'TP/FP assessment', message: 'Based on the available evidence, what is your assessment of whether this is a true positive or false positive? Please explain your reasoning.' },
+    { id: 'logs', label: 'Log recommendations', message: 'What additional logs should I query in Microsoft Sentinel to investigate this incident further? Please provide specific KQL queries.' },
+    { id: 'summary', label: 'Executive summary', message: 'Please provide a brief executive summary of this incident suitable for reporting to management, including current status and recommended actions.' }
+  ]
+};
+
+// Detect incident type from title
+function detectIncidentType(incidentTitle) {
+  if (!incidentTitle) return 'general';
+
+  const titleLower = incidentTitle.toLowerCase();
+
+  for (const [type, keywords] of Object.entries(INCIDENT_TYPE_KEYWORDS)) {
+    for (const keyword of keywords) {
+      if (titleLower.includes(keyword)) {
+        return type;
+      }
+    }
+  }
+
+  return 'general';
+}
 
 // Message component with markdown-like formatting
 function ChatMessage({ message, darkMode }) {
@@ -583,46 +647,72 @@ export default function TriageChat({
       )}
 
       {/* Quick Actions */}
-      <div style={{
-        padding: '12px 20px',
-        backgroundColor: darkMode ? '#1f2937' : '#f9fafb',
-        borderTop: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`,
-        display: 'flex',
-        gap: '8px',
-        flexWrap: 'wrap'
-      }}>
-        {QUICK_ACTIONS.map(action => (
-          <button
-            key={action.id}
-            onClick={() => handleQuickAction(action)}
-            disabled={loading}
-            style={{
-              padding: '6px 12px',
-              fontSize: '12px',
-              fontWeight: '500',
-              borderRadius: '6px',
-              border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
-              backgroundColor: darkMode ? '#374151' : '#ffffff',
-              color: darkMode ? '#e5e7eb' : '#374151',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.5 : 1,
-              transition: 'background-color 0.15s, border-color 0.15s'
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.target.style.backgroundColor = darkMode ? '#4b5563' : '#f3f4f6';
-                e.target.style.borderColor = darkMode ? '#6b7280' : '#9ca3af';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = darkMode ? '#374151' : '#ffffff';
-              e.target.style.borderColor = darkMode ? '#4b5563' : '#d1d5db';
-            }}
-          >
-            {action.label}
-          </button>
-        ))}
-      </div>
+      {(() => {
+        const incidentType = detectIncidentType(session.incidentTitle);
+        const quickActions = QUICK_ACTIONS_BY_TYPE[incidentType] || QUICK_ACTIONS_BY_TYPE.general;
+        const typeLabel = INCIDENT_TYPE_LABELS[incidentType] || INCIDENT_TYPE_LABELS.general;
+
+        return (
+          <div style={{
+            padding: '12px 20px',
+            backgroundColor: darkMode ? '#1f2937' : '#f9fafb',
+            borderTop: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`
+          }}>
+            {/* Type Label */}
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '600',
+              color: darkMode ? '#9ca3af' : '#6b7280',
+              marginBottom: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span>{typeLabel.icon}</span>
+              <span>{typeLabel.label}</span>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap'
+            }}>
+              {quickActions.map(action => (
+                <button
+                  key={action.id}
+                  onClick={() => handleQuickAction(action)}
+                  disabled={loading}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    borderRadius: '6px',
+                    border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+                    backgroundColor: darkMode ? '#374151' : '#ffffff',
+                    color: darkMode ? '#e5e7eb' : '#374151',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.5 : 1,
+                    transition: 'background-color 0.15s, border-color 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loading) {
+                      e.target.style.backgroundColor = darkMode ? '#4b5563' : '#f3f4f6';
+                      e.target.style.borderColor = darkMode ? '#6b7280' : '#9ca3af';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = darkMode ? '#374151' : '#ffffff';
+                    e.target.style.borderColor = darkMode ? '#4b5563' : '#d1d5db';
+                  }}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Input Area */}
       <form
