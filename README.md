@@ -64,6 +64,23 @@ Features include:
 
 ---
 
+### 🤖 **AI Triage Chat**
+Interactive follow-up chat for Microsoft Sentinel incidents powered by Claude AI.
+Features include:
+- **Session Persistence** - Chat sessions stored in Cosmos DB with 7-day TTL
+- **Initial Analysis Display** - View AI-generated incident summary, severity assessment, and MITRE techniques
+- **Dynamic Quick Actions** - Context-aware buttons based on incident type:
+  - 📧 Email threats: Check clicked links, pull mailbox logs, check forwarding
+  - 🔐 Identity threats: Verify travel/VPN, recent sign-ins, CA policy hits
+  - 🦠 Malware: Device isolation status, process tree, lateral movement
+  - 📊 Data protection: Access review, DLP alerts, draft incident reports
+- **Copy Code Blocks** - One-click copy for KQL queries and other code snippets
+- **Dark Theme UI** - Consistent with Ops Suite design
+
+> Enables analysts to ask follow-up questions about incidents directly from Teams notifications.
+
+---
+
 ## 🧠 Vision
 
 > “The best security operations are the ones where humans and automation work in sync.”  
@@ -77,9 +94,9 @@ ThreatDefender bridges that gap — giving analysts practical tools that **ampli
 |-------|-------------|
 | Frontend | React + Tailwind CSS |
 | Backend | Azure Functions (Node.js) |
-| Storage | Azure Table Storage |
-| AI | Azure OpenAI (GPT-4) |
-| Integration | Microsoft Sentinel, Defender APIs, Threat Intel APIs |
+| Storage | Azure Table Storage, Azure Cosmos DB |
+| AI | Azure OpenAI (GPT-4), Claude AI via Azure AI Foundry |
+| Integration | Microsoft Sentinel, Defender APIs, Threat Intel APIs, Logic Apps |
 | Hosting | Azure Static Web Apps |
 
 ---
@@ -87,4 +104,4 @@ ThreatDefender bridges that gap — giving analysts practical tools that **ampli
 ## 🧑‍💻 License
 
 This project is maintained by eGroup Enabling Technologies – ThreatDefender MSSP Team.
-© 2025. All Rights Reserved.
+© 2026. All Rights Reserved.

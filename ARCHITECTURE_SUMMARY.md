@@ -1,7 +1,7 @@
 # ThreatDefender Operations Suite - Technical Architecture Document
 
-**Version:** 1.0
-**Date:** November 2025
+**Version:** 1.1
+**Date:** January 2026
 **Purpose:** High-level architecture documentation for executive overview generation
 
 ---
@@ -11,11 +11,12 @@
 ThreatDefender Operations Suite is a modern web-based security operations platform built for MSSP teams. It integrates threat intelligence, incident response automation, and SOC workflow tools into a unified interface, leveraging Azure cloud services and AI-powered analysis to accelerate security operations.
 
 **Key Statistics:**
-- **6 major tools/modules** integrated into single platform
+- **7 major tools/modules** integrated into single platform
 - **8+ threat intelligence sources** queried in parallel
 - **Serverless architecture** for scalability and cost efficiency
-- **AI-powered analysis** using Azure OpenAI GPT-4
+- **AI-powered analysis** using Azure OpenAI GPT-4 and Claude AI
 - **Mobile-responsive** design with dark/light modes
+- **AI Triage Chat** for interactive Sentinel incident follow-up
 
 ---
 
@@ -35,17 +36,21 @@ ThreatDefender Operations Suite is a modern web-based security operations platfo
 - Serverless architecture (auto-scaling, pay-per-use)
 - REST API pattern avoiding SDK crypto issues
 - Azure Table Storage for data persistence
+- Azure Cosmos DB for chat session storage
 
 **AI/ML:**
 - Azure OpenAI (GPT-4) primary
+- Claude AI via Azure AI Foundry (AI Triage Chat)
 - OpenAI API fallback
 - Configurable temperature/token controls
 
 **Infrastructure:**
 - Azure Static Web Apps (hosting + CI/CD)
 - Azure Table Storage (Prompts, PromptRuns)
+- Azure Cosmos DB (TriageDB/Sessions)
 - Cloudflare DNS resolver (email posture checks)
 - Azure Active Directory (optional authentication)
+- Azure Logic Apps (Sentinel incident triggers)
 
 ### 2.2 Integration Points
 
@@ -224,6 +229,35 @@ ThreatDefender Operations Suite is a modern web-based security operations platfo
 
 ---
 
+### 3.7 AI Triage Chat
+**Purpose:** Interactive follow-up chat for Microsoft Sentinel incidents with persistent session storage
+
+**Capabilities:**
+- Session creation via Logic App integration
+- Persistent chat sessions in Cosmos DB (7-day TTL)
+- Initial AI analysis display (summary, severity, MITRE techniques, recommendations)
+- Dynamic quick action buttons based on incident type:
+  - Email threats: Check clicked links, pull mailbox logs, check forwarding, list recipients
+  - Identity threats: Verify travel/VPN, recent sign-ins, risky sign-ins, CA policy hits
+  - Malware: Device isolation, process tree, lateral movement, IOC spread
+  - Data protection: Data accessed, user authorization, DLP alerts, revoke access
+  - General: Critical steps, TP/FP assessment, log recommendations, executive summary
+- Incident type auto-detection from title keywords
+- One-click copy for KQL queries and code blocks
+- Conversation history persistence
+- Dark theme UI consistent with Ops Suite
+
+**Technical Details:**
+- Backend: `/api/TriageSession` (Cosmos DB REST API)
+- Frontend: `TriageChat.jsx` with React Router
+- Storage: Azure Cosmos DB (TriageDB database, Sessions container)
+- AI: Claude API via Azure AI Foundry
+- Integration: Sentinel Logic Apps create sessions, Teams notifications link to chat
+
+**Business Value:** Enables analysts to continue investigation conversations from Teams notifications, maintains context across sessions, provides contextual quick actions for faster triage.
+
+---
+
 ## 4. API ARCHITECTURE
 
 All endpoints support CORS with `*` origin and follow REST conventions.
@@ -243,6 +277,8 @@ All endpoints support CORS with `*` origin and follow REST conventions.
 | `/api/ThreatIntelLookup` | POST | Query threat intel sources | Anonymous |
 | `/api/HybridAnalysisLookup` | POST | Query Hybrid Analysis | Anonymous |
 | `/api/EmailPosture` | POST | Analyze email security | Anonymous |
+| `/api/TriageSession` | GET | Get triage chat session | Anonymous |
+| `/api/TriageSession` | POST | Create session or send message | Anonymous |
 | `/api/HealthCheck` | GET | System health status | Anonymous |
 
 ### 4.2 Data Models
@@ -271,6 +307,20 @@ All endpoints support CORS with `*` origin and follow REST conventions.
 - promptTokens, completionTokens, totalTokens
 - status ("completed" | "failed")
 - temperature, maxTokens
+```
+
+**Triage Sessions (Cosmos DB) Schema:**
+```
+- id: Session UUID
+- incidentId: Sentinel incident ID (partition key)
+- incidentTitle, incidentSeverity, tenantName
+- systemPrompt: AI context prompt
+- incidentContext: Raw incident JSON
+- initialAnalysis: { summary, severity, confidence, mitreTechniques, recommendedActions }
+- conversationHistory: [{ role, content }]
+- createdAt, lastUpdated
+- messageCount
+- ttl: 604800 (7 days)
 ```
 
 ---
@@ -381,6 +431,10 @@ PROMPT_RUNS_TABLE_NAME=PromptRuns
 AZURE_OPENAI_ENDPOINT=...
 AZURE_OPENAI_API_KEY=...
 AZURE_OPENAI_DEPLOYMENT=gpt-4
+COSMOS_CONNECTION=AccountEndpoint=...;AccountKey=...
+CLAUDE_API_KEY=...
+CLAUDE_API_ENDPOINT=https://...services.ai.azure.com/anthropic/v1/messages
+CLAUDE_MODEL=claude-sonnet-4-20250514
 VIRUSTOTAL_API_KEY=...
 ABUSEIPDB_API_KEY=...
 GREYNOISE_API_KEY=...
@@ -535,12 +589,13 @@ HYBRID_ANALYSIS_API_KEY=...
 The ThreatDefender Operations Suite represents a modern, AI-powered approach to security operations. By consolidating threat intelligence, incident response, and workflow automation into a unified, serverless platform, it enables MSSP teams to respond faster, more consistently, and with greater insight than traditional tooling allows.
 
 **Key Achievements:**
-✅ **6 integrated tools** replacing disconnected solutions
+✅ **7 integrated tools** replacing disconnected solutions
 ✅ **8+ threat intelligence sources** in single query
 ✅ **AI-powered analysis** reducing manual effort by 80%+
 ✅ **Serverless architecture** for cost efficiency and scalability
 ✅ **Full audit compliance** with execution tracking
 ✅ **Team enablement** through knowledge codification
+✅ **AI Triage Chat** for interactive incident follow-up from Teams
 
 **Built for:** eGroup Enabling Technologies ThreatDefender MSSP Team
 **Architecture:** Modern, cloud-native, AI-enhanced
@@ -564,8 +619,11 @@ The ThreatDefender Operations Suite represents a modern, AI-powered approach to 
 | | AJV | 8.17.1 | JSON validation |
 | **Storage** | Azure Tables | SDK 13.2.2 | NoSQL storage |
 | | Azure Blobs | SDK 12.29.1 | Object storage |
+| | Azure Cosmos DB | REST API | Chat session storage |
 | **AI** | Azure OpenAI | API 2024-08-01 | GPT-4 inference |
+| | Claude AI | Anthropic API | Triage chat inference |
 | **Infra** | Azure SWA | Platform | Hosting + CI/CD |
+| | Azure Logic Apps | Platform | Sentinel integration |
 
 ---
 
