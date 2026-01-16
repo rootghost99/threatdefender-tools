@@ -61,9 +61,9 @@ export default function ThreatDefenderDashboard() {
     const path = location.pathname;
     const tab = tabs.find(t => path.includes(t.id));
     if (tab) {
-      document.title = `${tab.name} - ThreatDefender Command Base`;
+      document.title = `${tab.name} - ThreatDefender Ops Suite`;
     } else {
-      document.title = 'ThreatDefender Command Base';
+      document.title = 'ThreatDefender Ops Suite';
     }
   }, [location.pathname]); // Removed tabs from dependencies to avoid infinite re-renders
 
