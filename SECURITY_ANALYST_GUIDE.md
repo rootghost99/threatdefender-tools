@@ -6,7 +6,7 @@
 
 ## Overview
 
-ThreatDefender is a web-based security operations platform that consolidates 6 essential tools into one interface. Access at your deployment URL and navigate using the top menu bar.
+ThreatDefender is a web-based security operations platform that consolidates 7 essential tools into one interface. Access at your deployment URL and navigate using the top menu bar.
 
 **Quick Navigation Shortcuts:**
 - `Ctrl+H` - Return to home
@@ -206,6 +206,69 @@ ThreatDefender is a web-based security operations platform that consolidates 6 e
 
 ---
 
+## 7. AI Triage Chat
+
+**Purpose:** Interactive follow-up chat for Microsoft Sentinel incidents, accessible from Teams notifications.
+
+**When to Use:**
+- After receiving initial AI triage notification in Teams
+- Need follow-up questions about an incident
+- Want KQL queries specific to incident context
+- Need to assess true positive vs false positive
+- Generating executive summaries or documentation
+
+**How to Access:**
+1. Receive Teams notification from Sentinel incident with "Continue Chat" link
+2. Click the link to open the AI Triage Chat interface
+3. View initial AI analysis (summary, severity, MITRE techniques, recommendations)
+4. Use quick action buttons or type custom questions
+5. AI maintains full incident context throughout conversation
+
+**Quick Action Buttons (Dynamic by Incident Type):**
+
+📧 **Email Threats** (phishing, spam, BEC):
+- Check clicked links
+- Pull mailbox logs
+- Check forwarding
+- List recipients
+- Draft notification
+
+🔐 **Identity Threats** (sign-in, impossible travel, MFA):
+- Verify travel/VPN
+- Recent sign-ins
+- Other risky sign-ins
+- Password reset?
+- CA policy hits
+
+🦠 **Malware** (ransomware, EDR, suspicious process):
+- Device isolated?
+- Process tree
+- Lateral movement
+- Other devices
+- Run full scan?
+
+📊 **Data Protection** (exfiltration, DLP, sensitive data):
+- What data?
+- User authorized?
+- Other DLP alerts
+- Revoke access?
+- Draft report
+
+🔍 **General** (fallback for other incident types):
+- Critical steps
+- TP/FP assessment
+- Log recommendations
+- Executive summary
+
+**Pro Tips:**
+- Sessions persist for 7 days - bookmark the URL to return later
+- Click "Copy" button on code blocks to grab KQL queries
+- AI has full incident context - reference specific details in your questions
+- Quick actions send pre-crafted expert questions
+- Initial analysis card is collapsible if you need more space
+
+---
+
 ## Typical Incident Response Workflow
 
 **Scenario:** Phishing alert triggered for suspicious email
@@ -230,7 +293,13 @@ ThreatDefender is a web-based security operations platform that consolidates 6 e
    - Input: email headers, sender, subject, body
    - Output: structured analysis for ticket/email
 
-5. **Documentation (SOC Handoff):**
+5. **Follow-up Questions (AI Triage Chat):**
+   - Click "Continue Chat" link from Teams notification
+   - Use quick action buttons for email-specific questions
+   - Ask for mailbox logs, forwarding rules, recipient lists
+   - Copy KQL queries directly from responses
+
+6. **Documentation (SOC Handoff):**
    - Add incident to handoff if unresolved
    - Document next actions for incoming shift
 
@@ -287,6 +356,7 @@ ThreatDefender is a web-based security operations platform that consolidates 6 e
 | **Prompt Gallery** | Standardized analysis | Prompt + variables | AI-generated structured output | 10-30 sec |
 | **Email Posture Check** | Domain authentication | Domain name | SPF/DMARC/DKIM/MX/MTA-STS/BIMI status | 5-10 sec |
 | **SOC Handoff** | Shift continuity | Incidents/Tasks/Notes | HTML handoff report | Instant |
+| **AI Triage Chat** | Incident follow-up | Teams link / Session ID | Interactive AI analysis + KQL queries | 5-15 sec |
 
 ---
 
