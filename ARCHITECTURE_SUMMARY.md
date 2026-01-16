@@ -1,7 +1,8 @@
 # ThreatDefender Operations Suite - Technical Architecture Document
 
-**Version:** 1.1
+**Version:** 1.2
 **Date:** January 2026
+**Last Updated:** 2026-01-16
 **Purpose:** High-level architecture documentation for executive overview generation
 
 ---
@@ -665,6 +666,23 @@ POST /api/prompts/{id}/run
   "context": "User reported phishing email from malicious.com"
 }
 ```
+
+---
+
+## APPENDIX C: Related Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [README.md](README.md) | Project overview and quick start |
+| [FEATURES_OVERVIEW.md](FEATURES_OVERVIEW.md) | Quick feature reference guide |
+| [SECURITY_ANALYST_GUIDE.md](SECURITY_ANALYST_GUIDE.md) | End-user guide for SOC analysts |
+| [DEV_SETUP.md](DEV_SETUP.md) | Local development environment setup |
+| [API_REFERENCE.md](API_REFERENCE.md) | Complete API endpoint documentation |
+| [AZURE_CONFIG.md](AZURE_CONFIG.md) | Environment variables reference |
+| [PROMPT_GALLERY_SETUP.md](PROMPT_GALLERY_SETUP.md) | Prompt Gallery configuration |
+| [AI_TRIAGE_CHAT_SETUP.md](AI_TRIAGE_CHAT_SETUP.md) | AI Triage Chat setup |
+| [THREAT_INTEL_SETUP.md](THREAT_INTEL_SETUP.md) | Threat intelligence API configuration |
+| [TROUBLESHOOTING_PROMPTS.md](TROUBLESHOOTING_PROMPTS.md) | Common issues and solutions |
 
 ---
 
