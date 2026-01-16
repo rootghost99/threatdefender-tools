@@ -88,6 +88,76 @@ function detectIncidentType(incidentTitle) {
   return 'general';
 }
 
+// Code block component with copy button
+function CodeBlock({ code, darkMode }) {
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <div style={{ position: 'relative', margin: '8px 0' }}>
+      <button
+        onClick={handleCopy}
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          padding: '4px 8px',
+          fontSize: '11px',
+          fontWeight: '500',
+          borderRadius: '4px',
+          border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+          backgroundColor: copied
+            ? (darkMode ? '#065f46' : '#d1fae5')
+            : (darkMode ? '#374151' : '#ffffff'),
+          color: copied
+            ? (darkMode ? '#6ee7b7' : '#065f46')
+            : (darkMode ? '#e5e7eb' : '#374151'),
+          cursor: 'pointer',
+          transition: 'all 0.15s',
+          zIndex: 1
+        }}
+        onMouseEnter={(e) => {
+          if (!copied) {
+            e.target.style.backgroundColor = darkMode ? '#4b5563' : '#f3f4f6';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!copied) {
+            e.target.style.backgroundColor = darkMode ? '#374151' : '#ffffff';
+          }
+        }}
+      >
+        {copied ? '✓ Copied' : 'Copy'}
+      </button>
+      <pre
+        style={{
+          backgroundColor: darkMode ? '#1f2937' : '#f3f4f6',
+          color: darkMode ? '#34d399' : '#1f2937',
+          padding: '12px',
+          paddingTop: '36px',
+          borderRadius: '6px',
+          overflow: 'auto',
+          fontSize: '13px',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          margin: 0
+        }}
+      >
+        {code}
+      </pre>
+    </div>
+  );
+}
+
 // Message component with markdown-like formatting
 function ChatMessage({ message, darkMode }) {
   const isUser = message.role === 'user';
@@ -102,25 +172,8 @@ function ChatMessage({ message, darkMode }) {
     return parts.map((part, idx) => {
       // Code block
       if (part.startsWith('```')) {
-        const code = part.replace(/```\w*\n?/g, '').replace(/```$/g, '');
-        return (
-          <pre
-            key={idx}
-            style={{
-              backgroundColor: darkMode ? '#1f2937' : '#f3f4f6',
-              color: darkMode ? '#34d399' : '#1f2937',
-              padding: '12px',
-              borderRadius: '6px',
-              overflow: 'auto',
-              fontSize: '13px',
-              margin: '8px 0',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word'
-            }}
-          >
-            {code.trim()}
-          </pre>
-        );
+        const code = part.replace(/```\w*\n?/g, '').replace(/```$/g, '').trim();
+        return <CodeBlock key={idx} code={code} darkMode={darkMode} />;
       }
 
       // Regular text with inline formatting
