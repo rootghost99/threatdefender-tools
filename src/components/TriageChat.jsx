@@ -521,13 +521,20 @@ export default function TriageChat({
     setPendingImages(prev => prev.filter((_, i) => i !== index));
   }, []);
 
-  // Attach paste listener to the input container
+  // Attach paste listener to the document when component is mounted
+  // This allows pasting screenshots anywhere when the chat is visible
   useEffect(() => {
-    const container = inputContainerRef.current;
-    if (container) {
-      container.addEventListener('paste', handlePaste);
-      return () => container.removeEventListener('paste', handlePaste);
-    }
+    const handleDocumentPaste = (e) => {
+      // Only handle paste if this component's input or container is focused/active
+      // or if the active element is within our component
+      const container = inputContainerRef.current;
+      if (container && (container.contains(document.activeElement) || document.activeElement === document.body)) {
+        handlePaste(e);
+      }
+    };
+
+    document.addEventListener('paste', handleDocumentPaste);
+    return () => document.removeEventListener('paste', handleDocumentPaste);
   }, [handlePaste]);
 
   // Fetch session on mount
@@ -980,6 +987,7 @@ export default function TriageChat({
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onPaste={handlePaste}
             placeholder={pendingImages.length > 0 ? "Add a message about the screenshot(s)..." : "Ask a follow-up question..."}
             disabled={loading}
             style={{
