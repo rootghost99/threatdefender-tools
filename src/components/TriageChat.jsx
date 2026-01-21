@@ -987,7 +987,6 @@ export default function TriageChat({
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onPaste={handlePaste}
             placeholder={pendingImages.length > 0 ? "Add a message about the screenshot(s)..." : "Ask a follow-up question..."}
             disabled={loading}
             style={{
