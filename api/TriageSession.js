@@ -184,7 +184,40 @@ async function upsertDocument(document) {
   return JSON.parse(responseText);
 }
 
-// Call Claude API for follow-up analysis
+// Build Claude message content (supports text and images)
+function buildMessageContent(msg) {
+  // If message has images, build multimodal content array
+  if (msg.images && msg.images.length > 0) {
+    const contentParts = [];
+
+    // Add images first
+    for (const img of msg.images) {
+      contentParts.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: img.type,
+          data: img.data
+        }
+      });
+    }
+
+    // Add text content if present
+    if (msg.content && msg.content.trim()) {
+      contentParts.push({
+        type: 'text',
+        text: msg.content.trim()
+      });
+    }
+
+    return contentParts;
+  }
+
+  // Simple text message
+  return msg.content || '';
+}
+
+// Call Claude API for follow-up analysis (supports vision)
 async function callClaude(systemPrompt, messages, temperature = 0.3) {
   const apiKey = process.env.CLAUDE_API_KEY;
   if (!apiKey) {
@@ -198,7 +231,7 @@ async function callClaude(systemPrompt, messages, temperature = 0.3) {
     system: systemPrompt,
     messages: messages.map(msg => ({
       role: msg.role,
-      content: msg.content
+      content: buildMessageContent(msg)
     }))
   };
 
@@ -280,6 +313,7 @@ YOUR ROLE:
 - Assess true positive vs false positive likelihood
 - Recommend containment and remediation actions
 - Provide executive summaries when requested
+- Analyze screenshots and images shared by the analyst
 
 GUIDELINES:
 - Be concise but thorough
@@ -287,6 +321,14 @@ GUIDELINES:
 - Provide actionable recommendations
 - When suggesting KQL queries, format them for easy copy-paste
 - Consider the Microsoft security ecosystem (Defender, Sentinel, Entra ID)
+
+IMAGE ANALYSIS:
+- When screenshots are shared, carefully analyze all visible information
+- Extract IOCs (IPs, domains, hashes, emails) from screenshots
+- Identify security tools, alerts, or dashboards shown in images
+- Point out suspicious elements or anomalies visible in the screenshot
+- If the image shows logs, alerts, or security events, interpret their meaning
+- Correlate information from images with the incident context
 `;
 
   return prompt;
@@ -360,19 +402,45 @@ app.http('TriageSession', {
         };
       }
 
-      // POST with sessionId - Send follow-up message
+      // POST with sessionId - Send follow-up message (supports images)
       if (request.method === 'POST' && sessionId) {
         context.log(`POST message to session: ${sessionId}`);
 
         const body = await request.json().catch(() => ({}));
-        const { message } = body;
+        const { message, images } = body;
 
-        if (!message || !message.trim()) {
+        // Allow message with text OR images (or both)
+        const hasMessage = message && message.trim();
+        const hasImages = images && Array.isArray(images) && images.length > 0;
+
+        if (!hasMessage && !hasImages) {
           return {
             status: 400,
             headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-            jsonBody: { error: 'Message is required' }
+            jsonBody: { error: 'Message or images are required' }
           };
+        }
+
+        // Validate images if present
+        if (hasImages) {
+          const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+          for (const img of images) {
+            if (!img.type || !img.data) {
+              return {
+                status: 400,
+                headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+                jsonBody: { error: 'Invalid image format. Each image must have type and data.' }
+              };
+            }
+            if (!supportedTypes.includes(img.type)) {
+              return {
+                status: 400,
+                headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+                jsonBody: { error: `Unsupported image type: ${img.type}. Supported: JPEG, PNG, GIF, WebP` }
+              };
+            }
+          }
+          context.log(`Message includes ${images.length} image(s)`);
         }
 
         // Fetch session
@@ -391,22 +459,30 @@ app.http('TriageSession', {
 
         const session = resources[0];
 
+        // Build user message with optional images
+        const userMessage = {
+          role: 'user',
+          content: hasMessage ? message.trim() : '',
+          ...(hasImages && { images })
+        };
+
         // Build conversation for Claude
         const systemPrompt = buildSystemPrompt(session);
         const conversationHistory = session.conversationHistory || [];
         const messagesForClaude = [
           ...conversationHistory,
-          { role: 'user', content: message.trim() }
+          userMessage
         ];
 
-        // Call Claude API
-        context.log('Calling Claude API for follow-up analysis');
+        // Call Claude API (now supports vision)
+        context.log('Calling Claude API for follow-up analysis' + (hasImages ? ' with images' : ''));
         const assistantResponse = await callClaude(systemPrompt, messagesForClaude);
 
-        // Update session
+        // Update session - store images in history for context
+        // Note: Images are stored in base64 which can be large, consider TTL cleanup
         const updatedHistory = [
           ...conversationHistory,
-          { role: 'user', content: message.trim() },
+          userMessage,
           { role: 'assistant', content: assistantResponse }
         ];
 
