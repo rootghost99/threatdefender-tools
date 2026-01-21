@@ -205,6 +205,42 @@ function ChatMessage({ message, darkMode }) {
     });
   };
 
+  // Render images if present
+  const renderImages = () => {
+    if (!message.images || message.images.length === 0) return null;
+
+    return (
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '8px',
+        marginBottom: message.content ? '8px' : 0
+      }}>
+        {message.images.map((img, idx) => (
+          <img
+            key={idx}
+            src={`data:${img.type};base64,${img.data}`}
+            alt={`Attached screenshot ${idx + 1}`}
+            style={{
+              maxWidth: '300px',
+              maxHeight: '200px',
+              borderRadius: '8px',
+              border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+              cursor: 'pointer'
+            }}
+            onClick={() => {
+              // Open image in new tab for full view
+              const newTab = window.open();
+              if (newTab) {
+                newTab.document.write(`<img src="data:${img.type};base64,${img.data}" style="max-width: 100%; height: auto;" />`);
+              }
+            }}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div
       style={{
@@ -228,6 +264,7 @@ function ChatMessage({ message, darkMode }) {
           lineHeight: '1.5'
         }}
       >
+        {renderImages()}
         {formatContent(message.content)}
       </div>
     </div>
@@ -425,15 +462,73 @@ export default function TriageChat({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [pendingImages, setPendingImages] = useState([]); // Array of { data: base64, type: mediaType }
 
   // Refs
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const inputContainerRef = useRef(null);
 
   // Scroll to bottom of messages
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
+
+  // Handle paste event for images
+  const handlePaste = useCallback((e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        // Check file size (max 20MB for Claude vision)
+        if (file.size > 20 * 1024 * 1024) {
+          setError('Image too large. Maximum size is 20MB.');
+          return;
+        }
+
+        // Convert to base64
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64Data = event.target.result;
+          // Extract the base64 content and media type
+          const matches = base64Data.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            const [, mediaType, data] = matches;
+            // Only allow supported image types
+            const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (supportedTypes.includes(mediaType)) {
+              setPendingImages(prev => [...prev, { data, type: mediaType }]);
+            } else {
+              setError(`Unsupported image type: ${mediaType}. Supported: JPEG, PNG, GIF, WebP`);
+            }
+          }
+        };
+        reader.onerror = () => {
+          setError('Failed to read image from clipboard');
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  }, []);
+
+  // Remove a pending image
+  const removePendingImage = useCallback((index) => {
+    setPendingImages(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Attach paste listener to the input container
+  useEffect(() => {
+    const container = inputContainerRef.current;
+    if (container) {
+      container.addEventListener('paste', handlePaste);
+      return () => container.removeEventListener('paste', handlePaste);
+    }
+  }, [handlePaste]);
 
   // Fetch session on mount
   useEffect(() => {
@@ -479,22 +574,35 @@ export default function TriageChat({
   }, [messages, scrollToBottom]);
 
   // Send message handler
-  const sendMessage = useCallback(async (messageText) => {
-    if (!messageText.trim() || loading || !session) return;
+  const sendMessage = useCallback(async (messageText, images = []) => {
+    // Allow sending if there's text OR images
+    if ((!messageText.trim() && images.length === 0) || loading || !session) return;
 
-    const userMessage = { role: 'user', content: messageText.trim() };
+    // Build user message with optional images
+    const userMessage = {
+      role: 'user',
+      content: messageText.trim(),
+      images: images.length > 0 ? images : undefined
+    };
 
     // Optimistically add user message
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
+    setPendingImages([]);
     setLoading(true);
     setError(null);
 
     try {
+      // Build request body with message and optional images
+      const requestBody = { message: messageText.trim() };
+      if (images.length > 0) {
+        requestBody.images = images;
+      }
+
       const response = await fetch(`${apiBaseUrl}/TriageSession?sessionId=${sessionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageText.trim() })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -511,6 +619,7 @@ export default function TriageChat({
       // Remove optimistic user message on error
       setMessages(prev => prev.slice(0, -1));
       setInputValue(messageText);
+      setPendingImages(images);
       const errorMessage = err.message || 'Failed to send message';
       setError(errorMessage);
       if (onError) {
@@ -525,7 +634,7 @@ export default function TriageChat({
   // Handle form submit
   const handleSubmit = (e) => {
     e.preventDefault();
-    sendMessage(inputValue);
+    sendMessage(inputValue, pendingImages);
   };
 
   // Handle quick action click
@@ -776,74 +885,154 @@ export default function TriageChat({
         );
       })()}
 
-      {/* Input Area */}
-      <form
-        onSubmit={handleSubmit}
+      {/* Input Area with Paste Support */}
+      <div
+        ref={inputContainerRef}
         style={{
-          padding: '16px 20px',
           backgroundColor: darkMode ? '#1f2937' : '#f9fafb',
-          borderTop: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`,
-          display: 'flex',
-          gap: '12px'
+          borderTop: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`
         }}
       >
-        <input
-          ref={inputRef}
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Ask a follow-up question..."
-          disabled={loading}
+        {/* Pending Images Preview */}
+        {pendingImages.length > 0 && (
+          <div style={{
+            padding: '12px 20px 0 20px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            {pendingImages.map((img, idx) => (
+              <div
+                key={idx}
+                style={{
+                  position: 'relative',
+                  display: 'inline-block'
+                }}
+              >
+                <img
+                  src={`data:${img.type};base64,${img.data}`}
+                  alt={`Pending screenshot ${idx + 1}`}
+                  style={{
+                    height: '60px',
+                    borderRadius: '6px',
+                    border: `2px solid ${darkMode ? '#3b82f6' : '#2563eb'}`,
+                    objectFit: 'cover'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removePendingImage(idx)}
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-6px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    backgroundColor: darkMode ? '#ef4444' : '#dc2626',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: 1
+                  }}
+                  title="Remove image"
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: '12px',
+              color: darkMode ? '#9ca3af' : '#6b7280',
+              marginLeft: '8px'
+            }}>
+              {pendingImages.length} image{pendingImages.length !== 1 ? 's' : ''} attached
+            </div>
+          </div>
+        )}
+
+        {/* Paste hint */}
+        <div style={{
+          padding: '4px 20px',
+          fontSize: '11px',
+          color: darkMode ? '#6b7280' : '#9ca3af'
+        }}>
+          Tip: Paste screenshots directly (Ctrl/Cmd+V)
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
           style={{
-            flex: 1,
-            padding: '10px 16px',
-            fontSize: '14px',
-            borderRadius: '8px',
-            border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
-            backgroundColor: darkMode ? '#374151' : '#ffffff',
-            color: darkMode ? '#f3f4f6' : '#1f2937',
-            outline: 'none',
-            transition: 'border-color 0.15s'
-          }}
-          onFocus={(e) => {
-            e.target.style.borderColor = darkMode ? '#6b7280' : '#9ca3af';
-          }}
-          onBlur={(e) => {
-            e.target.style.borderColor = darkMode ? '#4b5563' : '#d1d5db';
-          }}
-        />
-        <button
-          type="submit"
-          disabled={loading || !inputValue.trim()}
-          style={{
-            padding: '10px 20px',
-            fontSize: '14px',
-            fontWeight: '600',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: loading || !inputValue.trim()
-              ? (darkMode ? '#374151' : '#e5e7eb')
-              : '#3b82f6',
-            color: loading || !inputValue.trim()
-              ? (darkMode ? '#6b7280' : '#9ca3af')
-              : '#ffffff',
-            cursor: loading || !inputValue.trim() ? 'not-allowed' : 'pointer',
-            transition: 'background-color 0.15s'
-          }}
-          onMouseEnter={(e) => {
-            if (!loading && inputValue.trim()) {
-              e.target.style.backgroundColor = '#2563eb';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!loading && inputValue.trim()) {
-              e.target.style.backgroundColor = '#3b82f6';
-            }
+            padding: '8px 20px 16px 20px',
+            display: 'flex',
+            gap: '12px'
           }}
         >
-          {loading ? 'Sending...' : 'Send'}
-        </button>
-      </form>
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={pendingImages.length > 0 ? "Add a message about the screenshot(s)..." : "Ask a follow-up question..."}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: '10px 16px',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+              backgroundColor: darkMode ? '#374151' : '#ffffff',
+              color: darkMode ? '#f3f4f6' : '#1f2937',
+              outline: 'none',
+              transition: 'border-color 0.15s'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = darkMode ? '#6b7280' : '#9ca3af';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = darkMode ? '#4b5563' : '#d1d5db';
+            }}
+          />
+          <button
+            type="submit"
+            disabled={loading || (!inputValue.trim() && pendingImages.length === 0)}
+            style={{
+              padding: '10px 20px',
+              fontSize: '14px',
+              fontWeight: '600',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: loading || (!inputValue.trim() && pendingImages.length === 0)
+                ? (darkMode ? '#374151' : '#e5e7eb')
+                : '#3b82f6',
+              color: loading || (!inputValue.trim() && pendingImages.length === 0)
+                ? (darkMode ? '#6b7280' : '#9ca3af')
+                : '#ffffff',
+              cursor: loading || (!inputValue.trim() && pendingImages.length === 0) ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.15s'
+            }}
+            onMouseEnter={(e) => {
+              if (!loading && (inputValue.trim() || pendingImages.length > 0)) {
+                e.target.style.backgroundColor = '#2563eb';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading && (inputValue.trim() || pendingImages.length > 0)) {
+                e.target.style.backgroundColor = '#3b82f6';
+              }
+            }}
+          >
+            {loading ? 'Sending...' : 'Send'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
