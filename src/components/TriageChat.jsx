@@ -323,8 +323,15 @@ function LoadingIndicator({ darkMode }) {
 function extractCWTicketId(session) {
   if (!session) return '';
 
-  // Check for explicit CW ticket ID fields in session or incident context
-  const context = session.incidentContext || {};
+  // Parse incidentContext if it's a JSON string
+  let context = session.incidentContext || {};
+  if (typeof context === 'string') {
+    try {
+      context = JSON.parse(context);
+    } catch {
+      context = {};
+    }
+  }
   const explicitFields = [
     context.cwTicketId,
     context.connectwiseTicketId,
