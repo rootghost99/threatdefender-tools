@@ -325,13 +325,79 @@ function LoadingIndicator({ darkMode }) {
   );
 }
 
+// Extract ConnectWise ticket ID from session data
+function extractCWTicketId(session) {
+  if (!session) return '';
+
+  // Check for explicit CW ticket ID fields in session or incident context
+  const context = session.incidentContext || {};
+  const explicitFields = [
+    context.cwTicketId,
+    context.connectwiseTicketId,
+    context.externalTicketId,
+    context.ticketId,
+    context.cw_ticket_id,
+    session.cwTicketId,
+    session.externalTicketId
+  ];
+
+  for (const field of explicitFields) {
+    if (field && String(field).trim()) {
+      return String(field).trim();
+    }
+  }
+
+  // Try to extract from incident title using common patterns
+  const title = session.incidentTitle || '';
+  if (title) {
+    // Pattern: "CW#12345" or "CW# 12345" or "CW 12345"
+    const cwPattern = /\bCW\s*#?\s*(\d+)/i;
+    // Pattern: "Ticket #12345" or "Ticket: 12345" or "Ticket 12345"
+    const ticketPattern = /\bTicket\s*[:#]?\s*(\d+)/i;
+    // Pattern: "[12345]" at start or end
+    const bracketPattern = /^\[(\d+)\]|\[(\d+)\]$/;
+    // Pattern: "#12345" at start
+    const hashPattern = /^#(\d+)/;
+
+    for (const pattern of [cwPattern, ticketPattern, bracketPattern, hashPattern]) {
+      const match = title.match(pattern);
+      if (match) {
+        // Return the first captured group that exists
+        return match[1] || match[2] || '';
+      }
+    }
+  }
+
+  // Check incident context for nested ticket references
+  if (context.properties?.externalTicketId) {
+    return String(context.properties.externalTicketId).trim();
+  }
+  if (context.properties?.ticketNumber) {
+    return String(context.properties.ticketNumber).trim();
+  }
+
+  return '';
+}
+
 // ConnectWise Actions Panel Component
-function ConnectWisePanel({ darkMode, apiBaseUrl, onSuccess, onError }) {
+function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError }) {
   const [ticketId, setTicketId] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [noteText, setNoteText] = useState('');
+  const [autoDetected, setAutoDetected] = useState(false);
+
+  // Auto-populate ticket ID from session data
+  useEffect(() => {
+    if (session && !ticketId) {
+      const detectedId = extractCWTicketId(session);
+      if (detectedId) {
+        setTicketId(detectedId);
+        setAutoDetected(true);
+      }
+    }
+  }, [session]);
 
   // Clear status message after 3 seconds
   useEffect(() => {
@@ -487,25 +553,42 @@ function ConnectWisePanel({ darkMode, apiBaseUrl, onSuccess, onError }) {
         {/* Ticket ID Input */}
         <div style={{ marginBottom: '12px' }}>
           <label style={{
-            display: 'block',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
             fontSize: '11px',
             fontWeight: '600',
             color: darkMode ? '#9ca3af' : '#6b7280',
             marginBottom: '4px'
           }}>
-            Ticket ID
+            <span>Ticket ID</span>
+            {autoDetected && ticketId && (
+              <span style={{
+                fontSize: '10px',
+                fontWeight: '500',
+                color: '#10b981',
+                backgroundColor: darkMode ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                padding: '1px 6px',
+                borderRadius: '4px'
+              }}>
+                auto-detected
+              </span>
+            )}
           </label>
           <input
             type="text"
             value={ticketId}
-            onChange={(e) => setTicketId(e.target.value)}
+            onChange={(e) => {
+              setTicketId(e.target.value);
+              setAutoDetected(false); // Clear auto-detected flag on manual edit
+            }}
             placeholder="Enter CW ticket #"
             style={{
               width: '100%',
               padding: '8px 12px',
               fontSize: '13px',
               borderRadius: '6px',
-              border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+              border: `1px solid ${autoDetected && ticketId ? '#10b981' : (darkMode ? '#4b5563' : '#d1d5db')}`,
               backgroundColor: darkMode ? '#374151' : '#ffffff',
               color: darkMode ? '#f3f4f6' : '#1f2937',
               outline: 'none',
@@ -1227,6 +1310,7 @@ export default function TriageChat({
       <ConnectWisePanel
         darkMode={darkMode}
         apiBaseUrl={apiBaseUrl}
+        session={session}
         onSuccess={(action, data) => {
           console.log('ConnectWise action success:', action, data);
         }}
