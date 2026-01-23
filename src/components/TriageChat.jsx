@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 // Default API base URL - adjust for your environment
 const DEFAULT_API_BASE = '/api';
@@ -413,10 +414,11 @@ function extractCWTicketId(session) {
 }
 
 // ConnectWise Actions Panel Component
-function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError }) {
+function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError, authContext }) {
   const [ticketId, setTicketId] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchingTag, setFetchingTag] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [autoDetected, setAutoDetected] = useState(false);
@@ -431,6 +433,78 @@ function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError })
       }
     }
   }, [session]);
+
+  // Fetch tag from Sentinel incident
+  const fetchTagFromSentinel = async () => {
+    if (!authContext?.isAuthenticated) {
+      setStatusMessage({ type: 'error', text: 'Sign in with Microsoft to fetch tags' });
+      return;
+    }
+
+    const incidentId = session?.incidentId;
+    if (!incidentId) {
+      setStatusMessage({ type: 'error', text: 'No incident ID in session' });
+      return;
+    }
+
+    setFetchingTag(true);
+    setStatusMessage(null);
+
+    try {
+      // Get workspaces
+      const workspaces = await authContext.getSentinelWorkspaces();
+      if (!workspaces || workspaces.length === 0) {
+        throw new Error('No Sentinel workspaces found');
+      }
+
+      // Try to find the incident in each workspace
+      let foundTag = null;
+      let lastError = null;
+
+      for (const workspace of workspaces) {
+        try {
+          const { incident } = await authContext.getSentinelIncident(workspace.id, incidentId);
+          const labels = incident?.properties?.labels || [];
+
+          // Find numeric tags (potential CW ticket IDs)
+          const numberedTags = labels
+            .map(label => {
+              const labelStr = typeof label === 'string' ? label : label?.labelName || '';
+              const match = labelStr.match(/^(\d+)$/);
+              return match ? match[1] : null;
+            })
+            .filter(Boolean);
+
+          if (numberedTags.length === 1) {
+            foundTag = numberedTags[0];
+            break;
+          } else if (numberedTags.length > 1) {
+            // Multiple numeric tags - use the first one but warn
+            foundTag = numberedTags[0];
+            setStatusMessage({ type: 'warning', text: `Multiple tags found, using ${foundTag}` });
+            break;
+          }
+        } catch (err) {
+          lastError = err;
+          // Continue trying other workspaces
+        }
+      }
+
+      if (foundTag) {
+        setTicketId(foundTag);
+        setAutoDetected(true);
+        setStatusMessage({ type: 'success', text: `Found ticket #${foundTag}` });
+      } else if (lastError) {
+        throw lastError;
+      } else {
+        setStatusMessage({ type: 'error', text: 'No numeric tag found on incident' });
+      }
+    } catch (err) {
+      setStatusMessage({ type: 'error', text: err.message || 'Failed to fetch from Sentinel' });
+    } finally {
+      setFetchingTag(false);
+    }
+  };
 
   // Clear status message after 3 seconds
   useEffect(() => {
@@ -606,26 +680,60 @@ function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError })
               </span>
             )}
           </label>
-          <input
-            type="text"
-            value={ticketId}
-            onChange={(e) => {
-              setTicketId(e.target.value);
-              setAutoDetected(false); // Clear auto-detected flag on manual edit
-            }}
-            placeholder="Enter CW ticket #"
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              fontSize: '13px',
-              borderRadius: '6px',
-              border: `1px solid ${autoDetected && ticketId ? '#10b981' : (darkMode ? '#4b5563' : '#d1d5db')}`,
-              backgroundColor: darkMode ? '#374151' : '#ffffff',
-              color: darkMode ? '#f3f4f6' : '#1f2937',
-              outline: 'none',
-              boxSizing: 'border-box'
-            }}
-          />
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <input
+              type="text"
+              value={ticketId}
+              onChange={(e) => {
+                setTicketId(e.target.value);
+                setAutoDetected(false); // Clear auto-detected flag on manual edit
+              }}
+              placeholder="Enter CW ticket #"
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                fontSize: '13px',
+                borderRadius: '6px',
+                border: `1px solid ${autoDetected && ticketId ? '#10b981' : (darkMode ? '#4b5563' : '#d1d5db')}`,
+                backgroundColor: darkMode ? '#374151' : '#ffffff',
+                color: darkMode ? '#f3f4f6' : '#1f2937',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+            <button
+              onClick={fetchTagFromSentinel}
+              disabled={fetchingTag || !session?.incidentId}
+              title={authContext?.isAuthenticated ? 'Fetch ticket ID from Sentinel incident tag' : 'Sign in with Microsoft first'}
+              style={{
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontWeight: '500',
+                borderRadius: '6px',
+                border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+                backgroundColor: darkMode ? '#374151' : '#ffffff',
+                color: darkMode ? '#e5e7eb' : '#374151',
+                cursor: fetchingTag || !session?.incidentId ? 'not-allowed' : 'pointer',
+                opacity: fetchingTag || !session?.incidentId ? 0.5 : 1,
+                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              {fetchingTag ? (
+                <>
+                  <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
+                  <span>Fetching...</span>
+                </>
+              ) : (
+                <>
+                  <span>🔍</span>
+                  <span>Fetch Tag</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Status Buttons */}
@@ -928,6 +1036,9 @@ export default function TriageChat({
 }) {
   // Get sessionId from route params
   const { sessionId: routeSessionId } = useParams();
+
+  // Auth context for Sentinel integration
+  const auth = useAuth();
 
   // Use route param, prop, or fallback to URL search params
   const sessionId = routeSessionId || propSessionId || (() => {
@@ -1309,6 +1420,7 @@ export default function TriageChat({
         darkMode={darkMode}
         apiBaseUrl={apiBaseUrl}
         session={session}
+        authContext={auth}
         onSuccess={(action, data) => {
           console.log('ConnectWise action success:', action, data);
         }}
