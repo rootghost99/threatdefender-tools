@@ -13,6 +13,7 @@ This document provides a comprehensive reference for all environment variables r
 | Azure Storage (Prompts) | 4 | Yes* |
 | Azure Cosmos DB (Triage Chat) | 1 | Yes* |
 | Claude AI (Triage Chat) | 3 | Yes* |
+| ConnectWise Manage | 4 | Yes* |
 | Threat Intelligence APIs | 8 | Optional |
 
 *Required for respective feature functionality
@@ -157,6 +158,63 @@ Required for: AI Triage Chat feature
 
 ---
 
+## ConnectWise Manage Configuration
+
+Required for: ConnectWise ticket integration (time entries, notes, status/type updates)
+
+| Variable | Required | Default | Example | Description |
+|----------|----------|---------|---------|-------------|
+| `CW_COMPANY_ID` | Yes | - | `mycompany` | Your ConnectWise company identifier |
+| `CW_PUBLIC_KEY` | Yes | - | `abc123XYZ` | API member public key |
+| `CW_PRIVATE_KEY` | Yes | - | `xyz789ABC` | API member private key |
+| `CW_CLIENT_ID` | Yes | - | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` | Integrator client ID (GUID) |
+| `CW_API_URL` | No | `https://na.myconnectwise.net/v4_6_release/apis/3.0` | See below | ConnectWise API base URL |
+
+### ConnectWise API URL by Region
+
+| Region | API URL |
+|--------|---------|
+| North America | `https://na.myconnectwise.net/v4_6_release/apis/3.0` |
+| Europe | `https://eu.myconnectwise.net/v4_6_release/apis/3.0` |
+| Australia | `https://au.myconnectwise.net/v4_6_release/apis/3.0` |
+
+### How to Get ConnectWise API Credentials
+
+1. Log in to ConnectWise Manage
+2. Navigate to **System > Members**
+3. Select your API member or create a new one
+4. Click **API Keys** tab
+5. Generate or copy:
+   - **Public Key**
+   - **Private Key**
+6. For **Client ID**, contact ConnectWise or use your existing integrator credentials
+
+### Required ConnectWise Permissions
+
+The API member needs these security roles:
+- **Service Tickets**: Add, Edit, View
+- **Time Entry**: Add, Edit
+- **Service Notes**: Add
+
+### Supported Operations
+
+| Operation | API Endpoint | Description |
+|-----------|--------------|-------------|
+| Add Time | `POST /time/entries` | Log time against a ticket |
+| Add Note | `POST /service/tickets/{id}/notes` | Add internal/external note |
+| Update Ticket | `PATCH /service/tickets/{id}` | Change status, type, priority |
+| Get Ticket | `GET /service/tickets/{id}` | Retrieve ticket details |
+
+### Ticket Types & Statuses
+
+The integration supports these predefined values (configured in TriageChat):
+
+**Statuses:** New, In Progress, Pending Client Determination, Closed
+
+**Types (Classification):** Undetermined, Pending, True Positive, False Positive, Benign Positive, Out of Scope
+
+---
+
 ## Threat Intelligence API Keys
 
 All threat intel API keys are **optional**. Features gracefully degrade when keys are unavailable.
@@ -179,17 +237,18 @@ The ARIN RDAP service provides IP ownership data and does not require an API key
 
 ## Feature Availability by Configuration
 
-| Feature | Azure OpenAI | Storage | Cosmos DB | Claude | TI APIs |
-|---------|--------------|---------|-----------|--------|---------|
-| KQL Diff Viewer | Required | - | - | - | - |
-| KQL AI Analysis | Required | - | - | - | - |
-| IR Playbook Generator | Required | - | - | - | - |
-| Prompt Gallery Browse | - | Required | - | - | - |
-| Prompt Execution | Required | Required | - | - | - |
-| Email Posture Check | - | - | - | - | Optional |
-| Threat Intel Lookup | - | - | - | - | Optional |
-| AI Triage Chat | - | - | Required | Required | - |
-| SOC Handoff | - | - | - | - | - |
+| Feature | Azure OpenAI | Storage | Cosmos DB | Claude | ConnectWise | TI APIs |
+|---------|--------------|---------|-----------|--------|-------------|---------|
+| KQL Diff Viewer | Required | - | - | - | - | - |
+| KQL AI Analysis | Required | - | - | - | - | - |
+| IR Playbook Generator | Required | - | - | - | - | - |
+| Prompt Gallery Browse | - | Required | - | - | - | - |
+| Prompt Execution | Required | Required | - | - | - | - |
+| Email Posture Check | - | - | - | - | - | Optional |
+| Threat Intel Lookup | - | - | - | - | - | Optional |
+| AI Triage Chat | - | - | Required | Required | - | - |
+| ConnectWise Actions | - | - | - | - | Required | - |
+| SOC Handoff | - | - | - | - | - | - |
 
 ---
 
@@ -216,6 +275,12 @@ The ARIN RDAP service provides IP ownership data and does not require an API key
     "CLAUDE_API_ENDPOINT": "https://your-service.services.ai.azure.com/anthropic/v1/messages",
     "CLAUDE_API_KEY": "your-claude-api-key",
     "CLAUDE_MODEL": "claude-sonnet-4-20250514",
+
+    "CW_COMPANY_ID": "your-company-id",
+    "CW_PUBLIC_KEY": "your-public-key",
+    "CW_PRIVATE_KEY": "your-private-key",
+    "CW_CLIENT_ID": "your-client-id-guid",
+    "CW_API_URL": "https://na.myconnectwise.net/v4_6_release/apis/3.0",
 
     "VIRUSTOTAL_API_KEY": "your-virustotal-key",
     "ABUSEIPDB_API_KEY": "your-abuseipdb-key",
@@ -273,6 +338,21 @@ The ARIN RDAP service provides IP ownership data and does not require an API key
 - Verify API key is valid and has not expired
 - Check rate limits haven't been exceeded
 - Some APIs require account verification
+
+### "ConnectWise credentials not configured"
+- Verify all four required variables are set: `CW_COMPANY_ID`, `CW_PUBLIC_KEY`, `CW_PRIVATE_KEY`, `CW_CLIENT_ID`
+- Check the company ID matches your ConnectWise login exactly
+- Ensure no extra whitespace in key values
+
+### "ConnectWise API error: 401 Unauthorized"
+- Verify public/private key pair is valid and not expired
+- Check the API member is active in ConnectWise
+- Ensure the API member has required security roles
+
+### "ConnectWise API error: 404 Not Found"
+- Verify the ticket ID exists in ConnectWise
+- Check the `CW_API_URL` matches your region (na/eu/au)
+- Ensure the status/type names match exactly what's configured in ConnectWise
 
 ### API key changes not taking effect
 - After changing Azure App Settings, wait 1-2 minutes
