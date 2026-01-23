@@ -347,7 +347,30 @@ function extractCWTicketId(session) {
     }
   }
 
-  // Try to extract from incident title using common patterns
+  // Check incident tags for ticket number (primary source)
+  // Tags can be in context.properties.tags or context.tags
+  const tags = context.properties?.tags || context.tags || [];
+  if (Array.isArray(tags) && tags.length > 0) {
+    // Find tags that contain a number (potential ticket IDs)
+    const numberedTags = tags
+      .map(tag => {
+        const tagStr = typeof tag === 'string' ? tag : tag?.name || tag?.value || '';
+        const match = tagStr.match(/(\d+)/);
+        return match ? match[1] : null;
+      })
+      .filter(Boolean);
+
+    // Only auto-populate if exactly one numbered tag exists
+    if (numberedTags.length === 1) {
+      return numberedTags[0];
+    }
+    // If multiple numbered tags, don't guess - return empty
+    if (numberedTags.length > 1) {
+      return '';
+    }
+  }
+
+  // Fallback: Try to extract from incident title using common patterns
   const title = session.incidentTitle || '';
   if (title) {
     // Pattern: "CW#12345" or "CW# 12345" or "CW 12345"
