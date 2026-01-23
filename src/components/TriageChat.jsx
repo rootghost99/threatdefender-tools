@@ -1,11 +1,22 @@
 // TriageChat.jsx - Interactive AI Triage Chat Component
 // Connects to td-triage-api for follow-up analysis on Sentinel incidents
+// Includes ConnectWise Manage integration for ticket management
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 
 // Default API base URL - adjust for your environment
 const DEFAULT_API_BASE = '/api';
+
+// ConnectWise configuration
+const CW_STATUSES = ['New', 'In Progress', 'Pending Client Determination', 'Closed'];
+const CW_TYPES = ['Undetermined', 'Pending', 'True Positive', 'False Positive', 'Benign Positive', 'Out of Scope'];
+const TIME_OPTIONS = [
+  { minutes: 5, label: '5 min' },
+  { minutes: 10, label: '10 min' },
+  { minutes: 15, label: '15 min' },
+  { minutes: 30, label: '30 min' }
+];
 
 // Severity color mapping
 const SEVERITY_COLORS = {
@@ -310,6 +321,394 @@ function LoadingIndicator({ darkMode }) {
           50% { transform: translateY(-4px); }
         }
       `}</style>
+    </div>
+  );
+}
+
+// ConnectWise Actions Panel Component
+function ConnectWisePanel({ darkMode, apiBaseUrl, onSuccess, onError }) {
+  const [ticketId, setTicketId] = useState('');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(null);
+  const [noteText, setNoteText] = useState('');
+
+  // Clear status message after 3 seconds
+  useEffect(() => {
+    if (statusMessage) {
+      const timer = setTimeout(() => setStatusMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
+
+  // Handle API call with loading state
+  const handleCWAction = async (action, body) => {
+    if (!ticketId.trim()) {
+      setStatusMessage({ type: 'error', text: 'Enter a ConnectWise ticket ID first' });
+      return;
+    }
+
+    setLoading(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/ConnectWise/${action}`, {
+        method: action === 'ticket' && !body ? 'GET' : (action === 'ticket' ? 'PATCH' : 'POST'),
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify({ ticketId: ticketId.trim(), ...body }) : undefined
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Request failed: ${response.status}`);
+      }
+
+      setStatusMessage({ type: 'success', text: getSuccessMessage(action, body) });
+      if (onSuccess) onSuccess(action, data);
+
+      // Clear note text after successful note submission
+      if (action === 'note') setNoteText('');
+
+    } catch (err) {
+      const errorMsg = err.message || 'Operation failed';
+      setStatusMessage({ type: 'error', text: errorMsg });
+      if (onError) onError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate success message based on action
+  const getSuccessMessage = (action, body) => {
+    switch (action) {
+      case 'time':
+        return `Logged ${body.minutes} minutes`;
+      case 'note':
+        return 'Note added';
+      case 'ticket':
+        if (body.status && body.type) return `Updated to ${body.status} / ${body.type}`;
+        if (body.status) return `Status: ${body.status}`;
+        if (body.type) return `Type: ${body.type}`;
+        return 'Ticket updated';
+      default:
+        return 'Success';
+    }
+  };
+
+  // Button style helper
+  const getButtonStyle = (isActive = false, isSmall = false) => ({
+    padding: isSmall ? '4px 8px' : '6px 12px',
+    fontSize: isSmall ? '11px' : '12px',
+    fontWeight: '500',
+    borderRadius: '6px',
+    border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+    backgroundColor: isActive
+      ? (darkMode ? '#3b82f6' : '#2563eb')
+      : (darkMode ? '#374151' : '#ffffff'),
+    color: isActive
+      ? '#ffffff'
+      : (darkMode ? '#e5e7eb' : '#374151'),
+    cursor: loading ? 'not-allowed' : 'pointer',
+    opacity: loading ? 0.5 : 1,
+    transition: 'all 0.15s',
+    whiteSpace: 'nowrap'
+  });
+
+  if (!isExpanded) {
+    return (
+      <div style={{
+        padding: '8px 20px',
+        backgroundColor: darkMode ? '#1f2937' : '#f9fafb',
+        borderTop: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`
+      }}>
+        <button
+          onClick={() => setIsExpanded(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 12px',
+            fontSize: '12px',
+            fontWeight: '500',
+            borderRadius: '6px',
+            border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+            backgroundColor: darkMode ? '#374151' : '#ffffff',
+            color: darkMode ? '#e5e7eb' : '#374151',
+            cursor: 'pointer',
+            width: '100%',
+            justifyContent: 'center'
+          }}
+        >
+          <span style={{ fontSize: '14px' }}>🔗</span>
+          <span>ConnectWise Actions</span>
+          <span style={{ marginLeft: 'auto', fontSize: '10px' }}>▼</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      backgroundColor: darkMode ? '#1f2937' : '#f9fafb',
+      borderTop: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`
+    }}>
+      {/* Header */}
+      <div
+        onClick={() => setIsExpanded(false)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 20px',
+          cursor: 'pointer',
+          borderBottom: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '14px' }}>🔗</span>
+          <span style={{
+            fontSize: '12px',
+            fontWeight: '600',
+            color: darkMode ? '#e5e7eb' : '#374151'
+          }}>
+            ConnectWise Actions
+          </span>
+        </div>
+        <span style={{
+          fontSize: '10px',
+          color: darkMode ? '#9ca3af' : '#6b7280',
+          transform: 'rotate(180deg)'
+        }}>▼</span>
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: '12px 20px' }}>
+        {/* Ticket ID Input */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '11px',
+            fontWeight: '600',
+            color: darkMode ? '#9ca3af' : '#6b7280',
+            marginBottom: '4px'
+          }}>
+            Ticket ID
+          </label>
+          <input
+            type="text"
+            value={ticketId}
+            onChange={(e) => setTicketId(e.target.value)}
+            placeholder="Enter CW ticket #"
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              fontSize: '13px',
+              borderRadius: '6px',
+              border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+              backgroundColor: darkMode ? '#374151' : '#ffffff',
+              color: darkMode ? '#f3f4f6' : '#1f2937',
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        {/* Time Entry Buttons */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '11px',
+            fontWeight: '600',
+            color: darkMode ? '#9ca3af' : '#6b7280',
+            marginBottom: '6px'
+          }}>
+            Log Time
+          </label>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {TIME_OPTIONS.map(opt => (
+              <button
+                key={opt.minutes}
+                onClick={() => handleCWAction('time', { minutes: opt.minutes })}
+                disabled={loading || !ticketId.trim()}
+                style={getButtonStyle(false, true)}
+                onMouseEnter={(e) => {
+                  if (!loading && ticketId.trim()) {
+                    e.target.style.backgroundColor = darkMode ? '#4b5563' : '#f3f4f6';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = darkMode ? '#374151' : '#ffffff';
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Status Buttons */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '11px',
+            fontWeight: '600',
+            color: darkMode ? '#9ca3af' : '#6b7280',
+            marginBottom: '6px'
+          }}>
+            Set Status
+          </label>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {CW_STATUSES.map(status => (
+              <button
+                key={status}
+                onClick={() => handleCWAction('ticket', { status })}
+                disabled={loading || !ticketId.trim()}
+                style={getButtonStyle(false, true)}
+                onMouseEnter={(e) => {
+                  if (!loading && ticketId.trim()) {
+                    e.target.style.backgroundColor = darkMode ? '#4b5563' : '#f3f4f6';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = darkMode ? '#374151' : '#ffffff';
+                }}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Type/Classification Buttons */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '11px',
+            fontWeight: '600',
+            color: darkMode ? '#9ca3af' : '#6b7280',
+            marginBottom: '6px'
+          }}>
+            Set Type (Classification)
+          </label>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {CW_TYPES.map(type => (
+              <button
+                key={type}
+                onClick={() => handleCWAction('ticket', { type })}
+                disabled={loading || !ticketId.trim()}
+                style={{
+                  ...getButtonStyle(false, true),
+                  backgroundColor: type === 'True Positive'
+                    ? (darkMode ? '#991b1b' : '#fecaca')
+                    : type === 'False Positive'
+                    ? (darkMode ? '#065f46' : '#d1fae5')
+                    : type === 'Benign Positive'
+                    ? (darkMode ? '#1e40af' : '#dbeafe')
+                    : (darkMode ? '#374151' : '#ffffff'),
+                  color: type === 'True Positive'
+                    ? (darkMode ? '#fecaca' : '#991b1b')
+                    : type === 'False Positive'
+                    ? (darkMode ? '#6ee7b7' : '#065f46')
+                    : type === 'Benign Positive'
+                    ? (darkMode ? '#93c5fd' : '#1e40af')
+                    : (darkMode ? '#e5e7eb' : '#374151'),
+                  borderColor: type === 'True Positive'
+                    ? (darkMode ? '#dc2626' : '#f87171')
+                    : type === 'False Positive'
+                    ? (darkMode ? '#10b981' : '#34d399')
+                    : type === 'Benign Positive'
+                    ? (darkMode ? '#3b82f6' : '#60a5fa')
+                    : (darkMode ? '#4b5563' : '#d1d5db')
+                }}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Add Note */}
+        <div style={{ marginBottom: '8px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '11px',
+            fontWeight: '600',
+            color: darkMode ? '#9ca3af' : '#6b7280',
+            marginBottom: '4px'
+          }}>
+            Add Internal Note
+          </label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Enter note text..."
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                fontSize: '13px',
+                borderRadius: '6px',
+                border: `1px solid ${darkMode ? '#4b5563' : '#d1d5db'}`,
+                backgroundColor: darkMode ? '#374151' : '#ffffff',
+                color: darkMode ? '#f3f4f6' : '#1f2937',
+                outline: 'none'
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && noteText.trim() && ticketId.trim() && !loading) {
+                  handleCWAction('note', { text: noteText.trim(), internal: true });
+                }
+              }}
+            />
+            <button
+              onClick={() => handleCWAction('note', { text: noteText.trim(), internal: true })}
+              disabled={loading || !ticketId.trim() || !noteText.trim()}
+              style={{
+                ...getButtonStyle(false, false),
+                opacity: (!ticketId.trim() || !noteText.trim() || loading) ? 0.5 : 1
+              }}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        {/* Status Message */}
+        {statusMessage && (
+          <div style={{
+            padding: '8px 12px',
+            borderRadius: '6px',
+            fontSize: '12px',
+            backgroundColor: statusMessage.type === 'success'
+              ? (darkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.1)')
+              : (darkMode ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.1)'),
+            color: statusMessage.type === 'success'
+              ? (darkMode ? '#6ee7b7' : '#059669')
+              : (darkMode ? '#f87171' : '#dc2626'),
+            border: `1px solid ${statusMessage.type === 'success'
+              ? (darkMode ? '#10b981' : '#34d399')
+              : (darkMode ? '#ef4444' : '#f87171')}`
+          }}>
+            {statusMessage.type === 'success' ? '✓' : '⚠'} {statusMessage.text}
+          </div>
+        )}
+
+        {/* Loading Indicator */}
+        {loading && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 0',
+            fontSize: '12px',
+            color: darkMode ? '#9ca3af' : '#6b7280'
+          }}>
+            <span style={{ animation: 'pulse 1.5s ease-in-out infinite' }}>⏳</span>
+            <span>Updating ConnectWise...</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -823,6 +1222,18 @@ export default function TriageChat({
           </button>
         </div>
       )}
+
+      {/* ConnectWise Actions Panel */}
+      <ConnectWisePanel
+        darkMode={darkMode}
+        apiBaseUrl={apiBaseUrl}
+        onSuccess={(action, data) => {
+          console.log('ConnectWise action success:', action, data);
+        }}
+        onError={(err) => {
+          console.error('ConnectWise action error:', err);
+        }}
+      />
 
       {/* Quick Actions */}
       {(() => {
