@@ -457,13 +457,32 @@ function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError, a
         throw new Error('No Sentinel workspaces found');
       }
 
+      // Try to match workspace by tenant name if available
+      const tenantName = session?.tenantName?.toLowerCase();
+      let sortedWorkspaces = [...workspaces];
+      if (tenantName) {
+        // Prioritize workspaces that match the tenant name
+        sortedWorkspaces.sort((a, b) => {
+          const aMatch = a.name?.toLowerCase().includes(tenantName) ||
+                         a.subscriptionName?.toLowerCase().includes(tenantName);
+          const bMatch = b.name?.toLowerCase().includes(tenantName) ||
+                         b.subscriptionName?.toLowerCase().includes(tenantName);
+          if (aMatch && !bMatch) return -1;
+          if (!aMatch && bMatch) return 1;
+          return 0;
+        });
+      }
+
       // Try to find the incident in each workspace
       let foundTag = null;
-      let lastError = null;
+      let foundIncident = false;
+      let searchedWorkspaces = [];
 
-      for (const workspace of workspaces) {
+      for (const workspace of sortedWorkspaces) {
+        searchedWorkspaces.push(workspace.name);
         try {
           const { incident } = await authContext.getSentinelIncident(workspace.id, incidentId);
+          foundIncident = true;
           const labels = incident?.properties?.labels || [];
 
           // Find numeric tags (potential CW ticket IDs)
@@ -483,9 +502,12 @@ function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError, a
             foundTag = numberedTags[0];
             setStatusMessage({ type: 'warning', text: `Multiple tags found, using ${foundTag}` });
             break;
+          } else {
+            // Found incident but no numeric tags
+            setStatusMessage({ type: 'error', text: 'Incident found but has no numeric tags' });
+            break;
           }
         } catch (err) {
-          lastError = err;
           // Continue trying other workspaces
         }
       }
@@ -494,10 +516,14 @@ function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError, a
         setTicketId(foundTag);
         setAutoDetected(true);
         setStatusMessage({ type: 'success', text: `Found ticket #${foundTag}` });
-      } else if (lastError) {
-        throw lastError;
-      } else {
-        setStatusMessage({ type: 'error', text: 'No numeric tag found on incident' });
+      } else if (!foundIncident) {
+        // Incident not found in any workspace
+        const wsNames = searchedWorkspaces.slice(0, 3).join(', ');
+        const more = searchedWorkspaces.length > 3 ? ` +${searchedWorkspaces.length - 3} more` : '';
+        setStatusMessage({
+          type: 'error',
+          text: `Incident #${incidentId} not found. Searched: ${wsNames}${more}`
+        });
       }
     } catch (err) {
       setStatusMessage({ type: 'error', text: err.message || 'Failed to fetch from Sentinel' });
