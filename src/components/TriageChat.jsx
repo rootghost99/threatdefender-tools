@@ -11,12 +11,6 @@ const DEFAULT_API_BASE = '/api';
 // ConnectWise configuration
 const CW_STATUSES = ['New', 'In Progress', 'Pending Client Determination', 'Closed'];
 const CW_TYPES = ['Undetermined', 'Pending', 'True Positive', 'False Positive', 'Benign Positive', 'Out of Scope'];
-const TIME_OPTIONS = [
-  { minutes: 5, label: '5 min' },
-  { minutes: 10, label: '10 min' },
-  { minutes: 15, label: '15 min' },
-  { minutes: 30, label: '30 min' }
-];
 
 // Severity color mapping
 const SEVERITY_COLORS = {
@@ -347,14 +341,23 @@ function extractCWTicketId(session) {
     }
   }
 
-  // Check incident tags for ticket number (primary source)
-  // Tags can be in context.properties.tags or context.tags
-  const tags = context.properties?.tags || context.tags || [];
+  // Check incident tags/labels for ticket number (primary source)
+  // Tags can be in various locations depending on the data structure:
+  // - context.properties.tags / context.tags (generic)
+  // - context.properties.labels / context.labels (Sentinel API format)
+  // - context.incident.labels (nested incident object format from AlertTriageAssistant)
+  // Sentinel uses 'labels' while some systems use 'tags'
+  const tags = context.properties?.tags || context.tags || context.properties?.labels || context.labels || context.incident?.labels || [];
   if (Array.isArray(tags) && tags.length > 0) {
     // Find tags that contain a number (potential ticket IDs)
     const numberedTags = tags
       .map(tag => {
-        const tagStr = typeof tag === 'string' ? tag : tag?.name || tag?.value || '';
+        // Handle different tag/label formats:
+        // - Simple string: "12345"
+        // - Object with labelName: { labelName: "12345" } (Sentinel format)
+        // - Object with name: { name: "12345" }
+        // - Object with value: { value: "12345" }
+        const tagStr = typeof tag === 'string' ? tag : tag?.labelName || tag?.name || tag?.value || '';
         const match = tagStr.match(/(\d+)/);
         return match ? match[1] : null;
       })
@@ -471,8 +474,6 @@ function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError })
   // Generate success message based on action
   const getSuccessMessage = (action, body) => {
     switch (action) {
-      case 'time':
-        return `Logged ${body.minutes} minutes`;
       case 'note':
         return 'Note added';
       case 'ticket':
@@ -618,39 +619,6 @@ function ConnectWisePanel({ darkMode, apiBaseUrl, session, onSuccess, onError })
               boxSizing: 'border-box'
             }}
           />
-        </div>
-
-        {/* Time Entry Buttons */}
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '11px',
-            fontWeight: '600',
-            color: darkMode ? '#9ca3af' : '#6b7280',
-            marginBottom: '6px'
-          }}>
-            Log Time
-          </label>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            {TIME_OPTIONS.map(opt => (
-              <button
-                key={opt.minutes}
-                onClick={() => handleCWAction('time', { minutes: opt.minutes })}
-                disabled={loading || !ticketId.trim()}
-                style={getButtonStyle(false, true)}
-                onMouseEnter={(e) => {
-                  if (!loading && ticketId.trim()) {
-                    e.target.style.backgroundColor = darkMode ? '#4b5563' : '#f3f4f6';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = darkMode ? '#374151' : '#ffffff';
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Status Buttons */}
