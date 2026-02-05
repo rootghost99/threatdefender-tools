@@ -4,21 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 // Update this if your API base URL changes
 const API_BASE_URL = '/api';
 
-const DETECTION_TYPES = [
-  'Anomalous Sign-In Activity',
-  'Impossible Travel',
-  'Suspicious Inbox Rule',
-  'Malware Detection',
-  'Phishing Email Reported',
-  'MFA Fraud Alert',
-  'Conditional Access Policy Change',
-  'Privilege Escalation',
-  'Data Exfiltration Attempt',
-  'Suspicious PowerShell Execution',
-  'Brute Force Attempt',
-  'Other'
-];
-
 const DETERMINATIONS = [
   'Benign Positive',
   'True Positive',
@@ -40,8 +25,7 @@ function fileToBase64(file) {
 }
 
 export default function DeterminationGenerator({ darkMode }) {
-  const [detectionType, setDetectionType] = useState('');
-  const [customDetectionType, setCustomDetectionType] = useState('');
+  const [incidentSummary, setIncidentSummary] = useState('');
   const [determination, setDetermination] = useState('');
   const [clientName, setClientName] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
@@ -53,7 +37,7 @@ export default function DeterminationGenerator({ darkMode }) {
   const [copied, setCopied] = useState(false);
   const pasteZoneRef = useRef(null);
 
-  const isFormValid = (detectionType === 'Other' ? customDetectionType.trim() : detectionType) &&
+  const isFormValid = incidentSummary.trim() &&
     determination && clientName.trim() && internalNotes.trim();
 
   const handlePaste = useCallback(async (e) => {
@@ -91,7 +75,7 @@ export default function DeterminationGenerator({ darkMode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          detectionType: detectionType === 'Other' ? customDetectionType.trim() : detectionType,
+          detectionType: incidentSummary.trim(),
           determination,
           clientName: clientName.trim(),
           internalNotes: internalNotes.trim(),
@@ -112,7 +96,7 @@ export default function DeterminationGenerator({ darkMode }) {
     } finally {
       setLoading(false);
     }
-  }, [detectionType, customDetectionType, determination, clientName, internalNotes, aiTriageNotes, screenshots, isFormValid]);
+  }, [incidentSummary, determination, clientName, internalNotes, aiTriageNotes, screenshots, isFormValid]);
 
   const handleCopy = useCallback(() => {
     if (!result) return;
@@ -123,8 +107,7 @@ export default function DeterminationGenerator({ darkMode }) {
   }, [result]);
 
   const handleReset = useCallback(() => {
-    setDetectionType('');
-    setCustomDetectionType('');
+    setIncidentSummary('');
     setDetermination('');
     setClientName('');
     setInternalNotes('');
@@ -153,37 +136,18 @@ export default function DeterminationGenerator({ darkMode }) {
 
       {/* Form */}
       <div className={`rounded-lg border ${cardBg} p-6 space-y-5`}>
-        {/* Detection Type */}
+        {/* Incident Summary Name */}
         <div>
           <label className={`block text-sm font-medium mb-1.5 ${labelColor}`}>
-            Detection Type
+            Incident Summary Name
           </label>
-          <select
-            value={detectionType}
-            onChange={(e) => setDetectionType(e.target.value)}
+          <input
+            type="text"
+            value={incidentSummary}
+            onChange={(e) => setIncidentSummary(e.target.value)}
+            placeholder="Paste the CW ticket summary / Sentinel analytic rule name..."
             className={`w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBg}`}
-          >
-            <option value="">Select detection type...</option>
-            {DETECTION_TYPES.map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-          {detectionType === 'Other' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-2"
-            >
-              <input
-                type="text"
-                value={customDetectionType}
-                onChange={(e) => setCustomDetectionType(e.target.value)}
-                placeholder="Enter custom detection type..."
-                className={`w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBg}`}
-              />
-            </motion.div>
-          )}
+          />
         </div>
 
         {/* Determination */}
