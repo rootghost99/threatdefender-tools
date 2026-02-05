@@ -85,7 +85,8 @@ app.http('GenerateDetermination', {
 
       context.log('Calling Claude API for determination generation');
 
-      const url = `${claudeEndpoint.replace(/\/+$/, '')}/chat/completions`;
+      // Use the endpoint as-is — CLAUDE_API_ENDPOINT should be the full URL
+      const url = claudeEndpoint.replace(/\/+$/, '');
       const requestBody = {
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
