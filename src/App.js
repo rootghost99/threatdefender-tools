@@ -14,6 +14,7 @@ const PromptGallery = lazy(() => import('./components/PromptGallery'));
 const AlertTriageAssistant = lazy(() => import('./components/AlertTriageAssistant'));
 const TriageChat = lazy(() => import('./components/TriageChat'));
 const Resources = lazy(() => import('./components/Resources'));
+const DeterminationGenerator = lazy(() => import('./components/DeterminationGenerator'));
 
 // Loading component
 function LoadingFallback({ darkMode }) {
@@ -53,6 +54,7 @@ export default function ThreatDefenderDashboard() {
     { id: 'kql-diff', name: 'KQL Diff Viewer', icon: '🔍', component: KQLDiffViewer },
     { id: 'email-posture', name: 'Email Posture Check', icon: '📧', component: EmailPostureCheck },
     { id: 'email-headers', name: 'Email Header Analyzer', icon: '🔬', component: EmailHeaderAnalyzer },
+    { id: 'determination-generator', name: 'Determination Generator', icon: '📝', component: DeterminationGenerator },
     { id: 'resources', name: 'Resources', icon: '🔗', component: Resources },
   ];
 
@@ -135,6 +137,14 @@ export default function ThreatDefenderDashboard() {
                 element={
                   <PageWrapper darkMode={darkMode}>
                     <EmailHeaderAnalyzer darkMode={darkMode} />
+                  </PageWrapper>
+                }
+              />
+              <Route
+                path="/determination-generator"
+                element={
+                  <PageWrapper darkMode={darkMode}>
+                    <DeterminationGenerator darkMode={darkMode} />
                   </PageWrapper>
                 }
               />
