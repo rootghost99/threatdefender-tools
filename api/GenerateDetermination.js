@@ -68,11 +68,12 @@ app.http('GenerateDetermination', {
       }
 
       // Get Claude API configuration from app settings
-      const claudeKey = process.env['claude-key'];
-      const claudeEndpoint = process.env.CLAUDE_ENDPOINT;
+      const claudeKey = process.env.CLAUDE_API_KEY;
+      const claudeEndpoint = process.env.CLAUDE_API_ENDPOINT;
+      const claudeModel = process.env.CLAUDE_MODEL;
 
       if (!claudeKey || !claudeEndpoint) {
-        context.log('Missing Claude API configuration: claude-key or CLAUDE_ENDPOINT');
+        context.log('Missing Claude API configuration: CLAUDE_API_KEY or CLAUDE_API_ENDPOINT');
         return {
           status: 500,
           headers: corsHeaders,
@@ -85,20 +86,25 @@ app.http('GenerateDetermination', {
       context.log('Calling Claude API for determination generation');
 
       const url = `${claudeEndpoint.replace(/\/+$/, '')}/chat/completions`;
+      const requestBody = {
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 1024,
+        temperature: 0.4
+      };
+      if (claudeModel) {
+        requestBody.model = claudeModel;
+      }
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'api-key': claudeKey,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: userPrompt }
-          ],
-          max_tokens: 1024,
-          temperature: 0.4
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
