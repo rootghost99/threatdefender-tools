@@ -31,6 +31,7 @@ export default function DeterminationGenerator({ darkMode }) {
   const [determination, setDetermination] = useState('');
   const [clientName, setClientName] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+  const [aiTriageNotes, setAiTriageNotes] = useState('');
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -54,7 +55,8 @@ export default function DeterminationGenerator({ darkMode }) {
           detectionType: detectionType === 'Other' ? customDetectionType.trim() : detectionType,
           determination,
           clientName: clientName.trim(),
-          internalNotes: internalNotes.trim()
+          internalNotes: internalNotes.trim(),
+          aiTriageNotes: aiTriageNotes.trim()
         })
       });
 
@@ -70,7 +72,7 @@ export default function DeterminationGenerator({ darkMode }) {
     } finally {
       setLoading(false);
     }
-  }, [detectionType, customDetectionType, determination, clientName, internalNotes, isFormValid]);
+  }, [detectionType, customDetectionType, determination, clientName, internalNotes, aiTriageNotes, isFormValid]);
 
   const handleCopy = useCallback(() => {
     if (!result) return;
@@ -86,6 +88,7 @@ export default function DeterminationGenerator({ darkMode }) {
     setDetermination('');
     setClientName('');
     setInternalNotes('');
+    setAiTriageNotes('');
     setResult('');
     setError(null);
     setCopied(false);
@@ -173,15 +176,29 @@ export default function DeterminationGenerator({ darkMode }) {
           />
         </div>
 
-        {/* Internal Notes */}
+        {/* Internal Analyst Notes */}
         <div>
           <label className={`block text-sm font-medium mb-1.5 ${labelColor}`}>
-            Internal Investigation Notes
+            Internal Analyst Notes
           </label>
           <textarea
             value={internalNotes}
             onChange={(e) => setInternalNotes(e.target.value)}
-            placeholder="Paste your internal investigation notes here..."
+            placeholder="Paste your internal analyst notes here..."
+            rows={6}
+            className={`w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${inputBg}`}
+          />
+        </div>
+
+        {/* AI Triage Notes */}
+        <div>
+          <label className={`block text-sm font-medium mb-1.5 ${labelColor}`}>
+            AI Triage Notes
+          </label>
+          <textarea
+            value={aiTriageNotes}
+            onChange={(e) => setAiTriageNotes(e.target.value)}
+            placeholder="Paste your AI triage bot notes here..."
             rows={6}
             className={`w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${inputBg}`}
           />

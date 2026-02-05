@@ -6,7 +6,7 @@ const { app } = require('@azure/functions');
 
 const SYSTEM_PROMPT = `You are a Tier 2 SOC analyst at a Managed Security Service Provider called eGroup | Enabling Technologies, operating under the ThreatHunter MSSP service. You write client-facing determination summaries for security incidents that have been investigated and resolved.
 
-Given the detection type, determination outcome, client name, and internal investigation notes, write a brief, professional, client-facing summary suitable for a ConnectWise service ticket discussion note.
+Given the detection type, determination outcome, client name, internal analyst notes, and AI triage notes, write a brief, professional, client-facing summary suitable for a ConnectWise service ticket discussion note.
 
 Rules:
 - Write in first-person plural ("we reviewed," "our analysis confirmed")
@@ -19,13 +19,22 @@ Rules:
 - Use a professional but approachable tone
 - Do not use markdown formatting, bullet points, or headers. Write in plain paragraph form.`;
 
-function buildUserPrompt({ clientName, detectionType, determination, internalNotes }) {
-  return `Client: ${clientName}
+function buildUserPrompt({ clientName, detectionType, determination, internalNotes, aiTriageNotes }) {
+  let prompt = `Client: ${clientName}
 Detection Type: ${detectionType}
 Determination: ${determination}
 
-Internal Investigation Notes:
+Internal Analyst Notes:
 ${internalNotes}`;
+
+  if (aiTriageNotes) {
+    prompt += `
+
+AI Triage Notes:
+${aiTriageNotes}`;
+  }
+
+  return prompt;
 }
 
 app.http('GenerateDetermination', {
@@ -54,7 +63,7 @@ app.http('GenerateDetermination', {
 
     try {
       const body = await request.json();
-      const { detectionType, determination, clientName, internalNotes } = body || {};
+      const { detectionType, determination, clientName, internalNotes, aiTriageNotes } = body || {};
 
       // Validate required fields
       if (!detectionType || !determination || !clientName || !internalNotes) {
@@ -81,7 +90,7 @@ app.http('GenerateDetermination', {
         };
       }
 
-      const userPrompt = buildUserPrompt({ clientName, detectionType, determination, internalNotes });
+      const userPrompt = buildUserPrompt({ clientName, detectionType, determination, internalNotes, aiTriageNotes });
 
       context.log('Calling Claude API for determination generation');
 
