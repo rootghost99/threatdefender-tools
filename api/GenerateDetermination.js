@@ -101,7 +101,7 @@ app.http('GenerateDetermination', {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'api-key': claudeKey,
+          'Authorization': `Bearer ${claudeKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestBody)
