@@ -88,21 +88,20 @@ app.http('GenerateDetermination', {
       // Use the endpoint as-is — CLAUDE_API_ENDPOINT should be the full URL
       const url = claudeEndpoint.replace(/\/+$/, '');
       const requestBody = {
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt }
-        ],
+        model: claudeModel || 'claude-sonnet-4-20250514',
         max_tokens: 1024,
-        temperature: 0.4
+        temperature: 0.4,
+        system: SYSTEM_PROMPT,
+        messages: [
+          { role: 'user', content: userPrompt }
+        ]
       };
-      if (claudeModel) {
-        requestBody.model = claudeModel;
-      }
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${claudeKey}`,
+          'x-api-key': claudeKey,
+          'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestBody)
@@ -119,7 +118,7 @@ app.http('GenerateDetermination', {
       }
 
       const data = await response.json();
-      const result = data.choices?.[0]?.message?.content;
+      const result = data.content?.[0]?.text;
 
       if (!result) {
         context.log('Claude API returned empty response:', JSON.stringify(data));
