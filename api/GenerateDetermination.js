@@ -65,7 +65,7 @@ app.http('GenerateDetermination', {
 
     try {
       const body = await request.json();
-      const { detectionType, determination, clientName, internalNotes, aiTriageNotes } = body || {};
+      const { detectionType, determination, clientName, internalNotes, aiTriageNotes, screenshots } = body || {};
 
       // Validate required fields
       if (!detectionType || !determination || !clientName || !internalNotes) {
@@ -96,6 +96,30 @@ app.http('GenerateDetermination', {
 
       context.log('Calling Claude API for determination generation');
 
+      // Build the user message content — multimodal if screenshots are attached
+      let userContent;
+      const validScreenshots = Array.isArray(screenshots)
+        ? screenshots.filter(s => s.data && s.mediaType)
+        : [];
+
+      if (validScreenshots.length > 0) {
+        context.log(`Including ${validScreenshots.length} screenshot(s) in request`);
+        userContent = [];
+        for (const s of validScreenshots) {
+          userContent.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: s.mediaType,
+              data: s.data
+            }
+          });
+        }
+        userContent.push({ type: 'text', text: userPrompt });
+      } else {
+        userContent = userPrompt;
+      }
+
       // Use the endpoint as-is — CLAUDE_API_ENDPOINT should be the full URL
       const url = claudeEndpoint.replace(/\/+$/, '');
       const requestBody = {
@@ -104,7 +128,7 @@ app.http('GenerateDetermination', {
         temperature: 0.4,
         system: SYSTEM_PROMPT,
         messages: [
-          { role: 'user', content: userPrompt }
+          { role: 'user', content: userContent }
         ]
       };
 

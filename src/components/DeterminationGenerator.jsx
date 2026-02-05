@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Update this if your API base URL changes
 const API_BASE_URL = '/api';
@@ -25,6 +25,20 @@ const DETERMINATIONS = [
   'False Positive'
 ];
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // reader.result is "data:<mediaType>;base64,<data>"
+      const [header, data] = reader.result.split(',');
+      const mediaType = header.match(/data:(.*);base64/)?.[1] || 'image/png';
+      resolve({ data, mediaType });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function DeterminationGenerator({ darkMode }) {
   const [detectionType, setDetectionType] = useState('');
   const [customDetectionType, setCustomDetectionType] = useState('');
@@ -32,13 +46,38 @@ export default function DeterminationGenerator({ darkMode }) {
   const [clientName, setClientName] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [aiTriageNotes, setAiTriageNotes] = useState('');
+  const [screenshots, setScreenshots] = useState([]);
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const pasteZoneRef = useRef(null);
 
   const isFormValid = (detectionType === 'Other' ? customDetectionType.trim() : detectionType) &&
     determination && clientName.trim() && internalNotes.trim();
+
+  const handlePaste = useCallback(async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        try {
+          const { data, mediaType } = await fileToBase64(file);
+          setScreenshots(prev => [...prev, { id: Date.now(), data, mediaType }]);
+        } catch (err) {
+          console.error('Failed to read pasted image:', err);
+        }
+      }
+    }
+  }, []);
+
+  const removeScreenshot = useCallback((id) => {
+    setScreenshots(prev => prev.filter(s => s.id !== id));
+  }, []);
 
   const handleGenerate = useCallback(async () => {
     if (!isFormValid) return;
@@ -56,7 +95,8 @@ export default function DeterminationGenerator({ darkMode }) {
           determination,
           clientName: clientName.trim(),
           internalNotes: internalNotes.trim(),
-          aiTriageNotes: aiTriageNotes.trim()
+          aiTriageNotes: aiTriageNotes.trim(),
+          screenshots: screenshots.map(s => ({ data: s.data, mediaType: s.mediaType }))
         })
       });
 
@@ -72,7 +112,7 @@ export default function DeterminationGenerator({ darkMode }) {
     } finally {
       setLoading(false);
     }
-  }, [detectionType, customDetectionType, determination, clientName, internalNotes, aiTriageNotes, isFormValid]);
+  }, [detectionType, customDetectionType, determination, clientName, internalNotes, aiTriageNotes, screenshots, isFormValid]);
 
   const handleCopy = useCallback(() => {
     if (!result) return;
@@ -89,6 +129,7 @@ export default function DeterminationGenerator({ darkMode }) {
     setClientName('');
     setInternalNotes('');
     setAiTriageNotes('');
+    setScreenshots([]);
     setResult('');
     setError(null);
     setCopied(false);
@@ -202,6 +243,60 @@ export default function DeterminationGenerator({ darkMode }) {
             rows={6}
             className={`w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${inputBg}`}
           />
+        </div>
+
+        {/* Screenshots */}
+        <div>
+          <label className={`block text-sm font-medium mb-1.5 ${labelColor}`}>
+            Screenshots
+          </label>
+          <div
+            ref={pasteZoneRef}
+            onPaste={handlePaste}
+            tabIndex={0}
+            className={`w-full min-h-[80px] px-3 py-3 rounded-lg border-2 border-dashed text-sm cursor-text focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              darkMode
+                ? 'bg-gray-900 border-gray-600 text-gray-500'
+                : 'bg-white border-gray-300 text-gray-400'
+            }`}
+          >
+            {screenshots.length === 0 ? (
+              <div className="flex items-center justify-center h-full py-2">
+                <span>Click here and paste (Ctrl+V) screenshots from your clipboard</span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {screenshots.map((s, idx) => (
+                  <div key={s.id} className="relative group">
+                    <img
+                      src={`data:${s.mediaType};base64,${s.data}`}
+                      alt={`Screenshot ${idx + 1}`}
+                      className="h-24 rounded border border-gray-600 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeScreenshot(s.id)}
+                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Remove screenshot"
+                    >
+                      X
+                    </button>
+                    <span className={`block text-center text-xs mt-1 ${subText}`}>
+                      {idx + 1}
+                    </span>
+                  </div>
+                ))}
+                <div className={`flex items-center justify-center h-24 w-24 rounded border-2 border-dashed ${
+                  darkMode ? 'border-gray-600 text-gray-600' : 'border-gray-300 text-gray-400'
+                }`}>
+                  <span className="text-xs text-center px-1">Paste another</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <p className={`text-xs mt-1.5 ${subText}`}>
+            {screenshots.length} screenshot{screenshots.length !== 1 ? 's' : ''} attached — paste one at a time
+          </p>
         </div>
 
         {/* Generate Button */}
