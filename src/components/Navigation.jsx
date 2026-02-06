@@ -15,9 +15,9 @@ export default function Navigation({ tabs, darkMode, onDarkModeToggle }) {
   const topLevelLinks = [
     { id: 'alert-triage', name: 'Alert Triage' },
     { id: 'threat-intel', name: 'Threat Lookup' },
+    { id: 'determination-generator', name: 'Determinations' },
     { id: 'prompt-gallery', name: 'Prompts' },
     { id: 'email-headers', name: 'Header Analyzer' },
-    { id: 'determination-generator', name: 'Determinations' },
     { id: 'soc-handoff', name: 'Shift Handoff' }
   ];
 
