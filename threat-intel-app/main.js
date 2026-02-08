@@ -60,9 +60,11 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, 'src', 'build', 'index.html'));
   }
 
-  // Handle external links
+  // Handle external links - only allow https URLs to prevent protocol handler abuse
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      shell.openExternal(url);
+    }
     return { action: 'deny' };
   });
 

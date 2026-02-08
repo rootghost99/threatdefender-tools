@@ -59,7 +59,8 @@ function getOpenAIClient() {
 }
 
 function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const crypto = require('crypto');
+  return `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
 }
 
 function getUserFromRequest(request) {
@@ -280,13 +281,15 @@ app.http('PromptRunAPI-List', {
       const user = url.searchParams.get('user');
       const limit = parseInt(url.searchParams.get('limit') || '100');
 
-      // Build query filter
+      // Build query filter (escape single quotes to prevent OData injection)
       let filter = "PartitionKey eq 'PROMPT_RUN'";
       if (promptId) {
-        filter += ` and promptId eq '${promptId}'`;
+        const safePromptId = promptId.replace(/'/g, "''");
+        filter += ` and promptId eq '${safePromptId}'`;
       }
       if (user) {
-        filter += ` and submittedBy eq '${user}'`;
+        const safeUser = user.replace(/'/g, "''");
+        filter += ` and submittedBy eq '${safeUser}'`;
       }
 
       const runs = [];

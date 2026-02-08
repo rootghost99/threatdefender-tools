@@ -3,7 +3,7 @@
   "Values": {
     "FUNCTIONS_WORKER_RUNTIME": "node",
     "AzureWebJobsStorage": "",
-    "HYBRID_ANALYSIS_API_KEY": "qvnujgxlb030b451u9g4ao4q07cc3c652fdb5c2t016aec5e4dibtkbn8df5666c",
+    "HYBRID_ANALYSIS_API_KEY": "",
     "AZURE_STORAGE_ACCOUNT_NAME": "",
     "AZURE_STORAGE_ACCOUNT_KEY": "",
     "PROMPTS_TABLE_NAME": "Prompts",

@@ -7,8 +7,8 @@ const { queryHybridAnalysis } = require('./services/hybridAnalysis');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
+// Middleware - restrict CORS to local Electron renderer only
+app.use(cors({ origin: [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`] }));
 app.use(express.json());
 
 // Serve static files in production
@@ -94,9 +94,9 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Threat Intel Checker server running on port ${PORT}`);
+// Start server - bind to localhost only to prevent network exposure
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`Threat Intel Checker server running on 127.0.0.1:${PORT}`);
   // Signal to parent process that server is ready
   if (process.send) {
     process.send('ready');

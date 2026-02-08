@@ -314,11 +314,17 @@ export function AuthProvider({ children }) {
 
   // Run a Log Analytics query for incident-related logs
   const getIncidentLogs = useCallback(async (workspaceCustomerId, incidentId) => {
+    // Validate incidentId to prevent KQL injection (allow only alphanumeric, hyphens, underscores)
+    const sanitizedId = String(incidentId).replace(/[^a-zA-Z0-9\-_]/g, '');
+    if (!sanitizedId) {
+      throw new Error('Invalid incident ID');
+    }
+
     // Query SecurityIncident and related tables
     const query = `
       // Get incident details
       SecurityIncident
-      | where IncidentNumber == ${incidentId} or IncidentName contains "${incidentId}"
+      | where IncidentNumber == ${sanitizedId} or IncidentName contains "${sanitizedId}"
       | take 1
       | project IncidentNumber, Title, Description, Severity, Status, Classification,
                 CreatedTime, LastModifiedTime, Owner, Labels, AlertIds
@@ -328,7 +334,7 @@ export function AuthProvider({ children }) {
         SecurityAlert
         | where SystemAlertId in (
           SecurityIncident
-          | where IncidentNumber == ${incidentId} or IncidentName contains "${incidentId}"
+          | where IncidentNumber == ${sanitizedId} or IncidentName contains "${sanitizedId}"
           | mv-expand AlertIds
           | project tostring(AlertIds)
         )
