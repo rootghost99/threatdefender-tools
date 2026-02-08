@@ -14,6 +14,11 @@ async function queryThreatIntel(indicator) {
 
   const indicatorType = detectIndicatorType(indicator);
 
+  // Block private/internal IPs to prevent SSRF
+  if (indicatorType === 'PrivateIP') {
+    throw new Error('Private or internal IP addresses are not allowed for external lookups');
+  }
+
   const results = {
     indicator,
     type: indicatorType,
@@ -109,6 +114,22 @@ async function queryThreatIntel(indicator) {
 }
 
 /**
+ * Check if an IP address is private/internal (SSRF protection)
+ */
+function isPrivateIP(ip) {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return true;
+  if (parts[0] === 127) return true;
+  if (parts[0] === 10) return true;
+  if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+  if (parts[0] === 192 && parts[1] === 168) return true;
+  if (parts[0] === 169 && parts[1] === 254) return true;
+  if (parts[0] === 255) return true;
+  if (parts.every(p => p === 0)) return true;
+  return false;
+}
+
+/**
  * Detect the type of indicator
  */
 function detectIndicatorType(indicator) {
@@ -118,7 +139,13 @@ function detectIndicatorType(indicator) {
   const urlRegex = /^https?:\/\//;
   const domainRegex = /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
 
-  if (ipRegex.test(indicator)) return 'IP';
+  if (ipRegex.test(indicator)) {
+    // Validate octet ranges and block private IPs
+    const parts = indicator.split('.').map(Number);
+    if (parts.some(p => p > 255)) return 'Unknown';
+    if (isPrivateIP(indicator)) return 'PrivateIP';
+    return 'IP';
+  }
   if (sha256Regex.test(indicator)) return 'SHA256';
   if (sha1Regex.test(indicator)) return 'SHA1';
   if (urlRegex.test(indicator)) return 'URL';

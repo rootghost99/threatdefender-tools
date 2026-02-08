@@ -29,7 +29,8 @@ function getTableClient() {
 
 // Helper functions
 function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const crypto = require('crypto');
+  return `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
 }
 
 function getUserFromRequest(request) {
@@ -103,7 +104,7 @@ app.http('ResourcesAPI', {
       return {
         status: 500,
         headers: corsHeaders,
-        jsonBody: { error: error.message, stack: error.stack }
+        jsonBody: { error: 'An internal error occurred. Please try again later.' }
       };
     }
   }

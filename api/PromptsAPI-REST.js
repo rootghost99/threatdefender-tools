@@ -152,11 +152,16 @@ async function callTableAPI(method, path, body = null, context) {
   }
 }
 
-// Generate unique ID
+// Generate unique ID using cryptographic randomness
 function generateId() {
   const timestamp = Date.now();
-  const random = Math.random().toString(36).substr(2, 9);
+  const random = crypto.randomBytes(6).toString('hex');
   return `${timestamp}-${random}`;
+}
+
+// Sanitize ID for use in OData queries (prevent injection)
+function sanitizeId(id) {
+  return id.replace(/'/g, "''");
 }
 
 // Get user from request
@@ -287,7 +292,8 @@ async function listPrompts(request, context) {
 // GET single prompt
 async function getPrompt(request, context, id) {
   const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
-  const response = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, null, context);
+  const safeId = sanitizeId(id);
+  const response = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${safeId}')`, null, context);
 
   if (response.status === 404) {
     return {
@@ -419,7 +425,8 @@ async function updatePrompt(request, context, id) {
 
   // First get existing
   const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
-  const getResp = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, null, context);
+  const safeId = sanitizeId(id);
+  const getResp = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${safeId}')`, null, context);
 
   if (getResp.status === 404) {
     return {
@@ -455,7 +462,7 @@ async function updatePrompt(request, context, id) {
     updatedAt: now
   };
 
-  const putResp = await callTableAPI('PUT', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, updated, context);
+  const putResp = await callTableAPI('PUT', `/${tableName}(PartitionKey='PROMPT',RowKey='${safeId}')`, updated, context);
 
   if (putResp.status !== 204) {
     throw new Error(`Update failed: ${putResp.status}`);
@@ -492,7 +499,8 @@ async function deletePrompt(request, context, id) {
   const now = new Date().toISOString();
 
   const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
-  const getResp = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, null, context);
+  const safeId = sanitizeId(id);
+  const getResp = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${safeId}')`, null, context);
 
   if (getResp.status === 404) {
     return {
@@ -520,7 +528,7 @@ async function deletePrompt(request, context, id) {
     updatedAt: now
   };
 
-  const putResp = await callTableAPI('PUT', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, updated, context);
+  const putResp = await callTableAPI('PUT', `/${tableName}(PartitionKey='PROMPT',RowKey='${safeId}')`, updated, context);
 
   if (putResp.status !== 204) {
     throw new Error(`Delete failed: ${putResp.status}`);
@@ -546,7 +554,8 @@ async function runPrompt(request, context, id) {
 
     // Get prompt from storage
     const tableName = process.env.PROMPTS_TABLE_NAME || 'Prompts';
-    const getResp = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${id}')`, null, context);
+    const safeId = sanitizeId(id);
+    const getResp = await callTableAPI('GET', `/${tableName}(PartitionKey='PROMPT',RowKey='${safeId}')`, null, context);
 
     if (getResp.status === 404) {
       return {

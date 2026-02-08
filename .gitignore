@@ -19,6 +19,12 @@
 .env.test.local
 .env.production.local
 
+# Azure Functions local settings (may contain secrets)
+api/local.settings.json
+
+# Threat Intel App config (may contain API keys)
+threat-intel-app/config/config.json
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

@@ -204,6 +204,17 @@ export default function EmailPostureCheck({ darkMode }) {
     URL.revokeObjectURL(url);
   };
 
+  // Escape HTML to prevent XSS in exported HTML reports
+  const escapeHtml = (text) => {
+    if (!text) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
   const exportHTML = () => {
     if (!results) return;
 
@@ -241,7 +252,7 @@ export default function EmailPostureCheck({ darkMode }) {
 <body>
   <div class="header">
     <h1>🛡️ Email Posture Report</h1>
-    <div class="timestamp">Domain: ${results.domain} | Generated: ${new Date(results.timestamp).toLocaleString()}</div>
+    <div class="timestamp">Domain: ${escapeHtml(results.domain)} | Generated: ${escapeHtml(new Date(results.timestamp).toLocaleString())}</div>
   </div>
 
   <div class="summary">
@@ -268,7 +279,7 @@ export default function EmailPostureCheck({ darkMode }) {
       <h3>Issues Requiring Attention</h3>
       ${results.summary.issues.map(issue => `
         <div class="issue ${issue.severity === 'high' ? 'issue-high' : ''}">
-          <strong>[${issue.category}]</strong> ${issue.message}
+          <strong>[${escapeHtml(issue.category)}]</strong> ${escapeHtml(issue.message)}
         </div>
       `).join('')}
     ` : '<p style="color: #16a34a; margin-top: 20px;">✅ No critical issues found!</p>'}
@@ -280,11 +291,11 @@ export default function EmailPostureCheck({ darkMode }) {
       <span class="status-${results.spf.status}" style="font-size: 24px;">${getStatusIcon(results.spf.status)}</span>
     </div>
     ${results.spf.record ? `
-      <div class="record-box">${results.spf.record}</div>
-      <p><strong>DNS Lookups:</strong> ${results.spf.lookupCount}/10</p>
-      <p><strong>Mechanism:</strong> ${results.spf.mechanism}</p>
+      <div class="record-box">${escapeHtml(results.spf.record)}</div>
+      <p><strong>DNS Lookups:</strong> ${escapeHtml(String(results.spf.lookupCount))}/10</p>
+      <p><strong>Mechanism:</strong> ${escapeHtml(results.spf.mechanism)}</p>
     ` : '<p>No SPF record found</p>'}
-    ${results.spf.issues ? results.spf.issues.map(i => `<div class="issue">${i}</div>`).join('') : ''}
+    ${results.spf.issues ? results.spf.issues.map(i => `<div class="issue">${escapeHtml(i)}</div>`).join('') : ''}
   </div>
 
   <div class="section">
@@ -293,12 +304,12 @@ export default function EmailPostureCheck({ darkMode }) {
       <span class="status-${results.dmarc.status}" style="font-size: 24px;">${getStatusIcon(results.dmarc.status)}</span>
     </div>
     ${results.dmarc.record ? `
-      <div class="record-box">${results.dmarc.record}</div>
-      <p><strong>Policy:</strong> ${results.dmarc.policy}</p>
-      <p><strong>Percentage:</strong> ${results.dmarc.percentage}%</p>
-      ${results.dmarc.reporting.aggregate ? `<p><strong>Aggregate Reporting:</strong> ${results.dmarc.reporting.aggregate}</p>` : ''}
+      <div class="record-box">${escapeHtml(results.dmarc.record)}</div>
+      <p><strong>Policy:</strong> ${escapeHtml(results.dmarc.policy)}</p>
+      <p><strong>Percentage:</strong> ${escapeHtml(String(results.dmarc.percentage))}%</p>
+      ${results.dmarc.reporting.aggregate ? `<p><strong>Aggregate Reporting:</strong> ${escapeHtml(results.dmarc.reporting.aggregate)}</p>` : ''}
     ` : '<p>No DMARC record found</p>'}
-    ${results.dmarc.issues ? results.dmarc.issues.map(i => `<div class="issue">${i}</div>`).join('') : ''}
+    ${results.dmarc.issues ? results.dmarc.issues.map(i => `<div class="issue">${escapeHtml(i)}</div>`).join('') : ''}
   </div>
 
   <div class="section">
@@ -311,7 +322,7 @@ export default function EmailPostureCheck({ darkMode }) {
       <div class="mx-record">
         <strong>Selector: ${sel.selector}</strong> ${getStatusIcon(sel.status)}<br>
         Key Length: ${sel.keyLength} bits<br>
-        ${sel.issues ? sel.issues.map(i => `<div class="issue">${i}</div>`).join('') : ''}
+        ${sel.issues ? sel.issues.map(i => `<div class="issue">${escapeHtml(i)}</div>`).join('') : ''}
       </div>
     `).join('')}
   </div>
@@ -319,17 +330,17 @@ export default function EmailPostureCheck({ darkMode }) {
   <div class="section">
     <div class="section-header">
       <h2>MX (Mail Exchange)</h2>
-      <span class="status-${results.mx.status}" style="font-size: 24px;">${getStatusIcon(results.mx.status)}</span>
+      <span class="status-${escapeHtml(results.mx.status)}" style="font-size: 24px;">${getStatusIcon(results.mx.status)}</span>
     </div>
-    <p><strong>Records Found:</strong> ${results.mx.count}</p>
+    <p><strong>Records Found:</strong> ${escapeHtml(String(results.mx.count))}</p>
     ${results.mx.records.map(mx => `
       <div class="mx-record">
-        <strong>${mx.exchange}</strong> (Priority: ${mx.priority})<br>
-        ${mx.vendor ? `Vendor: ${mx.vendor}<br>` : ''}
-        ${mx.ips.length > 0 ? `IPs: ${mx.ips.join(', ')}` : ''}
+        <strong>${escapeHtml(mx.exchange)}</strong> (Priority: ${escapeHtml(String(mx.priority))})<br>
+        ${mx.vendor ? `Vendor: ${escapeHtml(mx.vendor)}<br>` : ''}
+        ${mx.ips.length > 0 ? `IPs: ${escapeHtml(mx.ips.join(', '))}` : ''}
       </div>
     `).join('')}
-    ${results.mx.issues ? results.mx.issues.map(i => `<div class="issue">${i}</div>`).join('') : ''}
+    ${results.mx.issues ? results.mx.issues.map(i => `<div class="issue">${escapeHtml(i)}</div>`).join('') : ''}
   </div>
 
   ${results.mtaSts.status !== 'not_configured' ? `
@@ -338,8 +349,8 @@ export default function EmailPostureCheck({ darkMode }) {
         <h2>MTA-STS</h2>
         <span class="status-${results.mtaSts.status}" style="font-size: 24px;">${getStatusIcon(results.mtaSts.status)}</span>
       </div>
-      ${results.mtaSts.dnsRecord ? `<div class="record-box">${results.mtaSts.dnsRecord}</div>` : ''}
-      ${results.mtaSts.issues ? results.mtaSts.issues.map(i => `<div class="issue">${i}</div>`).join('') : ''}
+      ${results.mtaSts.dnsRecord ? `<div class="record-box">${escapeHtml(results.mtaSts.dnsRecord)}</div>` : ''}
+      ${results.mtaSts.issues ? results.mtaSts.issues.map(i => `<div class="issue">${escapeHtml(i)}</div>`).join('') : ''}
     </div>
   ` : ''}
 
@@ -349,7 +360,7 @@ export default function EmailPostureCheck({ darkMode }) {
         <h2>BIMI</h2>
         <span class="status-${results.bimi.status}" style="font-size: 24px;">${getStatusIcon(results.bimi.status)}</span>
       </div>
-      ${results.bimi.record ? `<div class="record-box">${results.bimi.record}</div>` : ''}
+      ${results.bimi.record ? `<div class="record-box">${escapeHtml(results.bimi.record)}</div>` : ''}
     </div>
   ` : ''}
 
@@ -362,7 +373,7 @@ export default function EmailPostureCheck({ darkMode }) {
         </div>
         <div class="summary-label">Health Score</div>
       </div>
-      <p style="margin-top: 20px;"><a href="${results.mxToolbox.deepLink}" target="_blank">View Full Report in MXToolbox →</a></p>
+      <p style="margin-top: 20px;"><a href="${results.mxToolbox.deepLink && results.mxToolbox.deepLink.startsWith('https://') ? escapeHtml(results.mxToolbox.deepLink) : '#'}" target="_blank" rel="noopener noreferrer">View Full Report in MXToolbox →</a></p>
     </div>
   ` : ''}
 

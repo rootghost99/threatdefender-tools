@@ -39,6 +39,15 @@ app.http('ThreatIntelLookup', {
 
       const indicatorType = detectIndicatorType(indicator);
 
+      // Block private/internal IPs to prevent SSRF attacks
+      if (indicatorType === 'IP' && isPrivateIP(indicator)) {
+        return {
+          status: 400,
+          headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+          jsonBody: { error: 'Private or internal IP addresses are not allowed for external lookups' }
+        };
+      }
+
       const results = {
         indicator,
         type: indicatorType,
@@ -171,8 +180,7 @@ app.http('ThreatIntelLookup', {
         },
         jsonBody: {
           error: 'Failed to perform lookup',
-          details: error.message,
-          stack: error.stack
+          details: 'An internal error occurred. Please try again later.'
         }
       };
     }
@@ -180,6 +188,25 @@ app.http('ThreatIntelLookup', {
 });
 
 /* ---------------------- helpers ---------------------- */
+
+// Block private/internal IP addresses to prevent SSRF
+function isPrivateIP(ip) {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return true;
+  // Loopback
+  if (parts[0] === 127) return true;
+  // Private RFC 1918
+  if (parts[0] === 10) return true;
+  if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+  if (parts[0] === 192 && parts[1] === 168) return true;
+  // Link-local
+  if (parts[0] === 169 && parts[1] === 254) return true;
+  // Broadcast
+  if (parts[0] === 255) return true;
+  // 0.0.0.0
+  if (parts.every(p => p === 0)) return true;
+  return false;
+}
 
 function detectIndicatorType(indicator) {
   const ipv4Regex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;

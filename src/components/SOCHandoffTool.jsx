@@ -95,6 +95,17 @@ export default function SOCHandoffTool({ darkMode }) {
     setShowHandoff(true);
   };
 
+  // Escape HTML to prevent XSS in exported HTML reports
+  const escapeHtml = (text) => {
+    if (!text) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
   const exportHandoff = () => {
     const timestamp = new Date().toLocaleString();
     
@@ -136,22 +147,22 @@ export default function SOCHandoffTool({ darkMode }) {
   
   <div class="metadata">
     <div class="metadata-item">
-      <strong>Date:</strong> ${shiftData.date}
+      <strong>Date:</strong> ${escapeHtml(shiftData.date)}
     </div>
     <div class="metadata-item">
-      <strong>Report Generated:</strong> ${timestamp}
+      <strong>Report Generated:</strong> ${escapeHtml(timestamp)}
     </div>
     <div class="metadata-item">
-      <strong>Outgoing Analyst:</strong> ${shiftData.currentAnalyst || 'Not specified'}
+      <strong>Outgoing Analyst:</strong> ${escapeHtml(shiftData.currentAnalyst || 'Not specified')}
     </div>
     <div class="metadata-item">
-      <strong>Incoming Analyst:</strong> ${shiftData.nextAnalyst || 'Not specified'}
+      <strong>Incoming Analyst:</strong> ${escapeHtml(shiftData.nextAnalyst || 'Not specified')}
     </div>
     <div class="metadata-item">
-      <strong>Current Shift:</strong> ${shiftData.shiftTime || 'Not specified'}
+      <strong>Current Shift:</strong> ${escapeHtml(shiftData.shiftTime || 'Not specified')}
     </div>
     <div class="metadata-item">
-      <strong>Next Shift:</strong> ${shiftData.nextShiftTime || 'Not specified'}
+      <strong>Next Shift:</strong> ${escapeHtml(shiftData.nextShiftTime || 'Not specified')}
     </div>
   </div>
 
@@ -169,12 +180,12 @@ export default function SOCHandoffTool({ darkMode }) {
     </thead>
     <tbody>
       ${shiftData.incidents.map(inc => `
-      <tr class="severity-${inc.severity.toLowerCase()}">
-        <td><strong>${inc.severity}</strong></td>
-        <td>${inc.title}</td>
-        <td class="status-${inc.status.toLowerCase().replace(' ', '-')}">${inc.status}</td>
-        <td>${inc.assignedTo || 'Unassigned'}</td>
-        <td>${inc.nextActions || 'No actions specified'}</td>
+      <tr class="severity-${escapeHtml(inc.severity.toLowerCase())}">
+        <td><strong>${escapeHtml(inc.severity)}</strong></td>
+        <td>${escapeHtml(inc.title)}</td>
+        <td class="status-${escapeHtml(inc.status.toLowerCase().replace(' ', '-'))}">${escapeHtml(inc.status)}</td>
+        <td>${escapeHtml(inc.assignedTo || 'Unassigned')}</td>
+        <td>${escapeHtml(inc.nextActions || 'No actions specified')}</td>
       </tr>
       `).join('')}
     </tbody>
@@ -194,11 +205,11 @@ export default function SOCHandoffTool({ darkMode }) {
     </thead>
     <tbody>
       ${shiftData.tasks.map(task => `
-      <tr class="priority-${task.priority.toLowerCase()}">
-        <td><strong>${task.priority}</strong></td>
-        <td>${task.description}</td>
-        <td>${task.dueBy || 'No deadline'}</td>
-        <td>${task.assignedTo || 'Unassigned'}</td>
+      <tr class="priority-${escapeHtml(task.priority.toLowerCase())}">
+        <td><strong>${escapeHtml(task.priority)}</strong></td>
+        <td>${escapeHtml(task.description)}</td>
+        <td>${escapeHtml(task.dueBy || 'No deadline')}</td>
+        <td>${escapeHtml(task.assignedTo || 'Unassigned')}</td>
       </tr>
       `).join('')}
     </tbody>
@@ -219,10 +230,10 @@ export default function SOCHandoffTool({ darkMode }) {
     <tbody>
       ${shiftData.escalations.map(esc => `
       <tr>
-        <td><strong>${esc.type}</strong></td>
-        <td>${esc.description}</td>
-        <td>${esc.escalatedTo}</td>
-        <td>${esc.reason}</td>
+        <td><strong>${escapeHtml(esc.type)}</strong></td>
+        <td>${escapeHtml(esc.description)}</td>
+        <td>${escapeHtml(esc.escalatedTo)}</td>
+        <td>${escapeHtml(esc.reason)}</td>
       </tr>
       `).join('')}
     </tbody>
@@ -232,14 +243,14 @@ export default function SOCHandoffTool({ darkMode }) {
   ${shiftData.systemNotes ? `
   <h2>🖥️ System Status & Notes</h2>
   <div class="notes-section">
-    <pre style="white-space: pre-wrap; font-family: inherit;">${shiftData.systemNotes}</pre>
+    <pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(shiftData.systemNotes)}</pre>
   </div>
   ` : ''}
 
   ${shiftData.generalNotes ? `
   <h2>📝 General Notes</h2>
   <div class="notes-section">
-    <pre style="white-space: pre-wrap; font-family: inherit;">${shiftData.generalNotes}</pre>
+    <pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(shiftData.generalNotes)}</pre>
   </div>
   ` : ''}
 

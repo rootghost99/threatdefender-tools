@@ -186,7 +186,7 @@ async function queryHybridAnalysisHash(hash, apiKey, context) {
   try {
     context.log('Making request to Hybrid Analysis API for hash:', hash);
     context.log('API endpoint: GET https://hybrid-analysis.com/api/v2/search/hash');
-    context.log('API key configured:', apiKey ? `Yes (${apiKey.substring(0, 8)}...)` : 'No');
+    context.log('API key configured:', apiKey ? 'Yes' : 'No');
 
     // Use GET request with query parameter
     const url = `https://hybrid-analysis.com/api/v2/search/hash?hash=${encodeURIComponent(hash)}`;
@@ -354,7 +354,7 @@ async function queryHybridAnalysisUrl(url, apiKey, context) {
   try {
     context.log('Making request to Hybrid Analysis API for URL:', url);
     context.log('API endpoint: GET https://hybrid-analysis.com/api/v2/search/terms');
-    context.log('API key configured:', apiKey ? `Yes (${apiKey.substring(0, 8)}...)` : 'No');
+    context.log('API key configured:', apiKey ? 'Yes' : 'No');
 
     // For URL searches, we use the terms endpoint with url parameter
     // Use GET request with query parameter

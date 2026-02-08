@@ -458,6 +458,17 @@ console.log('🔍 Sending FP analysis request:', { url: functionUrl });
     }
   };
 
+  // Escape HTML to prevent XSS in exported HTML reports
+  const escapeHtml = (text) => {
+    if (!text) return '';
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
   const exportReport = () => {
     const diffSummary = diff.reduce((acc, line) => {
       if (line.type === 'added') acc.added++;
@@ -525,17 +536,17 @@ console.log('🔍 Sending FP analysis request:', { url: functionUrl });
           <h3>Original Query Issues (${syntaxErrors.original.length})</h3>
           <div class="error-list">`;
         syntaxErrors.original.forEach(err => {
-          reportContent += `<div class="error-item">Line ${err.line}: ${err.message} [${err.severity}]</div>`;
+          reportContent += `<div class="error-item">Line ${escapeHtml(String(err.line))}: ${escapeHtml(err.message)} [${escapeHtml(err.severity)}]</div>`;
         });
         reportContent += `</div></div>`;
       }
-      
+
       if (syntaxErrors.updated.length > 0) {
         reportContent += `<div class="error-section">
           <h3>Updated Query Issues (${syntaxErrors.updated.length})</h3>
           <div class="error-list">`;
         syntaxErrors.updated.forEach(err => {
-          reportContent += `<div class="error-item">Line ${err.line}: ${err.message} [${err.severity}]</div>`;
+          reportContent += `<div class="error-item">Line ${escapeHtml(String(err.line))}: ${escapeHtml(err.message)} [${escapeHtml(err.severity)}]</div>`;
         });
         reportContent += `</div></div>`;
       }
@@ -546,8 +557,8 @@ console.log('🔍 Sending FP analysis request:', { url: functionUrl });
       reportContent += `<h2>AI Analysis</h2>`;
       aiAnalysis.forEach(section => {
         reportContent += `<div class="analysis-section">
-          <h3>${section.title}</h3>
-          <div>${section.content.replace(/\n/g, '<br>')}</div>
+          <h3>${escapeHtml(section.title)}</h3>
+          <div>${escapeHtml(section.content).replace(/\n/g, '<br>')}</div>
         </div>`;
       });
     }
@@ -556,7 +567,7 @@ console.log('🔍 Sending FP analysis request:', { url: functionUrl });
     if (fpAnalysis) {
       reportContent += `<h2>False Positive Analysis</h2>
       <div class="fp-section">
-        <div>${fpAnalysis.replace(/\n/g, '<br>')}</div>
+        <div>${escapeHtml(fpAnalysis).replace(/\n/g, '<br>')}</div>
       </div>`;
     }
 
@@ -565,14 +576,14 @@ console.log('🔍 Sending FP analysis request:', { url: functionUrl });
   <h2>Original Query</h2>
   <div class="query-section">
     <div class="query-box">
-      <pre>${originalQuery}</pre>
+      <pre>${escapeHtml(originalQuery)}</pre>
     </div>
   </div>
 
   <h2>Updated Query</h2>
   <div class="query-section">
     <div class="query-box">
-      <pre>${updatedQuery}</pre>
+      <pre>${escapeHtml(updatedQuery)}</pre>
     </div>
   </div>
 
