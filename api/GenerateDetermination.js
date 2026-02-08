@@ -10,14 +10,17 @@ Given the detection type, determination outcome, client name, internal investiga
 
 Rules:
 - Write in first-person plural ("we reviewed," "our analysis confirmed")
-- Keep it to 3-5 sentences max
-- Include: what was detected, what was investigated, the determination and why, and any action taken
+- Structure the response into exactly 3 separate paragraphs, separated by blank lines:
+  Paragraph 1 (Incident Overview): What was detected, who was affected, and the immediate outcome (e.g., blocked, allowed, remediated)
+  Paragraph 2 (Threat Intelligence & Analysis): Any threat intelligence findings on IPs/indicators, what the enrichment data tells us, and how it supports the determination
+  Paragraph 3 (Conclusion & Recommendations): The final determination, whether action is needed, and any follow-up recommendations if warranted
+- Keep each paragraph to 2-3 sentences
 - Avoid internal jargon, internal tool names, or overly technical detail the client would not recognize
 - Do not include recommendations unless the investigation revealed something the client should act on
 - If the determination is "Benign Positive" or "False Positive", make it clear why the activity is safe/expected
 - If the determination is "True Positive", include the remediation actions taken
 - Use a professional but approachable tone
-- Do not use markdown formatting, bullet points, or headers. Write in plain paragraph form.
+- Do not use markdown formatting, bullet points, or headers. Write in plain paragraph form only.
 - Include the IP address where available in the communication
 - For any IP address, if our notes show threat intelligence, please include that in the communication`;
 
